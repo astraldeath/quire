@@ -12,7 +12,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     update();const vv=window.visualViewport;vv?.addEventListener('resize',update);vv?.addEventListener('scroll',update);window.addEventListener('resize',update);
     return()=>{vv?.removeEventListener('resize',update);vv?.removeEventListener('scroll',update);window.removeEventListener('resize',update);};
   }, []);
-  return <dialog ref={ref} onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) onClose(); }} aria-label={title}>
+  return <dialog ref={ref} onCancel={e=>{e.preventDefault();onClose();}} onClick={e => { if (e.target === e.currentTarget) onClose(); }} aria-label={title}>
     <div className="modal-inner"><header className="modal-header"><h2>{title}</h2><button className="icon" aria-label="Close dialog" onClick={onClose}><X /></button></header>{children}</div>
   </dialog>;
 }

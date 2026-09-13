@@ -6,7 +6,7 @@ Import DRM-free, reflowable EPUBs, organize them in a grid or list, edit series 
 
 See [building and private iPhone installation](docs/BUILDING.md) for setup. The iOS workflow produces an unsigned IPA for local signing with Feather; hosted builds and physical-device behavior still need validation.
 
-Fixed-layout EPUBs, annotations, optional server sync, and tracker integrations are not implemented yet. No account is required for the local reader.
+Fixed-layout EPUBs, optional server sync, and tracker integrations are not implemented yet. No account is required for the local reader.
 
 The optional sync server is a separate repository in `../quire-server`.
 
@@ -18,4 +18,11 @@ The reader opens with controls hidden. Tap/click the middle to toggle them, or p
 
 Reader frame security: EPUB scripts and event attributes are removed, and every book document receives a script-denying CSP before content. The iframe retains `allow-scripts allow-same-origin` because WebKit otherwise blocks even trusted event listeners installed by Quire. No EPUB-provided script is permitted by the CSP.
 
-Bookmarks, highlights, and notes are stored locally with book metadata and survive removing and restoring an identical EPUB. Select text to copy, highlight, add a note, search within the book, or request an English definition. Define embeds the selected term’s [Wiktionary](https://en.wiktionary.org/) entry on request. The entry loads from Wiktionary on its own origin and requires internet access. No dictionaries are bundled.
+Bookmarks, highlights, and notes are stored locally with book metadata and survive removing and restoring an identical EPUB. Select text to copy, highlight, add a note, search within the book, or request an English definition. Define requests English definitions directly from the [Wiktionary API](https://en.wiktionary.org/w/api.php) and renders plain text with source attribution. It requires internet access. No dictionaries are bundled.
+
+
+Manual backups are available in Settings → Backup & restore. Choose Full library or Data only, create the backup, then save the `.quire-backup` file. Native Windows uses a save dialog; iOS exports the completed archive through Files (including iCloud Drive). The browser uses file sharing when supported, otherwise a download. Cancelled native exports do not update the last-backup date.
+
+Restore validates the archive before showing a preview. Existing books and organization remain; identical EPUBs are matched by SHA-256 identity, the newest timestamped reading position wins, and distinct note versions are retained. Repeated restores do not duplicate the same passages. Restoring settings is opt-in and does not replace this device's last-backup date. Library changes commit atomically; a settings-write failure is reported separately after the library has been restored.
+
+Version 1 backups are ZIP archives containing `manifest.json` and optional `books/<sha256>.epub` files. Data-only backups retain covers and annotations but require identical EPUB files to restore reading access. Full backups include only files available on the device. Limits: 512 MB per backup, 32 MB metadata, 128 MB per EPUB, and 5,000 books. Backups are unencrypted; store them privately. Physical iOS Files/iCloud export and restore should be checked with a device build.

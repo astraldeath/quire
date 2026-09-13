@@ -45,3 +45,15 @@ it('browser progress updates preserve saved notes across an independent connecti
  await saveBookAnnotations(book.id,notes);await saveReadingPosition(book.id,{cfi:'epubcfi(/6/4)',fraction:.4,section:'two',updatedAt:1});
  const connection=await openDB('quire-library',1);expect((await connection.get('books',book.id)).metadata.annotations).toEqual(notes);connection.close();
 });
+
+it('restores a batch while retaining existing files for data-only records',async()=>{
+ const s=await import('./storage');const book:Book={id:'restore-existing',title:'Before',author:'',series:'',volume:null,cover:'',addedAt:1,local:true};await s.putBook(book,new Uint8Array([4]));
+ await s.restoreBooks([{book:{...book,title:'After'}},{book:{...book,id:'restore-new'},file:new Uint8Array([5])}]);
+ expect(Array.from((await s.getFile(book.id))!)).toEqual([4]);expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('After');expect(Array.from((await s.getFile('restore-new'))!)).toEqual([5]);
+});
+
+it('rolls back an entire browser restore batch if a record cannot be stored',async()=>{
+ const s=await import('./storage');const book:Book={id:'rollback-existing',title:'Before',author:'',series:'',volume:null,cover:'',addedAt:1,local:false};await s.saveBook(book);
+ await expect(s.restoreBooks([{book:{...book,title:'After'}},{book:{...book,id:null as unknown as string}}])).rejects.toThrow();
+ expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('Before');
+});

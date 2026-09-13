@@ -9,7 +9,7 @@ import { defaults, type Annotation, type Book, type Position, type ReaderPrefere
 import './reader.css';
 import { installReadingInteractions } from './interactions';
 import { readerThemeCss, resolveReaderTheme } from './theme';
-import { ThemePicker, Segments, StepperControl, Switch, ColorControl } from '../../components/Controls';
+import { ReadingSettings } from './ReadingSettings';
 
 interface Props { book: Book; bytes: Uint8Array; preferences: ReaderPreferences; onPreferences(p: ReaderPreferences): void; onPosition(p: Position): void; onClose(): void; onAnnotations(items: Annotation[]): Promise<void> }
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
@@ -130,7 +130,6 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
     };
     window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler);
   }, [panel]);
-  const patch = (value: Partial<ReaderPreferences>) => onPreferences({ ...preferences, ...value });
   const c = colors(preferences);
   return <section ref={root} className="reader" data-immersive={!chromeVisible} data-contrast={c.contrast} style={{ background: c.background, color: c.foreground, '--bg':c.background, '--surface':c.background, '--fg':c.foreground, '--accent':c.foreground, '--muted':c.foreground, '--line':c.contrast ? '#ffffff' : `${c.foreground}40`, '--hover':c.contrast ? '#000000' : `${c.foreground}18` } as React.CSSProperties} aria-label={`Reading ${book.title}`}>
     <button className="reader-reveal" onClick={() => setChromeVisible(true)}>Show reading controls</button>
@@ -151,25 +150,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
     </div>
     {ready && viewRef.current && <ReaderTools otherPanelOpen={!!panel || contentsOpen} onOpen={() => {setPanel(null);setContentsOpen(false);}} toolbar={toolbar.current!} view={viewRef.current} book={book} visible={chromeVisible} onSave={onAnnotations} navigate={navigate} />}
     {panel && <ReaderDialog label="Reading settings" onClose={() => setPanel(null)}><div className="reader-panel-heading"><h2>Reading settings</h2><button aria-label="Close panel" title="Close panel" onClick={() => setPanel(null)}><X size={20} /></button></div>
-      <div className="reader-settings">
-        <ThemePicker label="Reading theme" value={preferences.theme} options={['app','light','dark','onyx','contrast','custom']} onChange={theme=>patch({theme})} />
-        {preferences.theme === 'custom' && <><ColorControl label="Text color" value={preferences.foreground} onChange={foreground=>patch({foreground})}/><ColorControl label="Page color" value={preferences.background} onChange={background=>patch({background})}/></>}
-        <Segments label="Font" value={preferences.font} options={[{value:'publisher',label:'Publisher'},{value:'Georgia',label:'Serif'},{value:'sans-serif',label:'Sans serif'}]} onChange={font=>patch({font})}/>
-        <div className="stepper-group">
-        <StepperControl label="Font size" min={12} max={36} value={preferences.size} unit=" px" onChange={size=>patch({size})}/>
-        <StepperControl label="Line spacing" min={1.2} max={2.4} step={0.1} value={preferences.lineHeight} onChange={lineHeight=>patch({lineHeight})}/>
-        <StepperControl label="Margins" min={8} max={matchMedia('(max-width: 599px)').matches ? 20 : 80} step={4} value={matchMedia('(max-width: 599px)').matches ? Math.min(preferences.margin, 20) : preferences.margin} unit=" px" onChange={margin=>patch({margin})}/>
-        <StepperControl label="Text width" min={320} max={1200} step={40} value={preferences.maxWidth} unit=" px" onChange={maxWidth=>patch({maxWidth})}/>
-        </div>
-        <Segments label="Reading flow" value={preferences.flow} options={[{value:'paginated',label:'Pages'},{value:'scrolled',label:'Chapter scroll'},{value:'continuous',label:'Continuous'}]} onChange={flow=>patch({flow})}/>
-        {preferences.flow === 'paginated' && <Segments label="Page layout" value={preferences.columns ?? 'one'} options={[{value:'one',label:'Single page'},{value:'two',label:'Two pages'}]} onChange={columns=>patch({columns})}/>}
-        {preferences.flow === 'continuous' && <p className="settings-note">Continue scrolling at a chapter boundary to move to the next or previous chapter.</p>}
-        <Switch label="Tap sides to turn pages" checked={preferences.tapToTurn !== false} onChange={tapToTurn=>patch({tapToTurn})}/>
-        <Switch label="Swipe to turn pages" checked={preferences.swipeToTurn !== false} onChange={swipeToTurn=>patch({swipeToTurn})}/>
-        <Switch label="Page animation" checked={preferences.animated !== false} onChange={animated=>patch({animated})}/>
-        <Switch label="Keep publisher formatting" checked={preferences.publisherStyles} onChange={publisherStyles=>patch({publisherStyles})}/>
-        <button onClick={() => onPreferences({ ...defaults.reader })}>Reset reading settings</button>
-      </div>
+      <ReadingSettings preferences={preferences} onPreferences={onPreferences}/>
     </ReaderDialog>}
   </section>;
 }

@@ -104,3 +104,14 @@ async function saveReadingField(id: string, field: 'position'|'annotations', val
 }
 export const saveReadingPosition=(id:string,position:Position)=>saveReadingField(id,'position',position);
 export const saveBookAnnotations=(id:string,annotations:Annotation[])=>saveReadingField(id,'annotations',annotations);
+
+/** Each library restore is atomic: one SQLite statement or IndexedDB transaction. */
+export async function restoreBooks(records: {book:Book;file?:Uint8Array}[]):Promise<void> {
+ if(isTauri()){
+   const payload=records.map(({book,file})=>({book,file:file?encode(file):null}));
+   await (await sql()).execute("INSERT INTO books (id, metadata, file) SELECT json_extract(value, '$.book.id'), json_extract(value, '$.book'), json_extract(value, '$.file') FROM json_each($1) WHERE true ON CONFLICT(id) DO UPDATE SET metadata = excluded.metadata, file = COALESCE(books.file, excluded.file)",[JSON.stringify(payload)]);
+   return;
+ }
+ const tx=(await idb()).transaction('books','readwrite');
+ try{for(const {book,file} of records){const existing=await tx.store.get(book.id);await tx.store.put({id:book.id,metadata:book,file:existing?.file??file});}await tx.done;}catch(error){try{tx.abort();}catch{/* Already aborted. */}await tx.done.catch(()=>{});throw error;}
+}

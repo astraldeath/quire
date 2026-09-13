@@ -13,7 +13,7 @@ export function ReaderDialog({label,onClose,children}:{label:string;onClose():vo
     e.stopPropagation();
     if(e.key==='Escape'){e.preventDefault();onClose();}
     if(e.key==='Tab'){
-      const nodes=Array.from(element.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input,textarea,select,iframe,[tabindex="0"]')??[]);
+      const nodes=Array.from(element.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input,textarea,select,iframe,[tabindex="0"]')??[]).filter(node=>!node.closest('[hidden]'));
       const first=nodes[0],last=nodes[nodes.length-1];
       if(!first){e.preventDefault();return;}
       if(e.shiftKey&&(document.activeElement===first||document.activeElement===element.current)){e.preventDefault();last.focus();}

@@ -44,3 +44,15 @@ it('native progress writes preserve already saved notes',async()=>{
  await storage.removeFile(book.id);await storage.putBook(book,new Uint8Array([1]));
  expect((await storage.listBooks()).find(b=>b.id===book.id)?.annotations).toEqual(notes);
 });
+
+it('restores a batch with one SQLite statement and preserves missing file bytes',async()=>{
+ const s=await import('../src/storage');const book:Book={id:'restore-existing',title:'Before',author:'',series:'',volume:null,cover:'',addedAt:1,local:true};await s.putBook(book,new Uint8Array([4]));
+ await s.restoreBooks([{book:{...book,title:'After'}},{book:{...book,id:'restore-new'},file:new Uint8Array([5])}]);
+ expect(await s.getFile(book.id)).toEqual(new Uint8Array([4]));expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('After');expect(await s.getFile('restore-new')).toEqual(new Uint8Array([5]));
+});
+
+it('rolls back an entire native restore batch if a record cannot be stored',async()=>{
+ const s=await import('../src/storage');const book:Book={id:'rollback-existing',title:'Before',author:'',series:'',volume:null,cover:'',addedAt:1,local:false};await s.saveBook(book);
+ await expect(s.restoreBooks([{book:{...book,title:'After'}},{book:{...book,id:null as unknown as string}}])).rejects.toThrow();
+ expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('Before');
+});

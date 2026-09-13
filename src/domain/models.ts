@@ -10,6 +10,7 @@ export interface ReaderPreferences {
   columns?: 'one' | 'two'; flow: 'paginated' | 'scrolled' | 'continuous'; tapToTurn?: boolean; swipeToTurn?: boolean; animated?: boolean; publisherStyles: boolean;
 }
 export interface Preferences {
+  lastBackupAt?: number;
   theme: 'system' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; background: string; foreground: string; accent: string; view: 'grid' | 'list';
   sort: 'recent' | 'title' | 'author'; groupSeries: boolean; coverSize: number;
   reader: ReaderPreferences;

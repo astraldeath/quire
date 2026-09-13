@@ -1,8 +1,10 @@
+import {createBackup,type Backup} from './features/backup/archive';
+import {mergeBook} from './features/backup/merge';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Grid2X2, Info, List, LoaderCircle, Plus, Search, Settings2, X } from 'lucide-react';
 import { defaults, type Annotation, type Book, type Preferences, type Position } from './domain/models';
 import { entriesFor, restoreImport, type LibraryEntry } from './domain/library';
-import { saveReadingPosition, saveBookAnnotations, listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
+import { restoreBooks, saveReadingPosition, saveBookAnnotations, listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
 import { importEpub } from './epub';
 import { Reader } from './features/reader/Reader';
 import { BookDetails } from './features/library/BookDetails';
@@ -102,6 +104,20 @@ export function App() {
     const current = booksRef.current.find(b => b.id === latest.id);
     if (current) replace({ ...current, annotations });
   };
+  const prepareBackup=(kind:Backup['kind'])=>enqueue(async()=>{
+    const saved=await listBooks();
+    const records=[];
+    for(const book of saved){const file=kind==='full'&&book.local?await getFile(book.id):undefined;if(kind==='full'&&book.local&&!file)throw new Error(`The file for ${book.title} is unavailable.`);records.push({book,file});}
+    return createBackup(records,preferencesRef.current,kind);
+  });
+  const restoreBackup=(backup:Backup,settings:boolean)=>enqueue(async()=>{
+    const current=await listBooks();
+    const records=backup.records.map(({book,file})=>({book:mergeBook(current.find(b=>b.id===book.id),book),file}));
+    await restoreBooks(records);
+    refresh(await listBooks());
+    if(settings){const next={...backup.preferences,lastBackupAt:preferencesRef.current.lastBackupAt};try{await savePreferences(next);preferencesRef.current=next;setPreferences(next);}catch{throw new Error('Books and saved passages were restored, but settings could not be saved. You can retry the restore.');}}
+  });
+  const markExported=()=>enqueue(async()=>{const next={...preferencesRef.current,lastBackupAt:Date.now()};await savePreferences(next);preferencesRef.current=next;setPreferences(next);});
   const entries = entriesFor(books, preferences, query, reading, group);
   const recent = [...books].filter(b => b.position).sort((a, b) => b.position!.updatedAt - a.position!.updatedAt)[0];
   const details = books.find(b => b.id === detailsId);
@@ -111,7 +127,7 @@ export function App() {
     {opened ? <Reader book={books.find(b => b.id === opened.book.id) ?? opened.book} onAnnotations={saveAnnotations} bytes={opened.bytes} preferences={preferences.reader} onPreferences={reader => changePreferences({ ...preferencesRef.current, reader })} onPosition={savePosition} onClose={() => setOpened(null)} /> : <div className="library-shell">
       <header className="topbar"><button className="wordmark" aria-label="Quire library" onClick={() => goLibrary()}>quire<span>.</span></button><nav className="sections" aria-label="Library sections"><button className={!reading ? 'selected' : ''} onClick={() => goLibrary()}>Library</button><button className={reading ? 'selected' : ''} onClick={() => goLibrary(true)}>Reading</button></nav>
         <div className="searchbox"><Search aria-hidden="true" /><input aria-label="Search library" placeholder="Search books" value={query} onChange={e => setQuery(e.target.value)} />{query && <button className="icon" aria-label="Clear search" onClick={() => setQuery('')}><X /></button>}</div>
-        <button className="add-button" aria-label="Add books" disabled={!!busy || loading} onClick={() => input.current?.click()}><Plus /><span>Add books</span></button><button className="icon" aria-label="Appearance settings" onClick={() => setSettings(true)}><Settings2 /></button>
+        <button className="add-button" aria-label="Add books" disabled={!!busy || loading} onClick={() => input.current?.click()}><Plus /><span>Add books</span></button><button className="icon" aria-label="Settings" onClick={() => setSettings(true)}><Settings2 /></button>
       </header>
       <main className="library" style={{ '--cover-size': `${preferences.coverSize}px` } as CSSProperties}>
         {reading && recent && !group && !query && <button className="continue-row" onClick={() => void openBook(recent)}><span>Continue reading<strong>{recent.title}</strong></span><span>{Math.round(recent.position!.fraction * 100)}%<ArrowRight /></span></button>}
@@ -125,7 +141,7 @@ export function App() {
     {busy && <div className="activity" role="status"><LoaderCircle className="spin" />{busy}</div>}
     {notice && !busy && <div className="notice" role="status"><Check />{notice}<button className="icon" aria-label="Dismiss notification" onClick={() => setNotice('')}><X /></button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span><button className="icon" aria-label="Dismiss error" onClick={() => setError('')}><X /></button></div>}
-    {settings && <Settings preferences={preferences} onChange={changePreferences} onClose={() => setSettings(false)} />}
+    {settings && <Settings books={books} backupActions={{prepare:prepareBackup,restore:restoreBackup,exported:markExported}} preferences={preferences} onChange={changePreferences} onClose={() => setSettings(false)} />}
     {details && <BookDetails key={details.id} book={details} onClose={() => setDetailsId(null)} onRead={() => void openBook(details)} onImport={() => { setDetailsId(null); input.current?.click(); }} onSave={draft => enqueue(async () => { const latest = booksRef.current.find(b => b.id === draft.id)!; const next = { ...latest, title: draft.title, author: draft.author, series: draft.series, volume: draft.volume }; await saveBook(next); replace(next); })} onRemove={() => enqueue(async () => { await removeFile(details.id); replace({ ...booksRef.current.find(b => b.id === details.id)!, local: false }); })} />}
   </>;
 }

@@ -56,3 +56,6 @@ Desktop.ini
 /docs/architecture.md
 /docs/plans/
 /docs/specs/
+
+# Personal library backups
+*.quire-backup
