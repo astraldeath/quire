@@ -20,6 +20,7 @@ it('does not record a cancelled export as a completed backup',async()=>{
  const actions={prepare:vi.fn().mockResolvedValue(new Uint8Array([1])),restore:vi.fn(),exported:vi.fn()};const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  await act(async()=>root.render(<BackupSettings books={[]} preferences={defaults} actions={actions} onBusy={()=>{}}/>));
  await act(async()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Create backup')!.click());
+ expect(Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Create backup')).toBe(false);
  await act(async()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent?.startsWith('Save backup'))!.click());
  expect(actions.exported).not.toHaveBeenCalled();expect(document.body.textContent).not.toContain('Backup exported.');await act(async()=>root.unmount());
 });
