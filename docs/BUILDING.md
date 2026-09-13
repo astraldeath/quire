@@ -14,7 +14,7 @@ The Windows installer is written under `src-tauri/target/release/bundle/nsis`. T
 
 ## Unsigned iPhone build from Windows
 
-After pushing this repository to your GitHub account, open Actions, choose **Unsigned iOS device app**, then **Run workflow**. The workflow uses a hosted macOS/Xcode runner and the locked npm dependencies. It does not take signing certificates, profiles, passwords, or Apple account secrets. GitHub runner availability and minutes depend on your account.
+Every push to `main` automatically starts **Unsigned iOS device app** in GitHub Actions. To rebuild manually, open Actions, choose **Unsigned iOS device app**, then **Run workflow**. The workflow uses a hosted macOS/Xcode runner and the locked npm dependencies. It does not take signing certificates, profiles, passwords, or Apple account secrets. GitHub runner availability and minutes depend on your account.
 
 Download **Quire-unsigned-ios** from the successful run and extract the `.ipa` from the artifact ZIP. Artifacts expire after seven days. The build directory is cleaned even when a step fails. You can also delete an artifact manually on the run page.
 

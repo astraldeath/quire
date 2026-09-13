@@ -49,6 +49,11 @@ export function App() {
     const rgb = preferences.background.slice(1).match(/../g)?.map(n=>parseInt(n,16)) ?? [255,255,255];
     document.documentElement.style.setProperty('--custom-scheme', rgb[0]*.299+rgb[1]*.587+rgb[2]*.114 < 128 ? 'dark' : 'light');
   }, [preferences.theme, preferences.accent, preferences.background, preferences.foreground]);
+  useEffect(() => {
+    if (!notice || busy) return;
+    const timeout = window.setTimeout(() => setNotice(''), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [notice, busy]);
   const changePreferences = (p: Preferences) => {
     preferencesRef.current = p; setPreferences(p);
     void enqueue(() => savePreferences(p)).catch(() => {});
