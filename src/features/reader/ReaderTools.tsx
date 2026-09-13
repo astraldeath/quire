@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, BookOpen, Copy, Highlighter, List, Pencil, Search, Trash2, X } from 'lucide-react';
+import { Bookmark, BookOpen, Copy, Highlighter, Pencil, Search, Trash2, X } from 'lucide-react';
 import type { View } from 'foliate-js/view.js';
 import { Overlayer } from 'foliate-js/overlayer.js';
 import type { Annotation, Book } from '../../domain/models';
@@ -77,7 +77,7 @@ export function ReaderTools({otherPanelOpen,onOpen,toolbar,view,book,visible,onS
   };
   const marked=items.some(a=>a.kind==='bookmark'&&a.cfi===book.position?.cfi);
   return <>
-    {visible&&!panel&&createPortal(<div className="reader-tools" aria-label="Reading tools"><button aria-label={marked?'Remove bookmark':'Bookmark page'} aria-pressed={marked} disabled={busy||!book.position} onClick={()=>void bookmark()}><Bookmark /></button><button aria-label="Bookmarks and highlights" onClick={()=>{setPanel('saved');setMessage('');}}><List /></button></div>,toolbar)}
+    {visible&&!panel&&createPortal(<div className="reader-tools" aria-label="Reading tools"><button title="Bookmarks and highlights" aria-label="Bookmarks and highlights" onClick={()=>{setPanel('saved');setMessage('');}}><Bookmark /></button></div>,toolbar)}
     {selection&&!panel&&<div className="selection-tools" role="toolbar" aria-label="Selected text actions" onPointerDown={e=>e.preventDefault()}>
       <button title="Copy" aria-label="Copy selected text" onClick={()=>{void navigator.clipboard.writeText(selection.text).then(()=>{setMessage('Copied');clearSelection();}).catch(()=>setMessage('Could not copy. Use the system Copy action.'));}}><Copy /></button>
       <button title="Highlight" aria-label="Highlight selection" disabled={busy} onClick={()=>void saveHighlight()}><Highlighter /></button>
@@ -88,7 +88,7 @@ export function ReaderTools({otherPanelOpen,onOpen,toolbar,view,book,visible,onS
     </div>}
     {panel&&<ReaderDialog onClose={close} label={panel==='saved'?'Bookmarks and highlights':panel==='note'?'Edit note':panel==='define'?'Definition':'Search in book'}>
       <div className="reader-panel-heading"><h2>{panel==='saved'?'Bookmarks & highlights':panel==='note'?'Note':panel==='define'?'Definition':'Search in book'}</h2><button aria-label="Close reading tools" onClick={close}><X /></button></div>
-      {panel==='saved'&&<div className="saved-annotations">{!items.length&&<p>No saved passages yet. Bookmark a page or select text to highlight it.</p>}{items.map(item=><article key={item.id}><button className="annotation-jump" onClick={()=>{void go(item.cfi);}}>{item.kind==='bookmark'?<Bookmark />:<Highlighter />}<span>{item.text}<small>{item.section}</small></span></button>{item.note&&<p>{item.note}</p>}<div>{item.kind==='highlight'&&<button aria-label="Edit note" onClick={()=>{setEditing(item);setNote(item.note);setPanel('note');}}><Pencil /> Note</button>}<button aria-label="Delete saved passage" disabled={busy} onClick={()=>void remove(item)}><Trash2 /></button></div></article>)}</div>}
+      {panel==='saved'&&<div className="saved-annotations"><button className="bookmark-current" disabled={busy||!book.position} onClick={()=>void bookmark()}><Bookmark fill={marked?'currentColor':'none'} />{marked?'Remove bookmark from this page':'Bookmark this page'}</button>{!items.length&&<p>No saved passages yet. Bookmark a page or select text to highlight it.</p>}{items.map(item=><article key={item.id}><button className="annotation-jump" onClick={()=>{void go(item.cfi);}}>{item.kind==='bookmark'?<Bookmark />:<Highlighter />}<span>{item.text}<small>{item.section}</small></span></button>{item.note&&<p>{item.note}</p>}<div>{item.kind==='highlight'&&<button aria-label="Edit note" onClick={()=>{setEditing(item);setNote(item.note);setPanel('note');}}><Pencil /> Note</button>}<button aria-label="Delete saved passage" disabled={busy} onClick={()=>void remove(item)}><Trash2 /></button></div></article>)}</div>}
       {panel==='note'&&<form onSubmit={e=>{e.preventDefault();void saveHighlight(true);}}><blockquote>{editing?.text??selection?.text}</blockquote><label>Note<textarea autoFocus rows={6} value={note} maxLength={10000} onChange={e=>setNote(e.target.value)} /></label><button type="submit" disabled={busy}>Save note</button></form>}
       {panel==='define'&&<div className="wiktionary-entry"><p>{query} · Wiktionary</p><iframe key={dictionaryUrl} title={`Wiktionary: ${query}`} src={dictionaryUrl} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" /><small>Online entry. If it cannot load, check your connection. <a href={dictionaryUrl} target="_blank" rel="noreferrer">Open Wiktionary</a></small></div>}
       {panel==='search'&&<div className="search-results"><h3>{query}</h3>{!searching&&!results.length&&!message&&<p>No matches found.</p>}{results.map((r,i)=><button key={i} onClick={()=>void go(r.cfi)}>{r.text}</button>)}</div>}

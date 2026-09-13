@@ -1,3 +1,4 @@
+import { ReaderDialog } from './ReaderDialog';
 import { ReaderTools } from './ReaderTools';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Settings2, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
@@ -149,7 +150,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
       </div>
     </div>
     {ready && viewRef.current && <ReaderTools otherPanelOpen={!!panel || contentsOpen} onOpen={() => {setPanel(null);setContentsOpen(false);}} toolbar={toolbar.current!} view={viewRef.current} book={book} visible={chromeVisible} onSave={onAnnotations} navigate={navigate} />}
-    {panel && <aside className="reader-panel" aria-label="Reading settings"><div className="reader-panel-heading"><h2>Reading settings</h2><button aria-label="Close panel" title="Close panel" onClick={() => setPanel(null)}><X size={20} /></button></div>
+    {panel && <ReaderDialog label="Reading settings" onClose={() => setPanel(null)}><div className="reader-panel-heading"><h2>Reading settings</h2><button aria-label="Close panel" title="Close panel" onClick={() => setPanel(null)}><X size={20} /></button></div>
       <div className="reader-settings">
         <ThemePicker label="Reading theme" value={preferences.theme} options={['app','light','dark','onyx','contrast','custom']} onChange={theme=>patch({theme})} />
         {preferences.theme === 'custom' && <><ColorControl label="Text color" value={preferences.foreground} onChange={foreground=>patch({foreground})}/><ColorControl label="Page color" value={preferences.background} onChange={background=>patch({background})}/></>}
@@ -169,6 +170,6 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
         <Switch label="Keep publisher formatting" checked={preferences.publisherStyles} onChange={publisherStyles=>patch({publisherStyles})}/>
         <button onClick={() => onPreferences({ ...defaults.reader })}>Reset reading settings</button>
       </div>
-    </aside>}
+    </ReaderDialog>}
   </section>;
 }

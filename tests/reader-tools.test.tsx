@@ -15,7 +15,7 @@ async function setup(annotations: Book["annotations"]=[]){
  return {toolbar,host,text,view,book,onSave,root};
 }
 async function click(label:string){const button=document.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement;expect(button).not.toBeNull();await act(async()=>button.click());}
-it('bookmarks the current persisted reading location',async()=>{const ctx=await setup();await click('Bookmark page');expect(ctx.onSave).toHaveBeenCalledWith([expect.objectContaining({kind:'bookmark',cfi:ctx.book.position!.cfi,section:'Chapter one'})]);await act(async()=>ctx.root.unmount());});
+it('bookmarks the current persisted reading location',async()=>{const ctx=await setup();await click('Bookmarks and highlights');expect(ctx.onSave).not.toHaveBeenCalled();const add=Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Bookmark this page')!;await act(async()=>add.click());expect(ctx.onSave).toHaveBeenCalledWith([expect.objectContaining({kind:'bookmark',cfi:ctx.book.position!.cfi,section:'Chapter one'})]);await act(async()=>ctx.root.unmount());});
 it('retains selected passage when selection collapses after opening the note editor',async()=>{
  vi.useFakeTimers();const ctx=await setup();const range=document.createRange();range.selectNodeContents(ctx.text);document.getSelection()!.removeAllRanges();document.getSelection()!.addRange(range);
  await act(async()=>{document.dispatchEvent(new Event('selectionchange'));vi.advanceTimersByTime(200);});
