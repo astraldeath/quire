@@ -21,3 +21,6 @@ dialog{background:var(--surface);color:var(--fg);border:1px solid var(--line);bo
 :root[data-theme=onyx]{color-scheme:dark;--bg:#000;--surface:#000;--fg:#d6d6d6;--muted:#939393;--line:#242424;--hover:#141414}
 
 :root[data-theme=custom]{color-scheme:var(--custom-scheme);--bg:var(--custom-bg);--surface:var(--custom-bg);--fg:var(--custom-fg);--muted:color-mix(in srgb,var(--custom-fg) 65%,var(--custom-bg));--line:color-mix(in srgb,var(--custom-fg) 20%,var(--custom-bg));--hover:color-mix(in srgb,var(--custom-fg) 9%,var(--custom-bg))}
+
+/* Keep library scrolling below the app header, including on iOS. */
+.library-shell{height:100dvh;display:flex;flex-direction:column;overflow:hidden}.library-shell>.topbar{flex-shrink:0;position:relative}.library-shell>.library{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;padding-bottom:max(50px,env(safe-area-inset-bottom));scrollbar-width:thin}

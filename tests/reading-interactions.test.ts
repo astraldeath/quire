@@ -110,3 +110,24 @@ it('scrolls the outer paginator when the touch starts in a book surface', () => 
   expect(renderer.containerPosition).toBe(70);
   dispose();
 });
+
+it('allows link drags but preserves link taps and suppresses clicks after a drag', () => {
+  const target = document.createElement('div');
+  const link = document.createElement('a'); link.href = '#chapter'; target.append(link);
+  const renderer = {containerPosition:0,scrollBy:vi.fn(),snap:vi.fn()};
+  const next = vi.fn(); const center = vi.fn();
+  const dispose = installReadingInteractions(target,{renderer,next,getBoundingClientRect:()=>({left:0,width:400})} as unknown as View,()=>defaults.reader,()=>{},center);
+  link.dispatchEvent(touchEvent('touchstart',380,100));
+  const end = touchEvent('touchend',380,100); link.dispatchEvent(end);
+  expect(end.defaultPrevented).toBe(false);
+  expect(next).not.toHaveBeenCalled(); expect(center).not.toHaveBeenCalled();
+  link.dispatchEvent(touchEvent('touchstart',380,100));
+  link.dispatchEvent(touchEvent('touchmove',200,100));
+  link.dispatchEvent(touchEvent('touchend',200,100));
+  expect(renderer.scrollBy).toHaveBeenCalledWith(180,0);
+  expect(renderer.snap).toHaveBeenCalledTimes(1);
+  const activate = vi.fn(); link.addEventListener('click',activate);
+  const click = new MouseEvent('click',{bubbles:true,cancelable:true,detail:1}); link.dispatchEvent(click);
+  expect(click.defaultPrevented).toBe(true); expect(activate).not.toHaveBeenCalled();
+  dispose();
+});

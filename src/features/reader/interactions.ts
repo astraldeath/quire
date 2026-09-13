@@ -27,12 +27,14 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
   let dragTime = 0;
   let touchStart: { x: number; y: number; time: number } | null = null;
   let lastTouch = 0;
+  let touchOnLink = false;
+  let suppressClickUntil = 0;
   let moved = false;
   let busy = false;
   let lastTurn = 0;
   const cancelDrag = () => { if (dragging) { view.renderer.containerPosition = dragOrigin; view.renderer.snap(0,0); dragging = false; } };
-  const interactive = (event: Event) => event.composedPath().some(node =>
-    'nodeType' in node && node.nodeType === 1 && (node as Element).matches('a,button,input,select,textarea,[contenteditable],audio,video'));
+  const interactive = (event: Event, includeLinks = true) => event.composedPath().some(node =>
+    'nodeType' in node && node.nodeType === 1 && (node as Element).matches(`${includeLinks ? 'a,' : ''}button,input,select,textarea,[contenteditable],audio,video`));
   const selected = () => Boolean(doc.getSelection()?.toString());
   const turn = (direction: 'prev' | 'next') => {
     if (busy || Date.now() - lastTurn < 350) return;
@@ -55,13 +57,14 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
   }, options);
   target.addEventListener('click', event => {
     const e = event as MouseEvent;
+    if (Date.now() < suppressClickUntil && e.detail !== 0) { e.preventDefault(); e.stopImmediatePropagation(); return; }
     if (Date.now() - lastTouch < 700 || e.button !== 0 || e.detail !== 1 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey ||
       moved || Date.now() - down.time > 450 || interactive(e) || selected()) return;
     tap(e.clientX);
 
   }, options);
   target.addEventListener('wheel', event => {
-    if (!interactive(event)) continueScroll((event as WheelEvent).deltaY);
+    if (!interactive(event, false)) continueScroll((event as WheelEvent).deltaY);
   }, { ...options, passive: true });
   const isPaginated = () => preferences().flow === 'paginated';
   const rtl = () => doc.defaultView?.getComputedStyle(doc.documentElement).direction === 'rtl';
@@ -76,7 +79,9 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     const e = event as TouchEvent;
     const touch = e.touches[0];
     lastTouch = Date.now();
-    touchStart = e.touches.length === 1 && !interactive(e) && !selected() ? { x: touch.screenX ?? touch.clientX, y: touch.clientY, time: Date.now() } : null;
+    suppressClickUntil = 0;
+    touchOnLink = interactive(e);
+    touchStart = e.touches.length === 1 && !interactive(e, false) && !selected() ? { x: touch.screenX ?? touch.clientX, y: touch.clientY, time: Date.now() } : null;
     touchY = touch?.clientY ?? 0;
     dragX = touch?.screenX ?? touch?.clientX ?? 0;
     dragTime = Date.now(); velocity = 0; dragging = false;
@@ -95,7 +100,7 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
       const dx = dragX - x;
       if (preferences().swipeToTurn !== false && (dragging || Math.abs((touch.screenX ?? touch.clientX) - touchStart.x) > 12) && Math.abs((touch.screenX ?? touch.clientX)-touchStart.x) > Math.abs(touch.clientY-touchStart.y)) {
         if (e.cancelable) e.preventDefault();
-        dragging = true;
+        dragging = true; suppressClickUntil = Date.now() + 700;
         velocity = dx / Math.max(16, Date.now()-dragTime);
         view.renderer.scrollBy(dx, 0);
       }
@@ -106,6 +111,7 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
       // Scroll the paginator itself, while preserving link/selection/pinch handling.
       if (Math.abs(touch.clientY - touchStart.y) > 10) {
         if (e.cancelable) e.preventDefault();
+        suppressClickUntil = Date.now() + 700;
         continueScroll(delta);
         const r = view.renderer;
         r.containerPosition = Math.max(0, Math.min(Math.max(0, r.viewSize - (r.end-r.start)), r.containerPosition + delta));
@@ -121,11 +127,11 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     if (!start || !touch || selected() || (doc.defaultView?.visualViewport?.scale ?? 1) > 1) { cancelDrag(); return; }
     const dx = (touch.screenX ?? touch.clientX) - start.x, dy = touch.clientY - start.y;
     if (dragging) {
-      dragging = false;
+      dragging = false; suppressClickUntil = Date.now() + 700;
       if (e.cancelable) e.preventDefault();
       // Slow drags settle to the nearest page; a quick release supplies momentum.
       view.renderer.snap(Date.now()-dragTime < 100 ? Math.max(-.6,Math.min(.6,velocity)) : 0, 0);
-    } else if (Math.hypot(dx,dy) < 10 && Date.now()-start.time < 450) {
+    } else if (!touchOnLink && Math.hypot(dx,dy) < 10 && Date.now()-start.time < 450) {
       if (e.cancelable) e.preventDefault();
       tap(touch.clientX);
     }
