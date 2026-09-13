@@ -1,4 +1,5 @@
 import {BookOpenButton} from './features/library/BookOpenButton';
+import {startSync} from './features/sync/engine';
 import {BookActions} from './features/library/BookActions';
 import {createBackup,type Backup} from './features/backup/archive';
 import {mergeBook} from './features/backup/merge';
@@ -41,6 +42,7 @@ export function App() {
   };
   const refresh = (next: Book[]) => { booksRef.current = next; setBooks(next); };
   const replace = (book: Book) => refresh([...booksRef.current.filter(b => b.id !== book.id), book]);
+  useEffect(()=>{const update=()=>{void enqueue(async()=>refresh(await listBooks())).catch(()=>{});};window.addEventListener('quire-synced',update);const stop=startSync();return()=>{stop();window.removeEventListener('quire-synced',update);};},[]);
   useEffect(() => {
     void Promise.all([listBooks(), loadPreferences()]).then(([savedBooks, savedPreferences]) => {
       refresh(savedBooks); preferencesRef.current = savedPreferences; setPreferences(savedPreferences);

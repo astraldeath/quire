@@ -28,3 +28,13 @@ Restore validates the archive before showing a preview. Existing books and organ
 Version 1 backups are ZIP archives containing `manifest.json` and optional `books/<sha256>.epub` files. Data-only backups retain covers and annotations but require identical EPUB files to restore reading access. Full backups include only files available on the device. Limits: 512 MB per backup, 32 MB metadata, 128 MB per EPUB, and 5,000 books. Backups are unencrypted; store them privately. Physical iOS Files/iCloud export and restore should be checked with a device build.
 
 Long-press a book or series on touch devices, or right-click it on desktop, to open library actions. Shift+F10 also opens the actions for a focused book. Remove download keeps reading data; Remove from library confirms deletion of the selected book or entire series, including local files, progress and annotations. Original EPUB files outside Quire and exported backups are unchanged. Book details also includes Remove from library.
+
+## Optional self-hosted server
+
+Open **Settings > Server**, enter your `user@server` account, find the server, then sign in. Use Advanced server address for custom ports. Accounts are created by your server owner. The reader remains usable offline and saves local changes with a durable sync outbox.
+
+Sync runs after edits, on foreground/reconnection, and periodically while open. Conflicting notes or reading positions appear in Server settings for an explicit choice. Library metadata, progress and saved passages sync; EPUBs and device appearance settings do not upload automatically. Use **Book details > Server copy** to upload/download EPUBs or remove an uploaded server copy. Watched-folder originals cannot be deleted from the reader. Removing a server upload never removes downloaded copies or reading data.
+
+Windows and iOS tokens are stored in the system credential store. Browser tokens stay in memory for the current tab only, and the server must explicitly allow the browser origin. Credentials, server connection state and pending sync operations are excluded from reader backup archives. Reconnect after restoring a backup.
+
+The API contract is version 1. Sync edits, acknowledgements and cursor changes are transactional in IndexedDB and native SQLite. Native clients must restart after upgrading so the new database migration is applied.

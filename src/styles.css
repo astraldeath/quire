@@ -30,3 +30,14 @@ dialog:has(.settings-tabs){height:min(680px,calc(100dvh - 32px));overflow:hidden
 .backup-settings{display:flex;flex-direction:column;gap:14px}.backup-settings h3,.backup-settings p{margin:0}
 .backup-export,.backup-restore{display:flex;flex-direction:column;gap:18px}.backup-section-heading{display:flex;flex-direction:column;gap:6px}.backup-section-heading h3{font-size:14px;font-weight:600}.backup-section-heading p,.backup-settings .muted{font-size:13px;line-height:1.6}.backup-main-action,.backup-secondary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 14px;border-radius:7px;min-height:38px}.backup-secondary{border:1px solid var(--line)}.backup-restore{border-top:1px solid var(--line);padding-top:24px;margin-top:12px}.backup-ready{display:flex;flex-direction:column;gap:10px}.backup-ready>p{display:flex;justify-content:space-between;font-size:13px}.backup-settings .backup-hint{font-size:12px}.backup-settings .backup-preview{border:0;padding:0;gap:20px}.backup-back{display:flex;align-items:center;gap:6px;align-self:flex-start;padding:5px 0}.backup-filename{overflow-wrap:anywhere;font-size:13px}.backup-preview .backup-actions .primary{flex:1}
 .book-open{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:pan-y}.book-open img{-webkit-user-drag:none}.book-actions{display:flex;flex-direction:column;gap:18px}.book-actions p{font-size:13px;line-height:1.6}.book-action-title{display:flex;flex-direction:column;gap:6px;line-height:1.5;overflow-wrap:anywhere}.book-action-list{display:flex;flex-direction:column;gap:4px}.book-action-list button,.book-actions .button-row button{display:flex;align-items:center;gap:10px;padding:10px;text-align:left}.book-action-list button{min-height:44px;justify-content:flex-start}.book-action-list svg,.book-actions .button-row svg{width:18px;height:18px;flex-shrink:0}
+.server-settings h3 {display:flex;align-items:center;gap:8px;margin:0 0 10px;}
+.server-settings svg {width:18px;height:18px;flex-shrink:0;vertical-align:middle;}
+.server-settings form,.server-summary {display:flex;flex-direction:column;gap:14px;}
+.server-settings label {display:flex;flex-direction:column;gap:8px;}
+.server-settings input {width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font:inherit;}
+.server-settings details label {margin-top:12px;}
+.server-actions {display:flex;flex-wrap:wrap;gap:12px;}
+.sync-conflict {margin-top:16px;display:flex;flex-direction:column;gap:8px;}
+.sync-conflict button {padding:12px;text-align:left;display:flex;flex-direction:column;gap:6px;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:8px;}
+.sync-conflict button span {max-height:100px;overflow:auto;}
+.sync-conflict small {opacity:.65;}

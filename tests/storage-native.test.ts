@@ -9,6 +9,7 @@ vi.mock('@tauri-apps/plugin-sql', () => ({ default: { load: async () => {
   const database = new DatabaseSync(':memory:');
   const migration = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8').match(/sql: "([^"]+)"/)![1];
   database.exec(migration);
+  database.exec(readFileSync(new URL('../src-tauri/src/sync.sql', import.meta.url), 'utf8'));
   return {
     execute: async (query: string, bindings: SQLInputValue[] = []) => database.prepare(query).run(Object.fromEntries(bindings.map((value, index) => [`$${index + 1}`, value]))),
     select: async (query: string, bindings: SQLInputValue[] = []) => database.prepare(query).all(Object.fromEntries(bindings.map((value, index) => [`$${index + 1}`, value]))),
@@ -59,4 +60,12 @@ it('rolls back an entire native restore batch if a record cannot be stored',asyn
 
 it('deletes selected native book records and bytes only',async()=>{
  const s=await import('../src/storage');const b:Book={id:'delete-me',title:'Delete',author:'',series:'',volume:null,cover:'',addedAt:0,local:true};await s.putBook(b,new Uint8Array([1]));await s.putBook({...b,id:'keep-me'},new Uint8Array([2]));await s.deleteBooks([b.id]);expect((await s.listBooks()).some(x=>x.id===b.id)).toBe(false);expect(await s.getFile(b.id)).toBeUndefined();expect(await s.getFile('keep-me')).toEqual(new Uint8Array([2]));
+});
+it('native transactions co-commit local edits, outbox and remote cursor',async()=>{
+ const s=await import('../src/storage');const {queueChanges,prepareBatch,acceptResponse,applyRecords}=await import('../src/features/sync/model');const book:Book={id:'f'.repeat(64),title:'Atomic',author:'',series:'',volume:null,cover:'',addedAt:0,local:false};
+ await s.syncTransaction(state=>{state.account={origin:'https://test.example',username:'test',sessionId:'session'};return {result:undefined};});await s.saveBook(book);let state=await s.loadSync();expect(state.pending.some(p=>p.bookId===book.id)).toBe(true);
+ const before=structuredClone(state);await expect(s.restoreBooks([{book:{...book,title:'Should roll back'}},{book:{...book,id:null as unknown as string}}])).rejects.toThrow();expect(await s.loadSync()).toEqual(before);expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('Atomic');
+ const batch=await s.syncTransaction(state=>({result:prepareBatch(state)}));const own=batch.operations.find(p=>p.bookId===book.id)!;
+ await s.syncTransaction((state,books)=>{acceptResponse(state,{results:[{id:own.id,revision:1,conflict:false}],changes:[{bookId:book.id,kind:'book',recordId:'default',revision:1,cursor:1,candidates:[{operationId:own.id,deleted:false,value:{title:'From server',author:'',series:'',volume:null},createdAt:1}]}],cursor:1,hasMore:false});return {result:undefined,books:applyRecords(state,books)};});
+ expect((await s.loadSync()).cursor).toBe(1);expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('From server');
 });

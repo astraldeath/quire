@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BookOpen, HardDriveDownload, Trash2 } from 'lucide-react';
 import type { Book } from '../../domain/models';
 import { Modal } from '../../components/Modal';
+import {BookServerActions} from '../sync/BookServerActions';
 export function BookDetails({ book, onClose, onSave, onRemove, onRead, onImport, onDelete }: {
   onDelete:()=>void; book: Book; onClose: () => void; onSave: (b: Book) => Promise<void>; onRemove: () => Promise<void>; onRead: () => void; onImport: () => void;
 }) {
@@ -16,6 +17,7 @@ export function BookDetails({ book, onClose, onSave, onRemove, onRead, onImport,
     {error && <p role="alert" className="error">{error}</p>}
     {confirm ? <div className="removal"><p>Remove the EPUB from this device? Your book details and reading position will stay in the library.</p><div className="button-row"><button type="button" onClick={() => setConfirm(false)}>Keep download</button><button type="button" className="danger" disabled={busy} onClick={() => void run(onRemove)}>Remove download</button></div></div> : book.local && <button type="button" className="text-action danger" onClick={() => setConfirm(true)}><Trash2 />Remove download</button>}
     <button type="button" className="text-action danger" disabled={busy} onClick={onDelete}><Trash2/>Remove from library</button>
+    <BookServerActions book={book}/>
     <footer className="modal-footer"><button type="button" onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy || !draft.title.trim()}>Save changes</button></footer>
   </form></Modal>;
 }
