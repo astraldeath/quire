@@ -80,3 +80,9 @@ dialog:has(.settings-tabs){height:min(680px,calc(100dvh - 32px));overflow:hidden
 .server-settings h3 {font-size:14px;}
 .server-settings .settings-note {margin-top:6px;}
 @media(pointer:coarse){input:not([type=range]):not([type=checkbox]):not([type=radio]),select,textarea {font-size:16px;} .server-connected {display:none;}}
+
+/* Keep focus indicators inside controls even at a scrollport edge. */
+dialog :is(input,textarea,select,button,summary):focus-visible,
+.reader .reader-dialog :is(input,textarea,select,button,summary):focus-visible {
+ outline-width:2px;outline-offset:-3px;
+}

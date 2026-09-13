@@ -1,9 +1,20 @@
+import {dialogPosition,safeInsets,visualBox} from '../../components/dialogPosition';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 export function ReaderDialog({label,onClose,children}:{label:string;onClose():void;children:ReactNode}) {
   const element=useRef<HTMLDivElement>(null);
-  const [viewport,setViewport]=useState(()=>({top:window.visualViewport?.offsetTop??0,left:window.visualViewport?.offsetLeft??0,width:window.visualViewport?.width??window.innerWidth,height:window.visualViewport?.height??window.innerHeight}));
+  const [viewport,setViewport]=useState(()=>({top:window.visualViewport?.offsetTop??0,left:window.visualViewport?.offsetLeft??0,width:window.visualViewport?.width??window.innerWidth,height:window.visualViewport?.height??window.innerHeight,paddingTop:undefined as number|undefined,paddingBottom:undefined as number|undefined,alignItems:undefined as 'flex-start'|undefined}));
   useLayoutEffect(()=>{
-    const update=()=>setViewport({top:window.visualViewport?.offsetTop??0,left:window.visualViewport?.offsetLeft??0,width:window.visualViewport?.width??window.innerWidth,height:window.visualViewport?.height??window.innerHeight});
+    let resting=visualBox();let anchor:number|undefined;
+    const update=()=>{
+      const box=visualBox(),safe=safeInsets();
+      const editing=!!element.current?.querySelector('input:focus,textarea:focus,[contenteditable=true]:focus');
+      const keyboard=Math.abs(box.width-resting.width)<=24&&(box.height<resting.height-80||(editing&&box.height<resting.height));
+      if(!keyboard)resting=box;
+      const position=dialogPosition(box,element.current?.getBoundingClientRect().height??680,safe,keyboard?anchor:undefined);
+      if(!keyboard)anchor=position.anchor;
+      setViewport({...box,paddingTop:keyboard?position.anchor:undefined,paddingBottom:keyboard?safe.bottom+12:undefined,alignItems:keyboard?'flex-start':undefined});
+    };
+    update();
     const vv=window.visualViewport;vv?.addEventListener('resize',update);vv?.addEventListener('scroll',update);window.addEventListener('resize',update);
     const previous=document.activeElement as HTMLElement|null;
     if(!element.current?.contains(document.activeElement))element.current?.focus();

@@ -1,13 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import {dialogPosition,safeInsets,visualBox} from './dialogPosition';
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => { ref.current?.showModal(); }, []);
   useLayoutEffect(() => {
+    ref.current?.showModal();
+    let resting=visualBox();let anchor:number|undefined;
     const update = () => {
-      const vv=window.visualViewport;
-      const width=vv?.width??window.innerWidth, height=vv?.height??window.innerHeight;
-      if(ref.current)Object.assign(ref.current.style,{position:'fixed',margin:'0',left:`${(vv?.offsetLeft??0)+width/2}px`,top:`${(vv?.offsetTop??0)+height/2}px`,transform:'translate(-50%, -50%)',maxWidth:`${Math.max(0,width-32)}px`,maxHeight:`${Math.max(0,height-32)}px`});
+      const panel=ref.current;if(!panel)return;
+      const box=visualBox(),safe=safeInsets();
+      const editing=!!panel.querySelector('input:focus,textarea:focus,[contenteditable=true]:focus');
+      const keyboard=Math.abs(box.width-resting.width)<=24&&(box.height<resting.height-80||(editing&&box.height<resting.height));
+      if(!keyboard){resting=box;panel.style.maxHeight=`${Math.max(0,box.height-safe.top-safe.bottom-24)}px`;}
+      const position=dialogPosition(box,panel.getBoundingClientRect().height,safe,keyboard?anchor:undefined);
+      if(!keyboard)anchor=position.anchor;
+      Object.assign(panel.style,{position:'fixed',margin:'0',left:`${position.left}px`,top:`${position.top}px`,transform:'translateX(-50%)',maxWidth:`${Math.max(0,box.width-32)}px`,maxHeight:`${position.maxHeight}px`});
     };
     update();const vv=window.visualViewport;vv?.addEventListener('resize',update);vv?.addEventListener('scroll',update);window.addEventListener('resize',update);
     return()=>{vv?.removeEventListener('resize',update);vv?.removeEventListener('scroll',update);window.removeEventListener('resize',update);};
