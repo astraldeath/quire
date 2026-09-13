@@ -18,8 +18,8 @@ function fixture() {
   return { iframe, frame };
 }
 describe('foliate sandbox and bounded loading', () => {
-  it('removes script permission and rejects modified upstream methods', () => {
-    expect(hardenFoliate(source, id)).not.toContain("'allow-same-origin allow-scripts'");
+  it('keeps trusted parent event listeners compatible with WebKit and rejects upstream drift', () => {
+    expect(hardenFoliate(source, id)).toContain("'allow-same-origin allow-scripts'");
     expect(() => hardenFoliate(source.replace('afterLoad?.(doc)', 'changed(doc)'), id)).toThrow(/review/i);
   });
   it('rejects a stalled frame with its observed readiness after the deadline', async () => {

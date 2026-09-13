@@ -32,6 +32,15 @@ describe('EPUB import boundary', () => {
     expect(result).not.toMatch(/<script|<iframe|onload=|http-equiv="refresh"|javascript:/);
     expect(result).toContain("script-src 'none'"); expect(result).toContain("connect-src 'none'");
   });
+  it('blocks book scripts before any content even with a script-capable frame', () => {
+    const output = sanitizeDocument('<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Security-Policy" content="script-src * unsafe-inline"/><script>parent.compromised=true</script></head><body onpointerdown="parent.compromised=true"><a href="javascript:alert(1)">Link</a><p>Text</p></body></html>');
+    const doc = new DOMParser().parseFromString(output, 'application/xhtml+xml');
+    expect(doc.querySelector('head')?.firstElementChild?.getAttribute('content')).toContain("script-src 'none'");
+    expect(doc.querySelector('script')).toBeNull();
+    expect(output).not.toContain('onpointerdown');
+    expect(output).not.toContain('javascript:');
+    expect(output).not.toContain('parent.compromised');
+  });
   it('accepts ordinary XHTML doctype but rejects entity declarations', () => {
     expect(sanitizeDocument('<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head/><body><p>Hello</p></body></html>')).toContain('Hello');
     expect(() => sanitizeDocument('<!DOCTYPE html [<!ENTITY x "boom">]><html/>')).toThrow(/entities/i);

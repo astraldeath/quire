@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 
 /** Reviewed adaptation of upstream MIT foliate-js 1.0.1 paginator View.load.
- * Keep scripts sandboxed. Some WebKit versions suppress load events on a
- * script-disabled frame; readiness polling provides an independent signal.
+ * EPUB scripts are removed and blocked by the sanitized document CSP.
+ * Keep allow-scripts so WebKit can invoke trusted parent-installed listeners;
+ * readiness polling provides an independent load signal.
  * Both signals share one guarded callback and a bounded, diagnostic deadline.
  */
 const loadMethod = `    async load(src, afterLoad, beforeRender) {
@@ -79,5 +80,5 @@ export function hardenFoliate(code: string, id: string): string | undefined {
   const turnMethod = normalized.slice(turnStart, turnEnd);
   if (createHash('sha256').update(turnMethod).digest('hex') !== '54cd719e2da3783549906b32e4e9e8dda488fc68edaff36b27559d9d296043ed') throw new Error('Review foliate page-turn locking before upgrading the renderer.');
   const safeTurn = turnMethod.replace('        const prev =', '        try {\n        const prev =').replace('        this.#locked = false', '        } finally { this.#locked = false }');
-  return (normalized.slice(0, start) + loadMethod + normalized.slice(end)).replace(original, "'allow-same-origin'").replace(turnMethod, safeTurn);
+  return (normalized.slice(0, start) + loadMethod + normalized.slice(end)).replace(turnMethod, safeTurn);
 }

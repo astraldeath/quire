@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Settings2, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { EPUB, type TocItem } from 'foliate-js/epub.js';
 import { View } from 'foliate-js/view.js';
@@ -32,6 +32,9 @@ function Contents({ items, go, active }: { items: TocItem[]; active: string; go(
   return <ol>{items.map((item, index) => <li key={`${item.href}-${index}`}><button aria-current={active === item.href ? 'location' : undefined} onClick={() => go(item.href)}>{item.label || 'Untitled section'}</button>{item.subitems?.length ? <Contents items={item.subitems} go={go} active={active} /> : null}</li>)}</ol>;
 }
 export function Reader({ book, bytes, preferences, onPreferences, onPosition, onClose }: Props) {
+  const root = useRef<HTMLElement>(null);
+  const toolbar = useRef<HTMLElement>(null);
+  const footer = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null); const viewRef = useRef<View | null>(null);
   const current = useRef({ preferences, onPosition }); current.current = { preferences, onPosition };
   const [toc, setToc] = useState<TocItem[]>([]); const [panel, setPanel] = useState<'settings' | null>(null);
@@ -53,9 +56,20 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
         if (!resolved) throw new Error('The chapter link could not be resolved.');
         await view.renderer.goTo(resolved);
       }
-      setError(''); return true;
+      setError(''); setChromeVisible(false); setContentsOpen(false); setPanel(null); return true;
     } catch (e) { setError(`Could not navigate: ${String(e)}`); return false; }
   };
+  useLayoutEffect(() => {
+    const update = () => {
+      if (!root.current || !toolbar.current || !footer.current) return;
+      root.current.style.setProperty('--reader-header-space', `${Math.ceil(toolbar.current.getBoundingClientRect().height)}px`);
+      root.current.style.setProperty('--reader-footer-space', `${Math.ceil(footer.current.getBoundingClientRect().height)}px`);
+    };
+    const observer = new ResizeObserver(update);
+    if (toolbar.current) observer.observe(toolbar.current);
+    if (footer.current) observer.observe(footer.current);
+    update(); return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     const cleanups: (() => void)[] = [];
     let cancelled = false; let chapterLoaded = false; let epub: EPUB | undefined; const view = new View(); viewRef.current = view;
@@ -85,6 +99,10 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
       epub = await new EPUB(archive).init();
       if (cancelled) { epub.destroy(); return; }
       host.current?.append(view); await view.open(epub);
+      view.renderer.addEventListener('relocate', event => {
+        const reason = (event as CustomEvent<{reason?: string}>).detail.reason;
+        if (reason === 'page' || reason === 'snap' || reason === 'scroll') { setChromeVisible(false); setPanel(null); }
+      });
       cleanups.push(installReadingInteractions(view.renderer, view, () => current.current.preferences, message => setError(message), toggleChrome));
       if (cancelled) { try { view.close(); } catch { /* no chapter loaded */ } epub.destroy(); return; }
       applyReaderPreferences(view, current.current.preferences); setToc(epub.toc ?? []);
@@ -112,9 +130,9 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
   }, [panel]);
   const patch = (value: Partial<ReaderPreferences>) => onPreferences({ ...preferences, ...value });
   const c = colors(preferences);
-  return <section className="reader" data-immersive={!chromeVisible} data-contrast={c.contrast} style={{ background: c.background, color: c.foreground, '--bg':c.background, '--surface':c.background, '--fg':c.foreground, '--accent':c.foreground, '--muted':c.foreground, '--line':c.contrast ? '#ffffff' : `${c.foreground}40`, '--hover':c.contrast ? '#000000' : `${c.foreground}18` } as React.CSSProperties} aria-label={`Reading ${book.title}`}>
+  return <section ref={root} className="reader" data-immersive={!chromeVisible} data-contrast={c.contrast} style={{ background: c.background, color: c.foreground, '--bg':c.background, '--surface':c.background, '--fg':c.foreground, '--accent':c.foreground, '--muted':c.foreground, '--line':c.contrast ? '#ffffff' : `${c.foreground}40`, '--hover':c.contrast ? '#000000' : `${c.foreground}18` } as React.CSSProperties} aria-label={`Reading ${book.title}`}>
     <button className="reader-reveal" onClick={() => setChromeVisible(true)}>Show reading controls</button>
-    <header className="reader-toolbar" inert={!chromeVisible} aria-hidden={!chromeVisible}><button onClick={onClose} title="Back to library"><ArrowLeft size={19} /><span>Library</span></button><div className="reader-title">{book.title}</div><button aria-label="Table of contents" aria-expanded={contentsOpen} aria-controls="reader-contents" title="Table of contents" onClick={() => setContentsOpen(!contentsOpen)}>{contentsOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}</button><button aria-label="Reading settings" title="Reading settings" onClick={() => setPanel(panel === 'settings' ? null : 'settings')}><Settings2 size={20} /></button></header>
+    <header ref={toolbar} className="reader-toolbar" inert={!chromeVisible} aria-hidden={!chromeVisible}><button onClick={onClose} title="Back to library"><ArrowLeft size={19} /><span>Library</span></button><div className="reader-title">{book.title}</div><button aria-label="Table of contents" aria-expanded={contentsOpen} aria-controls="reader-contents" title="Table of contents" onClick={() => setContentsOpen(!contentsOpen)}>{contentsOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}</button><button aria-label="Reading settings" title="Reading settings" onClick={() => setPanel(panel === 'settings' ? null : 'settings')}><Settings2 size={20} /></button></header>
     <div className="reader-workspace">
       {contentsOpen && <><button className="contents-backdrop" aria-label="Close contents" onClick={() => setContentsOpen(false)} /><aside id="reader-contents" className="reader-contents" aria-label="Table of contents">
         <div className="reader-panel-heading"><h2>Contents</h2><button aria-label="Close contents sidebar" onClick={() => setContentsOpen(false)}><X /></button></div>
@@ -126,7 +144,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
         {!ready && !error && <p className="reader-loading" role="status">Opening book...</p>}
         <div className="reader-pages" ref={host} />
         <div className="immersive-chapter" aria-hidden="true">{chapter}</div><div className="immersive-progress" aria-hidden="true">{Math.round(fraction*100)}%</div>
-        <footer className="reader-footer" inert={!chromeVisible} aria-hidden={!chromeVisible}><button aria-label="Previous page" title="Previous page" disabled={!ready} onClick={() => navigate('prev')}><ChevronLeft size={22} /></button><div className="reader-progress"><div><span title={chapter}>{chapter || book.title}</span><span>{Math.round(fraction * 100)}%</span></div><progress aria-label="Book progress" value={fraction} max={1} /></div><button aria-label="Next page" title="Next page" disabled={!ready} onClick={() => navigate('next')}><ChevronRight size={22} /></button></footer>
+        <footer ref={footer} className="reader-footer" inert={!chromeVisible} aria-hidden={!chromeVisible}><button aria-label="Previous page" title="Previous page" disabled={!ready} onClick={() => navigate('prev')}><ChevronLeft size={22} /></button><div className="reader-progress"><div><span title={chapter}>{chapter || book.title}</span><span>{Math.round(fraction * 100)}%</span></div><progress aria-label="Book progress" value={fraction} max={1} /></div><button aria-label="Next page" title="Next page" disabled={!ready} onClick={() => navigate('next')}><ChevronRight size={22} /></button></footer>
       </div>
     </div>
     {panel && <aside className="reader-panel" aria-label="Reading settings"><div className="reader-panel-heading"><h2>Reading settings</h2><button aria-label="Close panel" title="Close panel" onClick={() => setPanel(null)}><X size={20} /></button></div>
