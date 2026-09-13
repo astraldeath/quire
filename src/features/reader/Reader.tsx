@@ -41,10 +41,18 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
   const [error, setError] = useState(''); const [ready, setReady] = useState(false);
   const [fraction, setFraction] = useState(book.position?.fraction ?? 0);
   const [, redraw] = useState(0);
-  const navigate = (target: 'prev' | 'next' | string) => {
-    const view = viewRef.current; if (!view) return;
-    const work = target === 'prev' ? view.prev() : target === 'next' ? view.next() : view.goTo(target);
-    void work.catch(e => setError(`Could not navigate: ${String(e)}`));
+  const navigate = async (target: 'prev' | 'next' | string) => {
+    const view = viewRef.current; if (!view) return false;
+    try {
+      if (target === 'prev') await view.prev();
+      else if (target === 'next') await view.next();
+      else {
+        const resolved = await view.resolveNavigation(target);
+        if (!resolved) throw new Error('The chapter link could not be resolved.');
+        await view.renderer.goTo(resolved);
+      }
+      setError(''); return true;
+    } catch (e) { setError(`Could not navigate: ${String(e)}`); return false; }
   };
   useEffect(() => {
     const cleanups: (() => void)[] = [];
@@ -54,7 +62,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
     view.addEventListener('load', event => {
       chapterLoaded = true;
       const doc = (event as CustomEvent<{ doc: Document }>).detail.doc;
-      cleanups.push(installReadingInteractions(doc, view, () => current.current.preferences));
+      cleanups.push(installReadingInteractions(doc, view, () => current.current.preferences, message => setError(message)));
       doc.addEventListener('keydown', event => {
         if (event.key === 'ArrowRight') { event.preventDefault(); void view.next(); }
         if (event.key === 'ArrowLeft') { event.preventDefault(); void view.prev(); }
@@ -75,7 +83,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
       epub = await new EPUB(archive).init();
       if (cancelled) { epub.destroy(); return; }
       host.current?.append(view); await view.open(epub);
-      cleanups.push(installReadingInteractions(view.renderer, view, () => current.current.preferences));
+      cleanups.push(installReadingInteractions(view.renderer, view, () => current.current.preferences, message => setError(message)));
       if (cancelled) { try { view.close(); } catch { /* no chapter loaded */ } epub.destroy(); return; }
       applyReaderPreferences(view, current.current.preferences); setToc(epub.toc ?? []);
       await view.init({ lastLocation: book.position?.cfi, showTextStart: !book.position?.cfi });
@@ -108,7 +116,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
       {contentsOpen && <><button className="contents-backdrop" aria-label="Close contents" onClick={() => setContentsOpen(false)} /><aside id="reader-contents" className="reader-contents" aria-label="Table of contents">
         <div className="reader-panel-heading"><h2>Contents</h2><button aria-label="Close contents sidebar" onClick={() => setContentsOpen(false)}><X /></button></div>
         <div className="contents-book">{book.cover && <img src={book.cover} alt="" />}<div><strong>{book.title}</strong><span>{book.author}</span></div></div>
-        <nav aria-label="Chapters">{toc.length ? <Contents items={toc} active={activeHref} go={href => { navigate(href); if (!matchMedia('(min-width: 900px)').matches) setContentsOpen(false); }} /> : <p>{ready ? 'No table of contents in this book.' : 'Loading contents...'}</p>}</nav>
+        <nav aria-label="Chapters">{toc.length ? <Contents items={toc} active={activeHref} go={href => { void navigate(href).then(ok => { if (ok && !matchMedia('(min-width: 900px)').matches) setContentsOpen(false); }); }} /> : <p>{ready ? 'No table of contents in this book.' : 'Loading contents...'}</p>}</nav>
       </aside></>}
       <div className="reader-canvas">
         {error && <p className="reader-error" role="alert">{error}</p>}

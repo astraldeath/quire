@@ -74,5 +74,10 @@ export function hardenFoliate(code: string, id: string): string | undefined {
   if (start < 0 || end < 0 || createHash('sha256').update(method).digest('hex') !== '4aed7675f9eeafcbea035d4c0f7b9babc3f12505ef0aeb45bdb9d31c9e17ac7e' || normalized.split(original).length !== 2) {
     throw new Error('Review foliate iframe sandbox and load lifecycle before upgrading the renderer.');
   }
-  return (normalized.slice(0, start) + loadMethod + normalized.slice(end)).replace(original, "'allow-same-origin'");
+  const turnStart = normalized.indexOf('    async #turnPage(dir, distance) {');
+  const turnEnd = normalized.indexOf('    async prev(distance)', turnStart);
+  const turnMethod = normalized.slice(turnStart, turnEnd);
+  if (createHash('sha256').update(turnMethod).digest('hex') !== '54cd719e2da3783549906b32e4e9e8dda488fc68edaff36b27559d9d296043ed') throw new Error('Review foliate page-turn locking before upgrading the renderer.');
+  const safeTurn = turnMethod.replace('        const prev =', '        try {\n        const prev =').replace('        this.#locked = false', '        } finally { this.#locked = false }');
+  return (normalized.slice(0, start) + loadMethod + normalized.slice(end)).replace(original, "'allow-same-origin'").replace(turnMethod, safeTurn);
 }

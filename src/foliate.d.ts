@@ -10,9 +10,10 @@ declare module 'foliate-js/epub.js' {
 declare module 'foliate-js/view.js' {
   import type { EPUB } from 'foliate-js/epub.js';
   export class View extends HTMLElement {
-    renderer: HTMLElement & { setStyles(css: string): void; start: number; end: number; viewSize: number; atStart: boolean; atEnd: boolean };
+    renderer: HTMLElement & { setStyles(css: string): void; goTo(target: unknown): Promise<void>; containerPosition: number; start: number; end: number; viewSize: number; atStart: boolean; atEnd: boolean };
     open(book: EPUB): Promise<void>;
     init(options: { lastLocation?: string; showTextStart?: boolean }): Promise<void>;
+    resolveNavigation(target: string | number): unknown;
     goTo(target: string | number): Promise<void>;
     next(): Promise<void>;
     prev(): Promise<void>;

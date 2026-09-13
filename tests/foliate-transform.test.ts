@@ -42,3 +42,22 @@ describe('foliate sandbox and bounded loading', () => {
     expect(vi.getTimerCount()).toBe(0); vi.useRealTimers();
   });
 });
+
+it('unlocks page navigation after a renderer failure so the next turn can retry', async () => {
+  const output = hardenFoliate(source, id)!;
+  const method = output.slice(output.indexOf('    async #turnPage('), output.indexOf('    async prev(distance)'));
+  const TestPaginator = new Function('wait', `return class {
+    #locked = false;
+    attempts = 0;
+    hasAttribute() { return true; }
+    #scrollPrev() { return this.#scrollNext(); }
+    #scrollNext() { if (++this.attempts === 1) throw new Error('failed chapter'); return false; }
+    #adjacentIndex() { return 0; }
+    async #goTo() {}
+    turn() { return this.#turnPage(1); }
+    ${method}
+  }`)(async () => {});
+  const paginator = new TestPaginator();
+  await expect(paginator.turn()).rejects.toThrow('failed chapter');
+  await paginator.turn(); expect(paginator.attempts).toBe(2);
+});
