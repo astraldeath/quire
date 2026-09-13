@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile-haptics",
+  "description": "Light feedback for completed book holds.",
+  "windows": ["main"],
+  "platforms": ["iOS", "android"],
+  "permissions": ["haptics:allow-impact-feedback"]
+}
