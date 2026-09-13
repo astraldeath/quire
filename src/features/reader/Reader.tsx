@@ -5,6 +5,7 @@ import { View } from 'foliate-js/view.js';
 import { openArchive } from '../../epub';
 import { defaults, type Book, type Position, type ReaderPreferences } from '../../domain/models';
 import './reader.css';
+import { installReadingInteractions } from './interactions';
 import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ThemePicker, Segments, StepperControl, Switch, ColorControl } from '../../components/Controls';
 
@@ -17,13 +18,15 @@ function colors(p: ReaderPreferences) {
 export function applyReaderPreferences(view: View, p: ReaderPreferences) {
   if (!view.renderer) return;
   const c = colors(p);
-  view.renderer.setAttribute('flow', p.flow === 'scrolled' ? 'scrolled' : 'paginated');
-  view.renderer.setAttribute('margin', `${clamp(p.margin, 8, 80)}px`);
-  view.renderer.setAttribute('gap', `${clamp(p.margin / 4, 2, 20)}%`);
+  view.renderer.toggleAttribute('animated', p.animated !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches);
+  view.renderer.setAttribute('flow', p.flow === 'paginated' ? 'paginated' : 'scrolled');
+  const margin = view.clientWidth > 0 && view.clientWidth < 600 ? Math.min(p.margin, 20) : p.margin;
+  view.renderer.setAttribute('margin', `${clamp(margin, 8, 80)}px`);
+  view.renderer.setAttribute('gap', `${clamp(margin / 4, 2, 20)}%`);
   view.renderer.setAttribute('max-inline-size', `${clamp(p.maxWidth, 320, 1200)}px`);
   view.renderer.setAttribute('max-column-count', p.columns === 'two' ? '2' : '1');
   const font = p.font === 'sans-serif' ? 'system-ui, sans-serif' : p.font === 'publisher' ? 'inherit' : 'Georgia, Charter, serif';
-  view.renderer.setStyles(`${readerThemeCss(c.foreground, c.background)} html { color: ${c.foreground} !important; background: ${c.background} !important; color-scheme: ${c.dark ? 'dark' : 'light'}; } body { color: ${c.foreground} !important; background: transparent !important; font-size: ${clamp(p.size, 12, 36)}px !important; line-height: ${clamp(p.lineHeight, 1.2, 2.4)} !important; ${p.font !== 'publisher' ? `font-family: ${font} !important;` : ''} } ${!p.publisherStyles ? `p, li, div { font-size: inherit !important; line-height: inherit !important; font-family: inherit !important; color: inherit !important; }` : ''} a { color: inherit; } img, svg { max-width: 100%; }`);
+  view.renderer.setStyles(`${readerThemeCss(c.foreground, c.background)} html { --theme-bg-color: ${c.background}; color: ${c.foreground} !important; background: ${c.background} !important; color-scheme: ${c.dark ? 'dark' : 'light'}; } body { margin: 0 !important; padding: 0 !important; color: ${c.foreground} !important; background: transparent !important; font-size: ${clamp(p.size, 12, 36)}px !important; line-height: ${clamp(p.lineHeight, 1.2, 2.4)} !important; ${p.font !== 'publisher' ? `font-family: ${font} !important;` : ''} } ${!p.publisherStyles ? `p, li, div { font-size: inherit !important; line-height: inherit !important; font-family: inherit !important; color: inherit !important; }` : ''} a { color: inherit; } img, svg { max-width: 100%; }`);
 }
 function Contents({ items, go, active }: { items: TocItem[]; active: string; go(href: string): void }) {
   return <ol>{items.map((item, index) => <li key={`${item.href}-${index}`}><button aria-current={active === item.href ? 'location' : undefined} onClick={() => go(item.href)}>{item.label || 'Untitled section'}</button>{item.subitems?.length ? <Contents items={item.subitems} go={go} active={active} /> : null}</li>)}</ol>;
@@ -44,12 +47,14 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
     void work.catch(e => setError(`Could not navigate: ${String(e)}`));
   };
   useEffect(() => {
+    const cleanups: (() => void)[] = [];
     let cancelled = false; let chapterLoaded = false; let epub: EPUB | undefined; const view = new View(); viewRef.current = view;
     setReady(false); setError('');
     view.addEventListener('external-link', event => event.preventDefault());
     view.addEventListener('load', event => {
       chapterLoaded = true;
       const doc = (event as CustomEvent<{ doc: Document }>).detail.doc;
+      cleanups.push(installReadingInteractions(doc, view, () => current.current.preferences));
       doc.addEventListener('keydown', event => {
         if (event.key === 'ArrowRight') { event.preventDefault(); void view.next(); }
         if (event.key === 'ArrowLeft') { event.preventDefault(); void view.prev(); }
@@ -70,19 +75,21 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
       epub = await new EPUB(archive).init();
       if (cancelled) { epub.destroy(); return; }
       host.current?.append(view); await view.open(epub);
+      cleanups.push(installReadingInteractions(view.renderer, view, () => current.current.preferences));
       if (cancelled) { try { view.close(); } catch { /* no chapter loaded */ } epub.destroy(); return; }
       applyReaderPreferences(view, current.current.preferences); setToc(epub.toc ?? []);
       await view.init({ lastLocation: book.position?.cfi, showTextStart: !book.position?.cfi });
       if (!cancelled) setReady(true);
     })().catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Unable to read this EPUB.'); });
-    return () => { cancelled = true; viewRef.current = null; try { view.close(); } catch { /* unopened renderer has no view */ } view.remove(); epub?.destroy(); };
+    return () => { cleanups.forEach(cleanup => cleanup()); cancelled = true; viewRef.current = null; try { view.close(); } catch { /* unopened renderer has no view */ } view.remove(); epub?.destroy(); };
   }, [book.id, bytes]);
   useEffect(() => { if (viewRef.current) applyReaderPreferences(viewRef.current, preferences); }, [preferences]);
   useEffect(() => {
     const update = () => { redraw(n => n + 1); if (viewRef.current) applyReaderPreferences(viewRef.current, current.current.preferences); };
     const media = matchMedia('(prefers-color-scheme: dark)'); media.addEventListener('change', update);
+    const motion = matchMedia('(prefers-reduced-motion: reduce)'); motion.addEventListener('change', update);
     const observer = new MutationObserver(update); observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
-    return () => { media.removeEventListener('change', update); observer.disconnect(); };
+    return () => { media.removeEventListener('change', update); motion.removeEventListener('change', update); observer.disconnect(); };
   }, []);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -118,11 +125,15 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
         <div className="stepper-group">
         <StepperControl label="Font size" min={12} max={36} value={preferences.size} unit=" px" onChange={size=>patch({size})}/>
         <StepperControl label="Line spacing" min={1.2} max={2.4} step={0.1} value={preferences.lineHeight} onChange={lineHeight=>patch({lineHeight})}/>
-        <StepperControl label="Margins" min={8} max={80} step={4} value={preferences.margin} unit=" px" onChange={margin=>patch({margin})}/>
+        <StepperControl label="Margins" min={8} max={matchMedia('(max-width: 599px)').matches ? 20 : 80} step={4} value={matchMedia('(max-width: 599px)').matches ? Math.min(preferences.margin, 20) : preferences.margin} unit=" px" onChange={margin=>patch({margin})}/>
         <StepperControl label="Text width" min={320} max={1200} step={40} value={preferences.maxWidth} unit=" px" onChange={maxWidth=>patch({maxWidth})}/>
         </div>
-        <Segments label="Reading flow" value={preferences.flow} options={[{value:'paginated',label:'Pages'},{value:'scrolled',label:'Scroll'}]} onChange={flow=>patch({flow})}/>
+        <Segments label="Reading flow" value={preferences.flow} options={[{value:'paginated',label:'Pages'},{value:'scrolled',label:'Chapter scroll'},{value:'continuous',label:'Continuous'}]} onChange={flow=>patch({flow})}/>
         {preferences.flow === 'paginated' && <Segments label="Page layout" value={preferences.columns ?? 'one'} options={[{value:'one',label:'Single page'},{value:'two',label:'Two pages'}]} onChange={columns=>patch({columns})}/>}
+        {preferences.flow === 'continuous' && <p className="settings-note">Continue scrolling at a chapter boundary to move to the next or previous chapter.</p>}
+        <Switch label="Tap sides to turn pages" checked={preferences.tapToTurn !== false} onChange={tapToTurn=>patch({tapToTurn})}/>
+        <Switch label="Swipe to turn pages" checked={preferences.swipeToTurn !== false} onChange={swipeToTurn=>patch({swipeToTurn})}/>
+        <Switch label="Page animation" checked={preferences.animated !== false} onChange={animated=>patch({animated})}/>
         <Switch label="Keep publisher formatting" checked={preferences.publisherStyles} onChange={publisherStyles=>patch({publisherStyles})}/>
         <button onClick={() => onPreferences({ ...defaults.reader })}>Reset reading settings</button>
       </div>

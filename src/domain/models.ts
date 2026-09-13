@@ -6,7 +6,7 @@ export interface Book {
 export interface ReaderPreferences {
   theme: 'app' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; foreground: string; background: string;
   font: string; size: number; lineHeight: number; margin: number; maxWidth: number;
-  columns?: 'one' | 'two'; flow: 'paginated' | 'scrolled'; publisherStyles: boolean;
+  columns?: 'one' | 'two'; flow: 'paginated' | 'scrolled' | 'continuous'; tapToTurn?: boolean; swipeToTurn?: boolean; animated?: boolean; publisherStyles: boolean;
 }
 export interface Preferences {
   theme: 'system' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; background: string; foreground: string; accent: string; view: 'grid' | 'list';
@@ -16,5 +16,5 @@ export interface Preferences {
 export const defaults: Preferences = {
   theme: 'system', background: '#171819', foreground: '#e7e5df', accent: '#849bb7', view: 'grid', sort: 'recent', groupSeries: true, coverSize: 156,
   reader: { theme: 'app', foreground: '#e7e5df', background: '#171819', font: 'Georgia', size: 19,
-    lineHeight: 1.7, margin: 36, maxWidth: 760, flow: 'paginated', columns: 'one', publisherStyles: false },
+    lineHeight: 1.7, margin: 36, maxWidth: 760, flow: 'paginated', tapToTurn: true, swipeToTurn: true, animated: true, columns: 'one', publisherStyles: false },
 };

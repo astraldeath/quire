@@ -11,3 +11,5 @@ Fixed-layout EPUBs, annotations, optional server sync, and tracker integrations 
 The optional sync server is a separate repository in `../quire-server`.
 
 For manual reading tests, import the public-domain EPUBs in [tests/fixtures](tests/fixtures/README.md). They are test assets only; a fresh Quire installation starts with an empty library.
+
+Reading modes include paginated, chapter scroll, and continuous chapter transitions. In continuous mode, scrolling past a chapter boundary loads the adjacent chapter; it does not preload every chapter into a single seamless document. Side taps/clicks, swipe paging, and page animation are configurable. Animation respects the system reduced-motion preference.

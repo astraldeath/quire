@@ -6,3 +6,5 @@
 
 .reader-toolbar>button:not(:first-child),.reader-panel-heading>button,.reader-footer>button{width:32px;height:32px;flex-shrink:0}.reader-toolbar>button svg,.reader-panel-heading>button svg,.reader-footer>button svg{width:18px;height:18px}
 @media(pointer:coarse){.reader-toolbar>button,.reader-panel-heading>button,.reader-footer>button,.reader-contents li>button{min-width:44px;min-height:44px}.reader-panel{top:calc(68px + env(safe-area-inset-top));bottom:84px}}
+
+@media(hover:none){.reader button:hover{background:transparent}.reader-toolbar button[aria-expanded=true],.reader-contents button[aria-current=location]{background:color-mix(in srgb,currentColor 10%,transparent)}}
