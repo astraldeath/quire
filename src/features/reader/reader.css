@@ -25,3 +25,5 @@
 .reader .bookmark-current{width:100%;justify-content:flex-start;padding:10px;background:var(--hover);margin-bottom:12px}.reader-dialog .reader-settings{margin-top:8px}
 
 .reader .reader-settings.reader-behavior{gap:6px;margin-top:0}.reader-behavior>button{margin-top:12px}
+
+.reader{height:var(--app-height,100dvh);bottom:auto;}

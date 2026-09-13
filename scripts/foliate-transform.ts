@@ -66,7 +66,7 @@ const loadMethod = `    async load(src, afterLoad, beforeRender) {
 `;
 
 export function hardenFoliate(code: string, id: string): string | undefined {
-  if (!id.replaceAll('\\', '/').endsWith('/foliate-js/paginator.js')) return;
+  if (!id.split('?')[0].replaceAll('\\', '/').endsWith('/foliate-js/paginator.js')) return;
   const normalized = code.replaceAll('\r\n', '\n');
   const start = normalized.indexOf('    async load(src, afterLoad, beforeRender) {');
   const end = normalized.indexOf('    render(layout) {', start);

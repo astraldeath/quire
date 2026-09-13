@@ -18,6 +18,9 @@ function fixture() {
   return { iframe, frame };
 }
 describe('foliate sandbox and bounded loading', () => {
+  it('applies frame readiness handling to Vite cache-tagged module URLs', () => {
+    expect(hardenFoliate(source, id + '?v=cache')).toContain('Book frame load timed out');
+  });
   it('keeps trusted parent event listeners compatible with WebKit and rejects upstream drift', () => {
     expect(hardenFoliate(source, id)).toContain("'allow-same-origin allow-scripts'");
     expect(() => hardenFoliate(source.replace('afterLoad?.(doc)', 'changed(doc)'), id)).toThrow(/review/i);

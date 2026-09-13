@@ -61,3 +61,9 @@ pub async fn sync_download(server:String,username:String,book:String)->Result<ta
  let mut response=client.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_|"Download interrupted. You can retry.")?;if !response.status().is_success(){return Err("The server EPUB is unavailable.".into())}
  let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Download interrupted.")?{if bytes.len()+chunk.len()>128*1024*1024{return Err("EPUB is too large.".into())}bytes.extend_from_slice(&chunk)}Ok(tauri::ipc::Response::new(bytes))
 }
+
+#[tauri::command]
+pub async fn sync_metadata(server:String,username:String,book:String)->Result<Value,String>{
+ let o=origin(&server)?;check_book_id(&book)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to load covers.")?;
+ request(&o,&format!("/v1/books/{book}/metadata"),Method::GET,None,Some(token)).await
+}

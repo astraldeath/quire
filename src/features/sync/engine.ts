@@ -1,3 +1,4 @@
+import {fetchCovers} from './library';
 import {loadSync,syncTransaction} from '../../storage';
 import {acceptResponse,applyRecords,emptySync,prepareBatch,queueChanges,queueValue,recordKey,type RemoteRecord,type Candidate} from './model';
 import * as transport from './transport';
@@ -27,7 +28,7 @@ export function syncNow():Promise<void>{
     const batch=await syncTransaction(s=>({result:{account:s.account,enabled:s.enabled,request:prepareBatch(s)}}));if(!batch.enabled||!batch.account)return;
     const raw=await transport.call(batch.account,batch.request);const response=validateResponse(raw,batch.request.cursor,batch.request.operations.map(o=>o.id));
     const more=await syncTransaction((s,books)=>{if(s.account?.sessionId!==batch.account!.sessionId||!s.enabled)return {result:false};acceptResponse(s,response);return {result:response.hasMore||s.pending.length>0,books:applyRecords(s,books)};});
-    if(!more){const s=await loadSync();const conflicts=Object.values(s.records).filter(r=>r.candidates.length>1).length;report(conflicts?`${conflicts} ${conflicts===1?'conflict needs':'conflicts need'} your choice`:'Up to date');window.dispatchEvent(new Event('quire-synced'));return;}
+    if(!more){await fetchCovers(batch.account);const s=await loadSync();const conflicts=Object.values(s.records).filter(r=>r.candidates.length>1).length;report(conflicts?`${conflicts} ${conflicts===1?'conflict needs':'conflicts need'} your choice`:'Up to date');window.dispatchEvent(new Event('quire-synced'));return;}
    }
    report('More changes are queued. Sync will continue shortly.');
   }catch(e){report(e instanceof Error?e.message:String(e));throw e;}

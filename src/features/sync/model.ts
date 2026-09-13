@@ -6,7 +6,7 @@ export interface Candidate {operationId:string;deleted:boolean;value:Value;creat
 export interface RemoteRecord {bookId:string;kind:Kind;recordId:string;revision:number;candidates:Candidate[]}
 export interface SyncResponse {results:{id:string;revision:number;conflict:boolean}[];changes:(RemoteRecord&{cursor:number})[];cursor:number;hasMore:boolean}
 export interface Account {origin:string;username:string;sessionId:string}
-export interface SyncState {account?:Account;enabled?:boolean;cursor:number;records:Record<string,RemoteRecord>;pending:Operation[];lastSync?:number;acknowledged?:Record<string,{revision:number;conflict:boolean}>}
+export interface SyncState {covers?:string[];account?:Account;enabled?:boolean;cursor:number;records:Record<string,RemoteRecord>;pending:Operation[];lastSync?:number;acknowledged?:Record<string,{revision:number;conflict:boolean}>}
 export const emptySync=():SyncState=>({cursor:0,records:{},pending:[],acknowledged:{}});
 export const recordKey=(r:{bookId:string;kind:Kind;recordId:string})=>`${r.bookId}/${r.kind}/${r.recordId}`;
 function values(book?:Book):Map<string,{kind:Kind;recordId:string;value:Value}>{

@@ -32,3 +32,9 @@ export async function download(a:Account,book:string):Promise<Uint8Array>{
  if(isTauri())return new Uint8Array(await invoke<ArrayBuffer>('sync_download',{server:a.origin,username:a.username,book}));
  const r=await fetch(`${a.origin}/v1/books/${book}/file`,{redirect:'error',credentials:'omit',headers:{Authorization:`Bearer ${webToken(a)}`},signal:AbortSignal.timeout(300000)});if(!r.ok||!r.body)throw new Error('The server EPUB is unavailable.');const reader=r.body.getReader();let size=0;const parts:Uint8Array[]=[];while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>128*1024*1024){await reader.cancel();throw new Error('EPUB is too large.');}parts.push(value);}const bytes=new Uint8Array(size);let at=0;for(const p of parts){bytes.set(p,at);at+=p.length;}return bytes;
 }
+
+export async function metadata(a:Account,book:string):Promise<{cover:string}>{
+ const v=isTauri()?await invoke<any>('sync_metadata',{server:a.origin,username:a.username,book}):await web(a.origin,`/v1/books/${book}/metadata`,undefined,webToken(a));
+ if(typeof v?.cover!=='string'||v.cover.length>1024*1024||(v.cover!==''&&!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v.cover)))throw new Error('Invalid server cover.');
+ return {cover:v.cover};
+}
