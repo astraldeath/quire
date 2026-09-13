@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Grid2X2, Info, List, LoaderCircle, Plus, Search, Settings2, X } from 'lucide-react';
-import { defaults, type Book, type Preferences, type Position } from './domain/models';
+import { defaults, type Annotation, type Book, type Preferences, type Position } from './domain/models';
 import { entriesFor, restoreImport, type LibraryEntry } from './domain/library';
 import { listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
 import { importEpub } from './epub';
@@ -94,13 +94,20 @@ export function App() {
     const next = { ...book, position }; replace(next);
     void enqueue(() => saveBook(next)).catch(() => {});
   };
+  const saveAnnotations = async (annotations: Annotation[]) => {
+    if (!opened) return;
+    const latest = booksRef.current.find(b => b.id === opened.book.id);
+    if (!latest) throw new Error('Book is unavailable.');
+    const next = { ...latest, annotations }; replace(next);
+    await enqueue(() => saveBook(next));
+  };
   const entries = entriesFor(books, preferences, query, reading, group);
   const recent = [...books].filter(b => b.position).sort((a, b) => b.position!.updatedAt - a.position!.updatedAt)[0];
   const details = books.find(b => b.id === detailsId);
   const goLibrary = (read = false) => { setReading(read); setGroup(null); setQuery(''); };
   return <>
     <input className="file-input" ref={input} type="file" accept=".epub,application/epub+zip" multiple onChange={e => void importFiles(Array.from(e.target.files ?? []))} />
-    {opened ? <Reader book={opened.book} bytes={opened.bytes} preferences={preferences.reader} onPreferences={reader => changePreferences({ ...preferencesRef.current, reader })} onPosition={savePosition} onClose={() => setOpened(null)} /> : <div className="library-shell">
+    {opened ? <Reader book={books.find(b => b.id === opened.book.id) ?? opened.book} onAnnotations={saveAnnotations} bytes={opened.bytes} preferences={preferences.reader} onPreferences={reader => changePreferences({ ...preferencesRef.current, reader })} onPosition={savePosition} onClose={() => setOpened(null)} /> : <div className="library-shell">
       <header className="topbar"><button className="wordmark" aria-label="Quire library" onClick={() => goLibrary()}>quire<span>.</span></button><nav className="sections" aria-label="Library sections"><button className={!reading ? 'selected' : ''} onClick={() => goLibrary()}>Library</button><button className={reading ? 'selected' : ''} onClick={() => goLibrary(true)}>Reading</button></nav>
         <div className="searchbox"><Search aria-hidden="true" /><input aria-label="Search library" placeholder="Search books" value={query} onChange={e => setQuery(e.target.value)} />{query && <button className="icon" aria-label="Clear search" onClick={() => setQuery('')}><X /></button>}</div>
         <button className="add-button" aria-label="Add books" disabled={!!busy || loading} onClick={() => input.current?.click()}><Plus /><span>Add books</span></button><button className="icon" aria-label="Appearance settings" onClick={() => setSettings(true)}><Settings2 /></button>

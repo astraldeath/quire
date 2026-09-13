@@ -17,3 +17,5 @@ Reading modes include paginated, chapter scroll, and continuous chapter transiti
 The reader opens with controls hidden. Tap/click the middle to toggle them, or press Escape to reveal them. Paginated touch drags track the finger and settle on release; cancelled drags return to the starting page. This hides Quire's reader controls, not the operating system status bar.
 
 Reader frame security: EPUB scripts and event attributes are removed, and every book document receives a script-denying CSP before content. The iframe retains `allow-scripts allow-same-origin` because WebKit otherwise blocks even trusted event listeners installed by Quire. No EPUB-provided script is permitted by the CSP.
+
+Bookmarks, highlights, and notes are stored locally with book metadata and survive removing and restoring an identical EPUB. Select text to copy, highlight, add a note, search within the book, or request an English definition. Definitions use [Free Dictionary API](https://dictionaryapi.dev/) only when explicitly requested; the selected term is sent to that service. No dictionaries are bundled. Source and license attribution are displayed when returned by the service.

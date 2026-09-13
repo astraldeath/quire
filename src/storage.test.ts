@@ -10,7 +10,7 @@ describe('durable library lifecycle', () => {
     const bytes = new Uint8Array([0, 128, 255, 1]);
     await putBook(book, bytes);
     expect(Array.from((await getFile(book.id))!)).toEqual(Array.from(bytes));
-    const edited = { ...book, series: 'My series', volume: 2, position: { cfi: 'epubcfi(/6/2!/4)', section: 'chapter1', fraction: .42, updatedAt: 456 } };
+    const edited: Book = { ...book, annotations:[{id:'note-1',kind:'highlight',cfi:'epubcfi(/6/2!/4)',text:'Saved passage',note:'Remember this',section:'chapter1',createdAt:123,updatedAt:456}], series: 'My series', volume: 2, position: { cfi: 'epubcfi(/6/2!/4)', section: 'chapter1', fraction: .42, updatedAt: 456 } };
     await saveBook(edited);
     await removeFile(book.id);
     expect(await getFile(book.id)).toBeUndefined();
@@ -22,7 +22,7 @@ describe('durable library lifecycle', () => {
     expect(Array.from((await getFile(book.id))!)).toEqual(Array.from(bytes));
     expect((await listBooks()).find(b => b.id === book.id)).toEqual(edited);
     const independentConnection = await openDB('quire-library', 1);
-    expect((await independentConnection.get('books', book.id)).metadata.position).toEqual(edited.position);
+    expect((await independentConnection.get('books', book.id)).metadata.annotations).toEqual(edited.annotations);
     independentConnection.close();
   });
 

@@ -1,15 +1,16 @@
+import { ReaderTools } from './ReaderTools';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Settings2, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { EPUB, type TocItem } from 'foliate-js/epub.js';
 import { View } from 'foliate-js/view.js';
 import { openArchive } from '../../epub';
-import { defaults, type Book, type Position, type ReaderPreferences } from '../../domain/models';
+import { defaults, type Annotation, type Book, type Position, type ReaderPreferences } from '../../domain/models';
 import './reader.css';
 import { installReadingInteractions } from './interactions';
 import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ThemePicker, Segments, StepperControl, Switch, ColorControl } from '../../components/Controls';
 
-interface Props { book: Book; bytes: Uint8Array; preferences: ReaderPreferences; onPreferences(p: ReaderPreferences): void; onPosition(p: Position): void; onClose(): void }
+interface Props { book: Book; bytes: Uint8Array; preferences: ReaderPreferences; onPreferences(p: ReaderPreferences): void; onPosition(p: Position): void; onClose(): void; onAnnotations(items: Annotation[]): Promise<void> }
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 function colors(p: ReaderPreferences) {
   const root = document.documentElement;
@@ -31,7 +32,7 @@ export function applyReaderPreferences(view: View, p: ReaderPreferences) {
 function Contents({ items, go, active }: { items: TocItem[]; active: string; go(href: string): void }) {
   return <ol>{items.map((item, index) => <li key={`${item.href}-${index}`}><button aria-current={active === item.href ? 'location' : undefined} onClick={() => go(item.href)}>{item.label || 'Untitled section'}</button>{item.subitems?.length ? <Contents items={item.subitems} go={go} active={active} /> : null}</li>)}</ol>;
 }
-export function Reader({ book, bytes, preferences, onPreferences, onPosition, onClose }: Props) {
+export function Reader({ book, bytes, preferences, onPreferences, onPosition, onClose, onAnnotations }: Props) {
   const root = useRef<HTMLElement>(null);
   const toolbar = useRef<HTMLElement>(null);
   const footer = useRef<HTMLElement>(null);
@@ -147,6 +148,7 @@ export function Reader({ book, bytes, preferences, onPreferences, onPosition, on
         <footer ref={footer} className="reader-footer" inert={!chromeVisible} aria-hidden={!chromeVisible}><button aria-label="Previous page" title="Previous page" disabled={!ready} onClick={() => navigate('prev')}><ChevronLeft size={22} /></button><div className="reader-progress"><div><span title={chapter}>{chapter || book.title}</span><span>{Math.round(fraction * 100)}%</span></div><progress aria-label="Book progress" value={fraction} max={1} /></div><button aria-label="Next page" title="Next page" disabled={!ready} onClick={() => navigate('next')}><ChevronRight size={22} /></button></footer>
       </div>
     </div>
+    {ready && viewRef.current && <ReaderTools otherPanelOpen={!!panel || contentsOpen} onOpen={() => {setPanel(null);setContentsOpen(false);}} toolbar={toolbar.current!} view={viewRef.current} book={book} visible={chromeVisible} onSave={onAnnotations} navigate={navigate} />}
     {panel && <aside className="reader-panel" aria-label="Reading settings"><div className="reader-panel-heading"><h2>Reading settings</h2><button aria-label="Close panel" title="Close panel" onClick={() => setPanel(null)}><X size={20} /></button></div>
       <div className="reader-settings">
         <ThemePicker label="Reading theme" value={preferences.theme} options={['app','light','dark','onyx','contrast','custom']} onChange={theme=>patch({theme})} />

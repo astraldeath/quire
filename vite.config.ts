@@ -8,5 +8,5 @@ export default defineConfig({
   }, react()],
   optimizeDeps: { exclude: ['foliate-js'] }, clearScreen: false,
   server: { host: '127.0.0.1', port: 1420, strictPort: true },
-  test: { environment: 'jsdom', include: ['src/**/*.test.ts', 'tests/**/*.test.ts'] },
+  test: { environment: 'jsdom', include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'] },
 });

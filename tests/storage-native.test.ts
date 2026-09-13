@@ -21,7 +21,7 @@ it('native SQL statements preserve metadata and roundtrip binary bytes', async (
   const bytes = Uint8Array.from({ length: 70000 }, (_, i) => i % 256);
   await storage.putBook(book, bytes);
   expect(await storage.getFile(book.id)).toEqual(bytes);
-  const updated = { ...book, series: 'Manual', position: { cfi: 'epubcfi(/6/2)', fraction: .5, section: 'one', updatedAt: 2 } };
+  const updated: Book = { ...book, annotations: [{id:'highlight-1',kind:'highlight',cfi:'epubcfi(/6/2)',text:'A passage',note:'My note',section:'one',createdAt:1,updatedAt:2}], series: 'Manual', position: { cfi: 'epubcfi(/6/2)', fraction: .5, section: 'one', updatedAt: 2 } };
   await storage.saveBook(updated);
   await storage.removeFile(book.id);
   expect(await storage.getFile(book.id)).toBeUndefined();

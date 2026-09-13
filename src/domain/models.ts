@@ -1,7 +1,8 @@
+export interface Annotation { id: string; kind: "bookmark" | "highlight"; cfi: string; text: string; note: string; section: string; createdAt: number; updatedAt: number }
 export interface Position { cfi: string; fraction: number; section: string; updatedAt: number }
 export interface Book {
   id: string; title: string; author: string; series: string; volume: number | null;
-  cover: string; addedAt: number; local: boolean; position?: Position;
+  cover: string; addedAt: number; local: boolean; position?: Position; annotations?: Annotation[];
 }
 export interface ReaderPreferences {
   theme: 'app' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; foreground: string; background: string;
