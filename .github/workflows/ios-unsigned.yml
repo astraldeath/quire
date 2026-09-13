@@ -1,0 +1,45 @@
+name: Unsigned iOS device app
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked JavaScript dependencies
+        run: npm ci
+      - name: Install Rust device target
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup override set 1.95.0
+          rustup target add aarch64-apple-ios
+          xcodebuild -version
+      - name: Verify frontend
+        run: npm test
+      - name: Generate Xcode project
+        run: npx tauri ios init --ci
+      - name: Build unsigned physical-device IPA
+        run: npx tauri ios build --ci --target aarch64 --no-sign
+      - name: Check unsigned package
+        run: python3 scripts/ios-verify.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Quire-unsigned-ios
+          path: src-tauri/gen/apple/build/**/*.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Clean generated device artifacts
+        if: always()
+        run: python3 scripts/ios-verify.py --clean

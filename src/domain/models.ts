@@ -1,0 +1,20 @@
+export interface Position { cfi: string; fraction: number; section: string; updatedAt: number }
+export interface Book {
+  id: string; title: string; author: string; series: string; volume: number | null;
+  cover: string; addedAt: number; local: boolean; position?: Position;
+}
+export interface ReaderPreferences {
+  theme: 'app' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; foreground: string; background: string;
+  font: string; size: number; lineHeight: number; margin: number; maxWidth: number;
+  columns?: 'one' | 'two'; flow: 'paginated' | 'scrolled'; publisherStyles: boolean;
+}
+export interface Preferences {
+  theme: 'system' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; background: string; foreground: string; accent: string; view: 'grid' | 'list';
+  sort: 'recent' | 'title' | 'author'; groupSeries: boolean; coverSize: number;
+  reader: ReaderPreferences;
+}
+export const defaults: Preferences = {
+  theme: 'system', background: '#171819', foreground: '#e7e5df', accent: '#849bb7', view: 'grid', sort: 'recent', groupSeries: true, coverSize: 156,
+  reader: { theme: 'app', foreground: '#e7e5df', background: '#171819', font: 'Georgia', size: 19,
+    lineHeight: 1.7, margin: 36, maxWidth: 760, flow: 'paginated', columns: 'one', publisherStyles: false },
+};
