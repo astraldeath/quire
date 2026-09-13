@@ -14,3 +14,6 @@
 /* Reserve the measured controls, including iOS safe areas, in both modes.
    Controls must never cover the final line or change pagination when revealed. */
 .reader .reader-workspace{padding-top:var(--reader-header-space,calc(60px + env(safe-area-inset-top)));padding-bottom:var(--reader-footer-space,calc(64px + env(safe-area-inset-bottom)))}.reader .reader-footer{bottom:calc(-1 * var(--reader-footer-space,64px))}.reader .reader-pages{overflow:hidden}.reader .reader-panel{top:calc(var(--reader-header-space,60px) + 8px);bottom:calc(var(--reader-footer-space,64px) + 8px)}
+
+/* Mobile overlays share the measured reading bounds, not the full workspace. */
+@media(max-width:899px){.reader .reader-contents,.reader .contents-backdrop{top:var(--reader-header-space,calc(60px + env(safe-area-inset-top)));bottom:var(--reader-footer-space,calc(64px + env(safe-area-inset-bottom)))}.reader .contents-backdrop{height:auto}.reader-contents .reader-panel-heading,.reader-contents .contents-book{flex-shrink:0}.reader-contents nav{min-height:0}}
