@@ -22,7 +22,7 @@ export function ReadingSettings({preferences,onPreferences}:{preferences:ReaderP
 {id:'theme',label:'Theme',icon:Palette,content:<div className="reader-settings">        <ThemePicker label="Reading theme" value={preferences.theme} options={['app','light','dark','onyx','contrast','custom']} onChange={theme=>patch({theme})} />
         {preferences.theme === 'custom' && <><ColorControl label="Text color" value={preferences.foreground} onChange={foreground=>patch({foreground})}/><ColorControl label="Page color" value={preferences.background} onChange={background=>patch({background})}/></>}
 </div>},
-{id:'behavior',label:'Behavior',icon:Hand,content:<div className="reader-settings">        <Switch label="Tap sides to turn pages" checked={preferences.tapToTurn !== false} onChange={tapToTurn=>patch({tapToTurn})}/>
+{id:'behavior',label:'Behavior',icon:Hand,content:<div className="reader-settings reader-behavior">        <Switch label="Tap sides to turn pages" checked={preferences.tapToTurn !== false} onChange={tapToTurn=>patch({tapToTurn})}/>
         <Switch label="Swipe to turn pages" checked={preferences.swipeToTurn !== false} onChange={swipeToTurn=>patch({swipeToTurn})}/>
         <Switch label="Page animation" checked={preferences.animated !== false} onChange={animated=>patch({animated})}/>
         <button onClick={() => onPreferences({ ...defaults.reader })}>Reset reading settings</button>
