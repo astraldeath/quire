@@ -81,8 +81,8 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     lastTouch = Date.now();
     suppressClickUntil = 0;
     touchOnLink = interactive(e);
-    touchStart = e.touches.length === 1 && !interactive(e, false) && !selected() ? { x: touch.screenX ?? touch.clientX, y: touch.clientY, time: Date.now() } : null;
-    touchY = touch?.clientY ?? 0;
+    touchStart = e.touches.length === 1 && !interactive(e, false) && !selected() ? { x: touch.screenX ?? touch.clientX, y: touch.screenY ?? touch.clientY, time: Date.now() } : null;
+    touchY = touch?.screenY ?? touch?.clientY ?? 0;
     dragX = touch?.screenX ?? touch?.clientX ?? 0;
     dragTime = Date.now(); velocity = 0; dragging = false;
     dragOrigin = view.renderer.containerPosition;
@@ -98,7 +98,7 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     if (isPaginated()) {
       const x = touch.screenX ?? touch.clientX;
       const dx = dragX - x;
-      if (preferences().swipeToTurn !== false && (dragging || Math.abs((touch.screenX ?? touch.clientX) - touchStart.x) > 12) && Math.abs((touch.screenX ?? touch.clientX)-touchStart.x) > Math.abs(touch.clientY-touchStart.y)) {
+      if (preferences().swipeToTurn !== false && (dragging || Math.abs((touch.screenX ?? touch.clientX) - touchStart.x) > 12) && Math.abs((touch.screenX ?? touch.clientX)-touchStart.x) > Math.abs((touch.screenY ?? touch.clientY)-touchStart.y)) {
         if (e.cancelable) e.preventDefault();
         dragging = true; suppressClickUntil = Date.now() + 700;
         velocity = dx / Math.max(16, Date.now()-dragTime);
@@ -106,18 +106,15 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
       }
       dragX = x; dragTime = Date.now();
     } else {
-      const delta = touchY - touch.clientY;
-      // WKWebView does not consistently chain iframe scrolling to the parent.
-      // Scroll the paginator itself, while preserving link/selection/pinch handling.
-      if (Math.abs(touch.clientY - touchStart.y) > 10) {
-        if (e.cancelable) e.preventDefault();
+      const delta = touchY - (touch.screenY ?? touch.clientY);
+      // Let the native overflow scroller own motion and momentum.
+      // Observe only boundary gestures; cancelling here disables iOS inertia.
+      if (Math.abs((touch.screenY ?? touch.clientY) - touchStart.y) > 10) {
         suppressClickUntil = Date.now() + 700;
         continueScroll(delta);
-        const r = view.renderer;
-        r.containerPosition = Math.max(0, Math.min(Math.max(0, r.viewSize - (r.end-r.start)), r.containerPosition + delta));
       }
     }
-    touchY = touch.clientY;
+    touchY = touch.screenY ?? touch.clientY;
   }, { ...options, passive: false });
   target.addEventListener('touchend', event => {
     const e = event as TouchEvent;
@@ -125,7 +122,7 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     const start = touchStart; touchStart = null; lastTouch = Date.now();
     const touch = e.changedTouches[0];
     if (!start || !touch || selected() || (doc.defaultView?.visualViewport?.scale ?? 1) > 1) { cancelDrag(); return; }
-    const dx = (touch.screenX ?? touch.clientX) - start.x, dy = touch.clientY - start.y;
+    const dx = (touch.screenX ?? touch.clientX) - start.x, dy = (touch.screenY ?? touch.clientY) - start.y;
     if (dragging) {
       dragging = false; suppressClickUntil = Date.now() + 700;
       if (e.cancelable) e.preventDefault();

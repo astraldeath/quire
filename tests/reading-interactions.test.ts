@@ -100,14 +100,15 @@ it('a cancelled drag restores its starting offset', () => {
   expect(renderer.containerPosition).toBe(400); expect(renderer.snap).toHaveBeenCalledWith(0,0);
   dispose();
 });
-it('scrolls the outer paginator when the touch starts in a book surface', () => {
+it('leaves chapter scrolling to the native scroller for momentum', () => {
   const target = document.createElement('div');
   const renderer = {start:0,end:400,viewSize:1000,containerPosition:0};
   const view = {renderer} as unknown as View;
   const dispose = installReadingInteractions(target,view,()=>({...defaults.reader,flow:'scrolled'}));
   target.dispatchEvent(touchEvent('touchstart',100,300));
-  target.dispatchEvent(touchEvent('touchmove',100,230));
-  expect(renderer.containerPosition).toBe(70);
+  const move = touchEvent('touchmove',100,230); target.dispatchEvent(move);
+  expect(move.defaultPrevented).toBe(false);
+  expect(renderer.containerPosition).toBe(0);
   dispose();
 });
 
@@ -129,5 +130,18 @@ it('allows link drags but preserves link taps and suppresses clicks after a drag
   const activate = vi.fn(); link.addEventListener('click',activate);
   const click = new MouseEvent('click',{bubbles:true,cancelable:true,detail:1}); link.dispatchEvent(click);
   expect(click.defaultPrevented).toBe(true); expect(activate).not.toHaveBeenCalled();
+  dispose();
+});
+
+it('keeps native scrolling while crossing a continuous chapter boundary', () => {
+  const target = document.createElement('div');
+  const next = vi.fn().mockResolvedValue(undefined);
+  const renderer = {start:600,end:1000,viewSize:1000,containerPosition:600,atEnd:false};
+  const dispose = installReadingInteractions(target,{renderer,next} as unknown as View,()=>({...defaults.reader,flow:'continuous'}));
+  target.dispatchEvent(touchEvent('touchstart',100,300));
+  const move=touchEvent('touchmove',100,230); target.dispatchEvent(move);
+  expect(move.defaultPrevented).toBe(false);
+  expect(renderer.containerPosition).toBe(600);
+  expect(next).toHaveBeenCalledTimes(1);
   dispose();
 });
