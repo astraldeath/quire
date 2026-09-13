@@ -5,7 +5,7 @@ import { ReaderTools } from '../src/features/reader/ReaderTools';
 import type { View } from 'foliate-js/view.js';
 import type { Book } from '../src/domain/models';
 (globalThis as unknown as {IS_REACT_ACT_ENVIRONMENT:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
-afterEach(()=>{vi.useRealTimers();document.body.replaceChildren();});
+afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();document.body.replaceChildren();});
 async function setup(annotations: Book["annotations"]=[]){
  const toolbar=document.createElement('header'),host=document.createElement('div'),text=document.createElement('p');text.textContent='A passage worth remembering';document.body.append(toolbar,host,text);
  const view=Object.assign(document.createElement('div'),{renderer:{getContents:()=>[{doc:document,index:0}]},getCFI:()=> 'epubcfi(/6/2!/4/2:0)',addAnnotation:vi.fn().mockResolvedValue({}),deleteAnnotation:vi.fn().mockResolvedValue({}),clearSearch:vi.fn()}) as unknown as View;
@@ -47,9 +47,9 @@ it('keeps the note draft through keyboard reflow and saves its text',async()=>{
  expect(ctx.onSave).toHaveBeenCalledWith([expect.objectContaining({note:'Remember this detail',text:'A passage worth remembering'})]);await act(async()=>ctx.root.unmount());
 });
 
-it('shows Wiktionary in an isolated frame without a definition API request',async()=>{
- vi.useFakeTimers();const ctx=await setup();ctx.text.textContent='alpha';const range=document.createRange();range.selectNodeContents(ctx.text);document.getSelection()!.removeAllRanges();document.getSelection()!.addRange(range);
+it('shows API definitions as themed text with source attribution',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({parse:{text:'<h2>English</h2><h3>Noun</h3><ol><li>The first letter.</li></ol>'}})}));vi.useFakeTimers();const ctx=await setup();ctx.text.textContent='alpha';const range=document.createRange();range.selectNodeContents(ctx.text);document.getSelection()!.removeAllRanges();document.getSelection()!.addRange(range);
  await act(async()=>{document.dispatchEvent(new Event('selectionchange'));vi.advanceTimersByTime(200);});await click('Define selected text');
- const frame=document.querySelector('iframe')!;expect(frame.src).toBe('https://en.wiktionary.org/wiki/alpha?useskin=minerva#English');expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
+ expect(document.querySelector('iframe')).toBeNull();expect(document.body.textContent).toContain('The first letter.');expect(document.body.textContent).toContain('CC BY-SA 4.0');
  await act(async()=>ctx.root.unmount());
 });
