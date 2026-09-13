@@ -1,7 +1,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 import Database from '@tauri-apps/plugin-sql';
 import { openDB, type DBSchema } from 'idb';
-import { defaults, type Book, type Preferences } from './domain/models';
+import { defaults, type Annotation, type Position, type Book, type Preferences } from './domain/models';
 
 interface Record { id: string; metadata: Book; file?: Uint8Array }
 interface LibraryDB extends DBSchema {
@@ -88,3 +88,19 @@ export async function savePreferences(p: Preferences): Promise<void> {
   }
   await (await idb()).put('preferences', p, 'device');
 }
+
+// Reading updates own only their field; a delayed progress write must never
+// replace annotations with an older metadata snapshot.
+async function saveReadingField(id: string, field: 'position'|'annotations', value: Position|Annotation[]): Promise<void> {
+  if(isTauri()) {
+    await (await sql()).execute('UPDATE books SET metadata = json_set(metadata, $2, json($3)) WHERE id = $1',[id,`$.${field}`,JSON.stringify(value)]);
+    return;
+  }
+  const tx=(await idb()).transaction('books','readwrite');
+  const record=await tx.store.get(id);
+  if(!record){tx.abort();throw new Error('Book is unavailable.');}
+  await tx.store.put({...record,metadata:{...record.metadata,[field]:value}});
+  await tx.done;
+}
+export const saveReadingPosition=(id:string,position:Position)=>saveReadingField(id,'position',position);
+export const saveBookAnnotations=(id:string,annotations:Annotation[])=>saveReadingField(id,'annotations',annotations);

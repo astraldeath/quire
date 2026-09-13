@@ -1,10 +1,5 @@
-import { afterEach, expect, it, vi } from 'vitest';
-import { lookupDefinition } from '../src/features/reader/definitions';
-afterEach(()=>vi.unstubAllGlobals());
-it('requests only the encoded selected term and returns definitions',async()=>{
- const fetcher=vi.fn().mockResolvedValue({ok:true,json:async()=>[{meanings:[{partOfSpeech:'noun',definitions:[{definition:'A written work.',example:'Read a book.'}]}]}]});vi.stubGlobal('fetch',fetcher);
- expect(await lookupDefinition('book')).toEqual([{part:'noun',text:'A written work.',example:'Read a book.'}]);
- expect(fetcher).toHaveBeenCalledWith('https://api.dictionaryapi.dev/api/v2/entries/en/book',expect.objectContaining({credentials:'omit',referrerPolicy:'no-referrer'}));
-});
-it('rejects long selections before sending anything',async()=>{const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);await expect(lookupDefinition('This is a whole paragraph selection')).rejects.toThrow('Select a word');expect(fetcher).not.toHaveBeenCalled();});
-it('distinguishes a missing word from an unavailable service',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({status:404,ok:false}));await expect(lookupDefinition('missing')).rejects.toThrow('No English definition');vi.stubGlobal('fetch',vi.fn().mockResolvedValue({status:503,ok:false}));await expect(lookupDefinition('book')).rejects.toThrow('unavailable');});
+import {expect,it} from 'vitest';
+import {wiktionaryUrl} from '../src/features/reader/definitions';
+it('embeds a mobile Wiktionary entry on its own origin',()=>{expect(wiktionaryUrl(' alpha ')).toBe('https://en.wiktionary.org/wiki/alpha?useskin=minerva#English');});
+it('encodes input so it cannot change the host or URL parameters',()=>{const url=new URL(wiktionaryUrl('a/b?#'));expect(url.origin).toBe('https://en.wiktionary.org');expect(url.pathname).toBe('/wiki/a%2Fb%3F%23');expect(url.search).toBe('?useskin=minerva');});
+it('rejects whole paragraphs',()=>{expect(()=>wiktionaryUrl('This is a whole paragraph selection')).toThrow('Select a word');});

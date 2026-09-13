@@ -34,3 +34,13 @@ it('native SQL statements preserve metadata and roundtrip binary bytes', async (
   await storage.savePreferences(preferences);
   expect((await storage.loadPreferences()).reader.size).toBe(31);
 });
+
+it('native progress writes preserve already saved notes',async()=>{
+ const storage=await import('../src/storage');const book:Book={id:'note-progress',title:'Book',author:'',series:'',volume:null,cover:'',addedAt:0,local:true};await storage.putBook(book,new Uint8Array([1]));
+ const notes:NonNullable<Book['annotations']>=[{id:'note',kind:'highlight',cfi:'epubcfi(/6/2)',text:'Word',note:'Saved note',section:'one',createdAt:0,updatedAt:0}];
+ await storage.saveBookAnnotations(book.id,notes);
+ await storage.saveReadingPosition(book.id,{cfi:'epubcfi(/6/4)',fraction:.4,section:'two',updatedAt:1});
+ expect((await storage.listBooks()).find(b=>b.id===book.id)?.annotations).toEqual(notes);
+ await storage.removeFile(book.id);await storage.putBook(book,new Uint8Array([1]));
+ expect((await storage.listBooks()).find(b=>b.id===book.id)?.annotations).toEqual(notes);
+});

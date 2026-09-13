@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Grid2X2, Info, List, LoaderCircle, Plus, Search, Settings2, X } from 'lucide-react';
 import { defaults, type Annotation, type Book, type Preferences, type Position } from './domain/models';
 import { entriesFor, restoreImport, type LibraryEntry } from './domain/library';
-import { listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
+import { saveReadingPosition, saveBookAnnotations, listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
 import { importEpub } from './epub';
 import { Reader } from './features/reader/Reader';
 import { BookDetails } from './features/library/BookDetails';
@@ -92,14 +92,15 @@ export function App() {
     const book = booksRef.current.find(b => b.id === opened.book.id);
     if (!book) return;
     const next = { ...book, position }; replace(next);
-    void enqueue(() => saveBook(next)).catch(() => {});
+    void enqueue(() => saveReadingPosition(book.id, position)).catch(() => {});
   };
   const saveAnnotations = async (annotations: Annotation[]) => {
     if (!opened) return;
     const latest = booksRef.current.find(b => b.id === opened.book.id);
     if (!latest) throw new Error('Book is unavailable.');
-    const next = { ...latest, annotations }; replace(next);
-    await enqueue(() => saveBook(next));
+    await enqueue(() => saveBookAnnotations(latest.id, annotations));
+    const current = booksRef.current.find(b => b.id === latest.id);
+    if (current) replace({ ...current, annotations });
   };
   const entries = entriesFor(books, preferences, query, reading, group);
   const recent = [...books].filter(b => b.position).sort((a, b) => b.position!.updatedAt - a.position!.updatedAt)[0];

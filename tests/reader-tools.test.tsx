@@ -35,3 +35,21 @@ it('restores saved highlights when opening and when an overlay is recreated',asy
  await click('Delete saved passage');expect(ctx.onSave).toHaveBeenCalledWith([]);expect(ctx.view.deleteAnnotation).toHaveBeenCalledWith({value:'epubcfi(/6/2)'});
  await act(async()=>ctx.root.unmount());
 });
+
+it('keeps the note draft through keyboard reflow and saves its text',async()=>{
+ vi.useFakeTimers();const ctx=await setup();const range=document.createRange();range.selectNodeContents(ctx.text);document.getSelection()!.removeAllRanges();document.getSelection()!.addRange(range);
+ await act(async()=>{document.dispatchEvent(new Event('selectionchange'));vi.advanceTimersByTime(200);});await click('Add note');
+ const textarea=document.querySelector('textarea')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(textarea,'Remember this detail');textarea.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>{ctx.view.dispatchEvent(new CustomEvent('relocate',{detail:{cfi:'reflowed-location'}}));});
+ expect(document.querySelector('textarea')?.value).toBe('Remember this detail');
+ await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(ctx.onSave).toHaveBeenCalledWith([expect.objectContaining({note:'Remember this detail',text:'A passage worth remembering'})]);await act(async()=>ctx.root.unmount());
+});
+
+it('shows Wiktionary in an isolated frame without a definition API request',async()=>{
+ vi.useFakeTimers();const ctx=await setup();ctx.text.textContent='alpha';const range=document.createRange();range.selectNodeContents(ctx.text);document.getSelection()!.removeAllRanges();document.getSelection()!.addRange(range);
+ await act(async()=>{document.dispatchEvent(new Event('selectionchange'));vi.advanceTimersByTime(200);});await click('Define selected text');
+ const frame=document.querySelector('iframe')!;expect(frame.src).toBe('https://en.wiktionary.org/wiki/alpha?useskin=minerva#English');expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
+ await act(async()=>ctx.root.unmount());
+});

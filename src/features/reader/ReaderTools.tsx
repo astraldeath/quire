@@ -4,7 +4,8 @@ import { Bookmark, BookOpen, Copy, Highlighter, List, Pencil, Search, Trash2, X 
 import type { View } from 'foliate-js/view.js';
 import { Overlayer } from 'foliate-js/overlayer.js';
 import type { Annotation, Book } from '../../domain/models';
-import { lookupDefinition, type Definition } from './definitions';
+import { wiktionaryUrl } from './definitions';
+import { ReaderDialog } from './ReaderDialog';
 
 type Selection = { cfi: string; text: string; doc: Document };
 interface Props { otherPanelOpen: boolean; onOpen(): void; toolbar: HTMLElement; view: View; book: Book; visible: boolean; onSave(items: Annotation[]): Promise<void>; navigate(cfi: string): Promise<boolean> }
@@ -14,17 +15,17 @@ export function ReaderTools({otherPanelOpen,onOpen,toolbar,view,book,visible,onS
   const [editing,setEditing] = useState<Annotation|null>(null);
   const [note,setNote] = useState(''); const [message,setMessage] = useState('');
   const [busy,setBusy] = useState(false); const [query,setQuery] = useState('');
-  const [definitions,setDefinitions] = useState<Definition[]>([]);
+  const [dictionaryUrl,setDictionaryUrl] = useState('');
   const [results,setResults] = useState<{cfi:string;text:string}[]>([]);
   const [searching,setSearching] = useState(false);
   const current = useRef({book,onSave}); current.current={book,onSave};
-  const request = useRef<AbortController|null>(null); const searchId=useRef(0); const searchWork=useRef<Promise<void>>(Promise.resolve());
+  const searchId=useRef(0); const searchWork=useRef<Promise<void>>(Promise.resolve());
   const items = book.annotations ?? [];
   useEffect(()=>{if(message!=='Copied')return;const timer=setTimeout(()=>setMessage(''),6000);return()=>clearTimeout(timer);},[message]);
   useEffect(()=>{if(otherPanelOpen)setPanel(null);},[otherPanelOpen]);
   useEffect(()=>{if(panel)onOpen();},[panel]);
   const clearSelection = () => { selection?.doc.getSelection()?.removeAllRanges(); setSelection(null); };
-  const close = () => { request.current?.abort(); request.current=null; searchId.current++; view.clearSearch(); setSearching(false); setPanel(null); setMessage(''); clearSelection(); };
+  const close = () => { searchId.current++; view.clearSearch(); setSearching(false); setPanel(null); setEditing(null); setMessage(''); clearSelection(); };
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape')close();};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[selection]);
   useEffect(() => {
     const disposers: (()=>void)[]=[]; const installed=new WeakSet<Document>();
@@ -42,18 +43,18 @@ export function ReaderTools({otherPanelOpen,onOpen,toolbar,view,book,visible,onS
     const load=(event:Event)=>install((event as CustomEvent).detail);
     const draw=(event:Event)=>{const {draw}= (event as CustomEvent).detail;draw(Overlayer.highlight,{color:'#e9bc57'});};
     const restore=()=>queueMicrotask(()=>{for(const item of current.current.book.annotations ?? []) if(item.kind==='highlight') void view.addAnnotation({value:item.cfi}).catch(()=>setMessage('A highlight could not be restored.'));});
-    const relocated=()=>{setSelection(null);setPanel(null);request.current?.abort();request.current=null;searchId.current++;setSearching(false);};
+    const relocated=()=>{setSelection(null);};
     view.addEventListener('load',load);view.addEventListener('draw-annotation',draw);view.addEventListener('create-overlay',restore);view.addEventListener('relocate',relocated);
     view.renderer.getContents().forEach(install);restore();
-    return ()=>{disposers.forEach(fn=>fn());request.current?.abort();request.current=null;searchId.current++;view.clearSearch();view.removeEventListener('load',load);view.removeEventListener('draw-annotation',draw);view.removeEventListener('create-overlay',restore);view.removeEventListener('relocate',relocated);};
+    return ()=>{disposers.forEach(fn=>fn());searchId.current++;view.clearSearch();view.removeEventListener('load',load);view.removeEventListener('draw-annotation',draw);view.removeEventListener('create-overlay',restore);view.removeEventListener('relocate',relocated);};
   },[view]);
   const persist=async(next:Annotation[])=>{setBusy(true);setMessage('');try{await current.current.onSave(next);return true;}catch{setMessage('Could not save changes. Please try again.');return false;}finally{setBusy(false);}};
   const saveHighlight=async(withNote=false)=>{
-    const source=editing ?? selection;if(!source)return;
+    const source=withNote ? editing : selection;if(!source)return;
     const previous=current.current.book.annotations ?? [];
     const existing=previous.find(item=>item.kind==='highlight'&&item.cfi===source.cfi);
     const item:Annotation={id:existing?.id ?? crypto.randomUUID(),kind:'highlight',cfi:source.cfi,text:source.text,note:withNote?note:existing?.note??'',section:book.position?.section??'',createdAt:existing?.createdAt??Date.now(),updatedAt:Date.now()};
-    if(await persist([...previous.filter(a=>a.id!==item.id),item])) { await view.addAnnotation({value:item.cfi}).catch(()=>setMessage('Saved, but the highlight could not be drawn.'));clearSelection();setPanel(null);setEditing(null); }
+    if(await persist([...previous.filter(a=>a.id!==item.id),item])) { await view.addAnnotation({value:item.cfi}).catch(()=>setMessage('Saved, but the highlight could not be drawn.'));clearSelection();setPanel(withNote?'saved':null);setEditing(null); }
   };
   const bookmark=async()=>{
     const position=current.current.book.position;if(!position)return;
@@ -62,14 +63,11 @@ export function ReaderTools({otherPanelOpen,onOpen,toolbar,view,book,visible,onS
     await persist(existing?previous.filter(a=>a.id!==existing.id):[...previous,{id:crypto.randomUUID(),kind:'bookmark',cfi:position.cfi,text:position.section||book.title,note:'',section:position.section,createdAt:Date.now(),updatedAt:Date.now()}]);
   };
   const remove=async(item:Annotation)=>{if(await persist((current.current.book.annotations??[]).filter(a=>a.id!==item.id)))if(item.kind==='highlight')await view.deleteAnnotation({value:item.cfi}).catch(()=>setMessage('Removed; reopen this chapter to refresh the display.'));};
-  const define=async()=>{
-    if(!selection)return;request.current?.abort();const controller=new AbortController();request.current=controller;
-    setQuery(selection.text);setPanel('define');setDefinitions([]);setMessage('');setSearching(true);
-    const timeout=setTimeout(()=>controller.abort(),12000);
-    try{const found=await lookupDefinition(selection.text,controller.signal);if(request.current===controller&&!controller.signal.aborted)setDefinitions(found);}
-    catch(e){if(request.current===controller)setMessage(controller.signal.aborted?'Lookup timed out. Check your connection and try again.':e instanceof TypeError?'Could not connect. Definitions require an internet connection.':String((e as Error).message));}
-    finally{clearTimeout(timeout);if(request.current===controller)setSearching(false);}
+  const define=()=>{
+    if(!selection)return;
+    try{setDictionaryUrl(wiktionaryUrl(selection.text));setQuery(selection.text);setPanel('define');setMessage('');setSearching(false);}catch(e){setMessage((e as Error).message);}
   };
+  const go=async(cfi:string)=>{if(await navigate(cfi))close();};
   const search=async(term:string)=>{
     const id=++searchId.current;setQuery(term);setPanel('search');setResults([]);setMessage('');setSearching(true);
     const work=searchWork.current.then(async()=>{if(id!==searchId.current)return;
@@ -88,15 +86,15 @@ export function ReaderTools({otherPanelOpen,onOpen,toolbar,view,book,visible,onS
       <button title="Search in book" aria-label="Search selected text in book" onClick={()=>void search(selection.text)}><Search /></button>
       <button title="Clear selection" aria-label="Clear selection" onClick={clearSelection}><X /></button>
     </div>}
-    {panel&&<aside className="reader-panel annotation-panel" aria-label={panel==='saved'?'Bookmarks and highlights':panel==='note'?'Edit note':panel==='define'?'Definition':'Search in book'}>
+    {panel&&<ReaderDialog onClose={close} label={panel==='saved'?'Bookmarks and highlights':panel==='note'?'Edit note':panel==='define'?'Definition':'Search in book'}>
       <div className="reader-panel-heading"><h2>{panel==='saved'?'Bookmarks & highlights':panel==='note'?'Note':panel==='define'?'Definition':'Search in book'}</h2><button aria-label="Close reading tools" onClick={close}><X /></button></div>
-      {panel==='saved'&&<div className="saved-annotations">{!items.length&&<p>No saved passages yet. Bookmark a page or select text to highlight it.</p>}{items.map(item=><article key={item.id}><button className="annotation-jump" onClick={()=>{void navigate(item.cfi);}}>{item.kind==='bookmark'?<Bookmark />:<Highlighter />}<span>{item.text}<small>{item.section}</small></span></button>{item.note&&<p>{item.note}</p>}<div>{item.kind==='highlight'&&<button aria-label="Edit note" onClick={()=>{setEditing(item);setNote(item.note);setPanel('note');}}><Pencil /> Note</button>}<button aria-label="Delete saved passage" disabled={busy} onClick={()=>void remove(item)}><Trash2 /></button></div></article>)}</div>}
+      {panel==='saved'&&<div className="saved-annotations">{!items.length&&<p>No saved passages yet. Bookmark a page or select text to highlight it.</p>}{items.map(item=><article key={item.id}><button className="annotation-jump" onClick={()=>{void go(item.cfi);}}>{item.kind==='bookmark'?<Bookmark />:<Highlighter />}<span>{item.text}<small>{item.section}</small></span></button>{item.note&&<p>{item.note}</p>}<div>{item.kind==='highlight'&&<button aria-label="Edit note" onClick={()=>{setEditing(item);setNote(item.note);setPanel('note');}}><Pencil /> Note</button>}<button aria-label="Delete saved passage" disabled={busy} onClick={()=>void remove(item)}><Trash2 /></button></div></article>)}</div>}
       {panel==='note'&&<form onSubmit={e=>{e.preventDefault();void saveHighlight(true);}}><blockquote>{editing?.text??selection?.text}</blockquote><label>Note<textarea autoFocus rows={6} value={note} maxLength={10000} onChange={e=>setNote(e.target.value)} /></label><button type="submit" disabled={busy}>Save note</button></form>}
-      {panel==='define'&&<div className="definition-results"><h3>{query}</h3><small>English · Free Dictionary API</small>{definitions.map((d,i)=><article key={i}><small>{d.part}</small><p>{d.text}</p>{d.example&&<blockquote>{d.example}</blockquote>}{d.source&&<small><a href={d.source} target="_blank" rel="noreferrer">Source</a></small>}{d.license&&<small> · <a href={d.license.url} target="_blank" rel="noreferrer">{d.license.name}</a></small>}</article>)}</div>}
-      {panel==='search'&&<div className="search-results"><h3>{query}</h3>{!searching&&!results.length&&!message&&<p>No matches found.</p>}{results.map((r,i)=><button key={i} onClick={()=>void navigate(r.cfi)}>{r.text}</button>)}</div>}
+      {panel==='define'&&<div className="wiktionary-entry"><p>{query} · Wiktionary</p><iframe key={dictionaryUrl} title={`Wiktionary: ${query}`} src={dictionaryUrl} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" /><small>Online entry. If it cannot load, check your connection. <a href={dictionaryUrl} target="_blank" rel="noreferrer">Open Wiktionary</a></small></div>}
+      {panel==='search'&&<div className="search-results"><h3>{query}</h3>{!searching&&!results.length&&!message&&<p>No matches found.</p>}{results.map((r,i)=><button key={i} onClick={()=>void go(r.cfi)}>{r.text}</button>)}</div>}
       {searching&&<p role="status">{panel==='define'?'Looking up definition…':'Searching…'}</p>}
       {message&&<p role="status">{message}</p>}
-    </aside>}
+    </ReaderDialog>}
     {!panel&&message&&<div className="reader-tool-message" role="status">{message}<button aria-label="Dismiss reading notification" onClick={()=>setMessage('')}><X /></button></div>}
   </>;
 }
