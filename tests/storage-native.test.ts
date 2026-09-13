@@ -56,3 +56,7 @@ it('rolls back an entire native restore batch if a record cannot be stored',asyn
  await expect(s.restoreBooks([{book:{...book,title:'After'}},{book:{...book,id:null as unknown as string}}])).rejects.toThrow();
  expect((await s.listBooks()).find(b=>b.id===book.id)?.title).toBe('Before');
 });
+
+it('deletes selected native book records and bytes only',async()=>{
+ const s=await import('../src/storage');const b:Book={id:'delete-me',title:'Delete',author:'',series:'',volume:null,cover:'',addedAt:0,local:true};await s.putBook(b,new Uint8Array([1]));await s.putBook({...b,id:'keep-me'},new Uint8Array([2]));await s.deleteBooks([b.id]);expect((await s.listBooks()).some(x=>x.id===b.id)).toBe(false);expect(await s.getFile(b.id)).toBeUndefined();expect(await s.getFile('keep-me')).toEqual(new Uint8Array([2]));
+});

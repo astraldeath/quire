@@ -115,3 +115,8 @@ export async function restoreBooks(records: {book:Book;file?:Uint8Array}[]):Prom
  const tx=(await idb()).transaction('books','readwrite');
  try{for(const {book,file} of records){const existing=await tx.store.get(book.id);await tx.store.put({id:book.id,metadata:book,file:existing?.file??file});}await tx.done;}catch(error){try{tx.abort();}catch{/* Already aborted. */}await tx.done.catch(()=>{});throw error;}
 }
+
+export async function deleteBooks(ids:string[]):Promise<void>{
+ if(isTauri()){await (await sql()).execute('DELETE FROM books WHERE id IN (SELECT value FROM json_each($1))',[JSON.stringify(ids)]);return;}
+ const tx=(await idb()).transaction('books','readwrite');await Promise.all(ids.map(id=>tx.store.delete(id)));await tx.done;
+}

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { BookOpen, HardDriveDownload, Trash2 } from 'lucide-react';
 import type { Book } from '../../domain/models';
 import { Modal } from '../../components/Modal';
-export function BookDetails({ book, onClose, onSave, onRemove, onRead, onImport }: {
-  book: Book; onClose: () => void; onSave: (b: Book) => Promise<void>; onRemove: () => Promise<void>; onRead: () => void; onImport: () => void;
+export function BookDetails({ book, onClose, onSave, onRemove, onRead, onImport, onDelete }: {
+  onDelete:()=>void; book: Book; onClose: () => void; onSave: (b: Book) => Promise<void>; onRemove: () => Promise<void>; onRead: () => void; onImport: () => void;
 }) {
   const [draft, setDraft] = useState(book);
   const [confirm, setConfirm] = useState(false);
@@ -15,6 +15,7 @@ export function BookDetails({ book, onClose, onSave, onRemove, onRead, onImport 
     <div className="form-grid"><label className="wide">Title<input required maxLength={1000} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label><label className="wide">Author<input maxLength={1000} value={draft.author} onChange={e => setDraft({ ...draft, author: e.target.value })} /></label><label>Series<input maxLength={1000} value={draft.series} onChange={e => setDraft({ ...draft, series: e.target.value })} /></label><label>Volume<input type="number" min="0" step="any" value={draft.volume ?? ''} onChange={e => setDraft({ ...draft, volume: e.target.value === '' ? null : Number(e.target.value) })} /></label></div>
     {error && <p role="alert" className="error">{error}</p>}
     {confirm ? <div className="removal"><p>Remove the EPUB from this device? Your book details and reading position will stay in the library.</p><div className="button-row"><button type="button" onClick={() => setConfirm(false)}>Keep download</button><button type="button" className="danger" disabled={busy} onClick={() => void run(onRemove)}>Remove download</button></div></div> : book.local && <button type="button" className="text-action danger" onClick={() => setConfirm(true)}><Trash2 />Remove download</button>}
+    <button type="button" className="text-action danger" disabled={busy} onClick={onDelete}><Trash2/>Remove from library</button>
     <footer className="modal-footer"><button type="button" onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy || !draft.title.trim()}>Save changes</button></footer>
   </form></Modal>;
 }

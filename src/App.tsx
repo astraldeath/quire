@@ -1,10 +1,12 @@
+import {BookOpenButton} from './features/library/BookOpenButton';
+import {BookActions} from './features/library/BookActions';
 import {createBackup,type Backup} from './features/backup/archive';
 import {mergeBook} from './features/backup/merge';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Grid2X2, Info, List, LoaderCircle, Plus, Search, Settings2, X } from 'lucide-react';
 import { defaults, type Annotation, type Book, type Preferences, type Position } from './domain/models';
 import { entriesFor, restoreImport, type LibraryEntry } from './domain/library';
-import { restoreBooks, saveReadingPosition, saveBookAnnotations, listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
+import { deleteBooks, restoreBooks, saveReadingPosition, saveBookAnnotations, listBooks, putBook, saveBook, getFile, removeFile, loadPreferences, savePreferences } from './storage';
 import { importEpub } from './epub';
 import { Reader } from './features/reader/Reader';
 import { BookDetails } from './features/library/BookDetails';
@@ -26,6 +28,7 @@ export function App() {
   const [query, setQuery] = useState('');
   const [reading, setReading] = useState(false);
   const [group, setGroup] = useState<string | null>(null);
+  const [actions,setActions]=useState<{entry:LibraryEntry;initialRemove?:boolean}|null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
   const [opened, setOpened] = useState<{ book: Book; bytes: Uint8Array } | null>(null);
@@ -118,6 +121,16 @@ export function App() {
     if(settings){const next={...backup.preferences,lastBackupAt:preferencesRef.current.lastBackupAt};try{await savePreferences(next);preferencesRef.current=next;setPreferences(next);}catch{throw new Error('Books and saved passages were restored, but settings could not be saved. You can retry the restore.');}}
   });
   const markExported=()=>enqueue(async()=>{const next={...preferencesRef.current,lastBackupAt:Date.now()};await savePreferences(next);preferencesRef.current=next;setPreferences(next);});
+  const showActions=(entry:LibraryEntry,initialRemove=false)=>{
+    const members=entry.series?booksRef.current.filter(b=>b.series===entry.books[0].series):entry.books;
+    setActions({entry:{...entry,books:members},initialRemove});
+  };
+  const removeFromLibrary=(ids:string[])=>enqueue(async()=>{
+    await deleteBooks(ids);const next=booksRef.current.filter(b=>!ids.includes(b.id));refresh(next);
+    if(detailsId&&ids.includes(detailsId))setDetailsId(null);
+    if(group&&!next.some(b=>b.series===group))setGroup(null);
+    setNotice(`${ids.length===1?'Book':`${ids.length} books`} removed from library.`);
+  });
   const entries = entriesFor(books, preferences, query, reading, group);
   const recent = [...books].filter(b => b.position).sort((a, b) => b.position!.updatedAt - a.position!.updatedAt)[0];
   const details = books.find(b => b.id === detailsId);
@@ -134,7 +147,7 @@ export function App() {
         <div className="shelf-toolbar"><div className="shelf-label">{group && <button className="icon" aria-label="Back to all books" onClick={() => setGroup(null)}><ArrowLeft /></button>}<h1>{group ?? (reading ? 'Currently reading' : 'All books')}</h1><span className="muted">{entries.reduce((n, e) => n + e.books.length, 0)}</span></div><div className="view-controls"><label className="sort-label"><span className="sr-only">Sort books</span><select aria-label="Sort books" value={preferences.sort} onChange={e => changePreferences({ ...preferences, sort: e.target.value as Preferences['sort'] })}><option value="recent">Recent</option><option value="title">Title</option><option value="author">Author</option></select></label><div className="view-switch" role="group" aria-label="Library view"><button className={`icon ${preferences.view === 'grid' ? 'active' : ''}`} aria-label="Grid view" aria-pressed={preferences.view === 'grid'} onClick={() => changePreferences({ ...preferences, view: 'grid' })}><Grid2X2 /></button><button className={`icon ${preferences.view === 'list' ? 'active' : ''}`} aria-label="List view" aria-pressed={preferences.view === 'list'} onClick={() => changePreferences({ ...preferences, view: 'list' })}><List /></button></div></div></div>
         {loading ? <div className="empty"><LoaderCircle className="spin" /><p>Loading library</p></div> : !entries.length ? <div className="empty"><BookOpen /><h2>{query ? 'No books found' : reading ? 'Your next chapter starts here' : 'A place for your books'}</h2><p>{query ? 'Try another title, author, or series.' : reading ? 'Open a book from your library to start reading.' : 'Add an EPUB to start your library. Your books and progress stay on this device.'}</p><button className="primary" onClick={query ? () => setQuery('') : reading ? () => goLibrary() : () => input.current?.click()}>{query ? 'Clear search' : reading ? 'Browse library' : 'Add books'}</button></div> : <div className={`books ${preferences.view}`}>{entries.map(entry => {
           const book = entry.books[0];
-          return <article className="book" key={entry.key}><button className="book-open" onClick={() => entry.series ? setGroup(book.series) : void openBook(book)} aria-label={entry.series ? `Open series ${entry.title}` : `Open ${entry.title}`}><Cover entry={entry} /><div className="book-copy"><h2 title={entry.title}>{entry.title}</h2><p className="book-author">{book.author}</p></div></button><div className="book-under"><span>{entry.series ? `${entry.books.length} volumes` : book.volume !== null ? `Volume ${book.volume}` : book.position ? `${Math.round(book.position.fraction * 100)}%` : 'Not started'}</span><div className="book-tail">{!entry.series && book.volume !== null && book.position && <span>{Math.round(book.position.fraction * 100)}%</span>}{!entry.series && !book.local && <span className="unavailable">File removed</span>}{!entry.series && <button className="icon" aria-label={`Details for ${book.title}`} onClick={() => setDetailsId(book.id)}><Info /></button>}</div></div></article>;
+          return <article className="book" key={entry.key}><BookOpenButton onActions={()=>showActions(entry)} onOpen={() => entry.series ? setGroup(book.series) : void openBook(book)} label={entry.series ? `Open series ${entry.title}` : `Open ${entry.title}`}><Cover entry={entry} /><div className="book-copy"><h2 title={entry.title}>{entry.title}</h2><p className="book-author">{book.author}</p></div></BookOpenButton><div className="book-under"><span>{entry.series ? `${entry.books.length} volumes` : book.volume !== null ? `Volume ${book.volume}` : book.position ? `${Math.round(book.position.fraction * 100)}%` : 'Not started'}</span><div className="book-tail">{!entry.series && book.volume !== null && book.position && <span>{Math.round(book.position.fraction * 100)}%</span>}{!entry.series && !book.local && <span className="unavailable">File removed</span>}{!entry.series && <button className="icon" aria-label={`Details for ${book.title}`} onClick={() => setDetailsId(book.id)}><Info /></button>}</div></div></article>;
         })}{preferences.view === 'grid' && !reading && !query && <button className="add-book-tile" aria-label="Add book" title="Add book" disabled={!!busy} onClick={() => input.current?.click()}><Plus aria-hidden="true" /></button>}</div>}
       </main>
     </div>}
@@ -142,6 +155,7 @@ export function App() {
     {notice && !busy && <div className="notice" role="status"><Check />{notice}<button className="icon" aria-label="Dismiss notification" onClick={() => setNotice('')}><X /></button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span><button className="icon" aria-label="Dismiss error" onClick={() => setError('')}><X /></button></div>}
     {settings && <Settings books={books} backupActions={{prepare:prepareBackup,restore:restoreBackup,exported:markExported}} preferences={preferences} onChange={changePreferences} onClose={() => setSettings(false)} />}
-    {details && <BookDetails key={details.id} book={details} onClose={() => setDetailsId(null)} onRead={() => void openBook(details)} onImport={() => { setDetailsId(null); input.current?.click(); }} onSave={draft => enqueue(async () => { const latest = booksRef.current.find(b => b.id === draft.id)!; const next = { ...latest, title: draft.title, author: draft.author, series: draft.series, volume: draft.volume }; await saveBook(next); replace(next); })} onRemove={() => enqueue(async () => { await removeFile(details.id); replace({ ...booksRef.current.find(b => b.id === details.id)!, local: false }); })} />}
+    {actions&&<BookActions entry={actions.entry} initialRemove={actions.initialRemove} onClose={()=>setActions(null)} onOpen={()=>{const entry=actions.entry;setActions(null);if(entry.series)setGroup(entry.books[0].series);else if(entry.books[0].local)void openBook(entry.books[0]);else input.current?.click();}} onDetails={()=>{setDetailsId(actions.entry.books[0].id);setActions(null);}} onRemoveDownload={()=>enqueue(async()=>{const id=actions.entry.books[0].id;await removeFile(id);const book=booksRef.current.find(b=>b.id===id);if(book)replace({...book,local:false});})} onDelete={()=>removeFromLibrary(actions.entry.books.map(b=>b.id))}/>}
+    {details && <BookDetails onDelete={()=>{setDetailsId(null);showActions({key:details.id,title:details.title,series:false,books:[details]},true);}} key={details.id} book={details} onClose={() => setDetailsId(null)} onRead={() => void openBook(details)} onImport={() => { setDetailsId(null); input.current?.click(); }} onSave={draft => enqueue(async () => { const latest = booksRef.current.find(b => b.id === draft.id)!; const next = { ...latest, title: draft.title, author: draft.author, series: draft.series, volume: draft.volume }; await saveBook(next); replace(next); })} onRemove={() => enqueue(async () => { await removeFile(details.id); replace({ ...booksRef.current.find(b => b.id === details.id)!, local: false }); })} />}
   </>;
 }
