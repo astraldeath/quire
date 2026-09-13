@@ -67,16 +67,37 @@ it('turns on a touch-only tap without pointer or synthetic click events', () => 
   expect(next).toHaveBeenCalledTimes(1);
   dispose();
 });
-it('swipes once without invoking the upstream snap handler', () => {
+it('drags the actual page before release, then snaps without a duplicate turn', () => {
   const target = document.createElement('div');
-  const next = vi.fn().mockResolvedValue(undefined);
-  const view = { renderer: target, next } as unknown as View;
+  const next = vi.fn(); const scrollBy = vi.fn(); const settle = vi.fn();
+  const view = { renderer: {containerPosition:400,scrollBy,snap:settle}, next } as unknown as View;
   const dispose = installReadingInteractions(target, view, () => defaults.reader);
-  const snap = vi.fn(); target.addEventListener('touchend', snap);
+  const upstream = vi.fn(); target.addEventListener('touchend', upstream);
   target.dispatchEvent(touchEvent('touchstart',300,100));
   target.dispatchEvent(touchEvent('touchmove',180,105));
+  expect(scrollBy).toHaveBeenCalledWith(120,0);
+  expect(settle).not.toHaveBeenCalled();
   target.dispatchEvent(touchEvent('touchend',100,105));
-  expect(next).toHaveBeenCalledTimes(1); expect(snap).not.toHaveBeenCalled();
+  expect(settle).toHaveBeenCalledTimes(1); expect(next).not.toHaveBeenCalled(); expect(upstream).not.toHaveBeenCalled();
+  dispose();
+});
+it('center taps reveal controls even with paging disabled or in scroll mode', () => {
+  const target = document.createElement('div'); const reveal = vi.fn();
+  const view = {renderer:target,getBoundingClientRect:()=>({left:0,width:400})} as unknown as View;
+  const dispose = installReadingInteractions(target,view,()=>({...defaults.reader,flow:'scrolled',tapToTurn:false}),()=>{},reveal);
+  target.dispatchEvent(touchEvent('touchstart',200,100));
+  target.dispatchEvent(touchEvent('touchend',200,100));
+  expect(reveal).toHaveBeenCalledTimes(1); dispose();
+});
+it('a cancelled drag restores its starting offset', () => {
+  const target = document.createElement('div');
+  const renderer = {containerPosition:400,scrollBy:vi.fn(),snap:vi.fn()};
+  const dispose = installReadingInteractions(target,{renderer} as unknown as View,()=>defaults.reader);
+  target.dispatchEvent(touchEvent('touchstart',300,100));
+  target.dispatchEvent(touchEvent('touchmove',220,100));
+  renderer.containerPosition=480;
+  target.dispatchEvent(touchEvent('touchcancel',220,100));
+  expect(renderer.containerPosition).toBe(400); expect(renderer.snap).toHaveBeenCalledWith(0,0);
   dispose();
 });
 it('scrolls the outer paginator when the touch starts in a book surface', () => {

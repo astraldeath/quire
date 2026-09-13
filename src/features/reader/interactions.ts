@@ -14,17 +14,23 @@ export function boundaryTurn(delta: number, start: number, end: number, size: nu
 }
 
 /** Install in both the sandboxed book document and its outer renderer margins. */
-export function installReadingInteractions(target: Document | HTMLElement, view: View, preferences: () => ReaderPreferences, onError: (message: string) => void = () => {}) {
+export function installReadingInteractions(target: Document | HTMLElement, view: View, preferences: () => ReaderPreferences, onError: (message: string) => void = () => {}, onCenterTap: () => void = () => {}) {
   const controller = new AbortController();
   const options = { signal: controller.signal, capture: true };
   const doc = target.nodeType === 9 ? target as Document : target.ownerDocument!;
   let down = { x: 0, y: 0, time: 0 };
   let touchY = 0;
+  let dragX = 0;
+  let dragOrigin = 0;
+  let dragging = false;
+  let velocity = 0;
+  let dragTime = 0;
   let touchStart: { x: number; y: number; time: number } | null = null;
   let lastTouch = 0;
   let moved = false;
   let busy = false;
   let lastTurn = 0;
+  const cancelDrag = () => { if (dragging) { view.renderer.containerPosition = dragOrigin; view.renderer.snap(0,0); dragging = false; } };
   const interactive = (event: Event) => event.composedPath().some(node =>
     'nodeType' in node && node.nodeType === 1 && (node as Element).matches('a,button,input,select,textarea,[contenteditable],audio,video'));
   const selected = () => Boolean(doc.getSelection()?.toString());
@@ -49,15 +55,10 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
   }, options);
   target.addEventListener('click', event => {
     const e = event as MouseEvent;
-    if (preferences().tapToTurn === false || preferences().flow !== 'paginated' ||
-      Date.now() - lastTouch < 700 || e.button !== 0 || e.detail !== 1 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey ||
+    if (Date.now() - lastTouch < 700 || e.button !== 0 || e.detail !== 1 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey ||
       moved || Date.now() - down.time > 450 || interactive(e) || selected()) return;
-    const frame = doc.defaultView?.frameElement;
-    const rect = view.getBoundingClientRect();
-    const x = e.clientX + (frame?.getBoundingClientRect().left ?? 0) - rect.left;
-    const rtl = doc.defaultView?.getComputedStyle(doc.documentElement).direction === 'rtl';
-    const direction = sideTurn(x, rect.width, rtl);
-    if (direction) { e.preventDefault(); turn(direction); }
+    tap(e.clientX);
+
   }, options);
   target.addEventListener('wheel', event => {
     if (!interactive(event)) continueScroll((event as WheelEvent).deltaY);
@@ -68,25 +69,37 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     const frame = doc.defaultView?.frameElement;
     const rect = view.getBoundingClientRect();
     const direction = sideTurn(clientX + (frame?.getBoundingClientRect().left ?? 0) - rect.left, rect.width, rtl());
-    if (direction) turn(direction);
+    if (!direction && rect.width > 0) onCenterTap();
+    else if (direction && isPaginated() && preferences().tapToTurn !== false) turn(direction);
   };
   target.addEventListener('touchstart', event => {
     const e = event as TouchEvent;
     const touch = e.touches[0];
     lastTouch = Date.now();
-    touchStart = e.touches.length === 1 && !interactive(e) && !selected() ? { x: touch.clientX, y: touch.clientY, time: Date.now() } : null;
+    touchStart = e.touches.length === 1 && !interactive(e) && !selected() ? { x: touch.screenX ?? touch.clientX, y: touch.clientY, time: Date.now() } : null;
     touchY = touch?.clientY ?? 0;
+    dragX = touch?.screenX ?? touch?.clientX ?? 0;
+    dragTime = Date.now(); velocity = 0; dragging = false;
+    dragOrigin = view.renderer.containerPosition;
     // Own paginated gestures: do not also invoke foliate's snap handlers.
     if (isPaginated()) e.stopImmediatePropagation();
   }, { ...options, passive: true });
   target.addEventListener('touchmove', event => {
     const e = event as TouchEvent;
     if (isPaginated()) e.stopImmediatePropagation();
-    if (e.touches.length !== 1) { touchStart = null; return; }
+    if (e.touches.length !== 1) { touchStart = null; cancelDrag(); return; }
     if (!touchStart || selected() || (doc.defaultView?.visualViewport?.scale ?? 1) > 1) return;
     const touch = e.touches[0];
     if (isPaginated()) {
-      if (preferences().swipeToTurn !== false && Math.abs(touch.clientX - touchStart.x) > 12 && e.cancelable) e.preventDefault();
+      const x = touch.screenX ?? touch.clientX;
+      const dx = dragX - x;
+      if (preferences().swipeToTurn !== false && (dragging || Math.abs((touch.screenX ?? touch.clientX) - touchStart.x) > 12) && Math.abs((touch.screenX ?? touch.clientX)-touchStart.x) > Math.abs(touch.clientY-touchStart.y)) {
+        if (e.cancelable) e.preventDefault();
+        dragging = true;
+        velocity = dx / Math.max(16, Date.now()-dragTime);
+        view.renderer.scrollBy(dx, 0);
+      }
+      dragX = x; dragTime = Date.now();
     } else {
       const delta = touchY - touch.clientY;
       // WKWebView does not consistently chain iframe scrolling to the parent.
@@ -105,16 +118,18 @@ export function installReadingInteractions(target: Document | HTMLElement, view:
     if (isPaginated()) e.stopImmediatePropagation();
     const start = touchStart; touchStart = null; lastTouch = Date.now();
     const touch = e.changedTouches[0];
-    if (!start || !touch || !isPaginated() || selected() || (doc.defaultView?.visualViewport?.scale ?? 1) > 1) return;
-    const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
-    if (preferences().swipeToTurn !== false && Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)*1.4) {
+    if (!start || !touch || selected() || (doc.defaultView?.visualViewport?.scale ?? 1) > 1) { cancelDrag(); return; }
+    const dx = (touch.screenX ?? touch.clientX) - start.x, dy = touch.clientY - start.y;
+    if (dragging) {
+      dragging = false;
       if (e.cancelable) e.preventDefault();
-      turn((dx < 0) !== rtl() ? 'next' : 'prev');
-    } else if (preferences().tapToTurn !== false && Math.hypot(dx,dy) < 10 && Date.now()-start.time < 450) {
+      // Slow drags settle to the nearest page; a quick release supplies momentum.
+      view.renderer.snap(Date.now()-dragTime < 100 ? Math.max(-.6,Math.min(.6,velocity)) : 0, 0);
+    } else if (Math.hypot(dx,dy) < 10 && Date.now()-start.time < 450) {
       if (e.cancelable) e.preventDefault();
       tap(touch.clientX);
     }
   }, { ...options, passive: false });
-  target.addEventListener('touchcancel', () => { touchStart = null; }, options);
+  target.addEventListener('touchcancel', () => { touchStart = null; cancelDrag(); }, options);
   return () => controller.abort();
 }
