@@ -54,3 +54,13 @@ export async function metadata(a:Account,book:string):Promise<{cover:string}>{
 export async function accountRequest(a:Account,path:string,body?:unknown,method?:string){return web(a.origin,path,body,webToken(a),method);}
 
 export async function uploadShared(a:Account,library:string,id:string,bytes:ArrayBuffer){const r=await fetch(`${a.origin}/v1/admin/libraries/${library}/books/${id}`,{method:'PUT',headers:{Authorization:`Bearer ${webToken(a)}`,'Content-Type':'application/epub+zip'},body:bytes,signal:AbortSignal.timeout(300000)});if(!r.ok)throw new Error('Could not upload the shared book.');}
+
+export async function downloadServerBackup(a:Account,onProgress:(bytes:number,total:number)=>void):Promise<Blob>{
+ const r=await fetch(a.origin+'/v1/admin/backup',{method:'POST',redirect:'error',credentials:'omit',headers:{Authorization:`Bearer ${webToken(a)}`},signal:AbortSignal.timeout(300000)});
+ if(!r.ok||!r.body)throw new Error('Could not create the backup. Check server disk space and try again.');
+ const limit=512*1024*1024,total=Number(r.headers.get('Content-Length'))||0;
+ if(total>limit){await r.body.cancel();throw new Error('This backup exceeds the 512 MB browser limit. Use the server backup command below.');}
+ const reader=r.body.getReader(),parts:ArrayBuffer[]=[];let bytes=0;
+ try{while(true){const next=await reader.read();if(next.done)break;bytes+=next.value.length;if(bytes>limit)throw new Error('This backup exceeds the browser limit. Use the server backup command.');parts.push(next.value.slice().buffer);onProgress(bytes,total);}}catch(e){await reader.cancel();throw e;}
+ return new Blob(parts,{type:'application/zip'});
+}

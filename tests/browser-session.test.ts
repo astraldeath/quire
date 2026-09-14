@@ -20,3 +20,15 @@ it('does not restore malformed or foreign-origin sessions',async()=>{
  const transport=await import('../src/features/sync/transport');
  expect(transport.restoreBrowserAccount()).toBeUndefined();
 });
+
+it('downloads server backups with authentication and refuses oversized browser downloads',async()=>{
+ const transport=await import('../src/features/sync/transport');
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({token:'secret',session:{id:'session'}}))));
+ await transport.login(location.origin,'alice','password');const account=transport.restoreBrowserAccount()!;
+ vi.mocked(fetch).mockResolvedValue(new Response(new Uint8Array([1,2,3]),{headers:{'Content-Length':'3'}}));
+ const progress=vi.fn();const blob=await transport.downloadServerBackup(account,progress);
+ expect(blob.size).toBe(3);expect(progress).toHaveBeenLastCalledWith(3,3);
+ expect(vi.mocked(fetch).mock.calls.at(-1)?.[1]).toMatchObject({method:'POST',headers:{Authorization:'Bearer secret'}});
+ vi.mocked(fetch).mockResolvedValue(new Response(new Uint8Array([1]),{headers:{'Content-Length':String(513*1024*1024)}}));
+ await expect(transport.downloadServerBackup(account,progress)).rejects.toThrow('512 MB');
+});
