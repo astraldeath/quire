@@ -121,3 +121,13 @@ body:has(.reader) .hosted-account{display:none}
 
 .access-check svg{width:14px;height:14px;stroke-width:2.5}
 .admin-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;line-height:1.25;min-height:36px}
+
+.library-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.admin-shell .admin-search{display:grid;gap:8px;max-width:420px;margin:16px 0}
+.library-dialog{display:grid;gap:20px;line-height:1.6}
+.library-dialog label{display:grid;gap:8px}
+.library-dialog .admin-actions{justify-content:flex-end}
+.scan-progress{display:flex;align-items:center;gap:8px;margin:16px 0;color:var(--muted)}
+.scan-progress svg{animation:scan-spin 1.4s linear infinite}
+@keyframes scan-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.scan-progress svg{animation:none}}
