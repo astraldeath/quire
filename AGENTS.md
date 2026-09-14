@@ -12,3 +12,5 @@
 - Admin tabs each have a Lucide icon. Access selection uses compact, full-width horizontal rows with styled checkboxes; do not inherit vertical form-label layouts. Keep select chevrons inset and style file-picker buttons consistently.
 
 - Never use Unicode characters as UI icons (including checkmarks). Use Lucide SVG icons with flex alignment for icon-and-label buttons.
+
+- Hosted authentication uses same-origin HttpOnly cookies and X-Quire-Session binding on authenticated requests. Never store hosted tokens in browser storage or remove the session binding; it prevents stale tabs from syncing into a different account.
