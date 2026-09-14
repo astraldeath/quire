@@ -16,6 +16,6 @@ export function Settings({preferences:p,books,backupActions,onChange,onClose}:{b
  <button className="text-action" onClick={()=>onChange({...p,theme:defaults.theme,accent:defaults.accent,background:defaults.background,foreground:defaults.foreground})}>Reset appearance</button></div>},
  {id:'library',label:'Library',icon:Library,content:<div className="settings-body"><StepperControl label="Cover size" min={110} max={210} step={10} value={p.coverSize} unit=" px" onChange={coverSize=>onChange({...p,coverSize})}/><Switch label="Group books into series" checked={p.groupSeries} onChange={groupSeries=>onChange({...p,groupSeries})}/><p className="muted">Reading themes and typography are available inside each book. Preferences are saved on this device.</p><button className="text-action" onClick={()=>onChange({...p,coverSize:defaults.coverSize,groupSeries:defaults.groupSeries})}>Reset library settings</button></div>},
  {id:'backups',label:'Backups',icon:Archive,content:<BackupSettings books={books} preferences={p} actions={backupActions} onBusy={setWorking}/>},
- {id:'server',label:'Server',icon:Cloud,content:<ServerSettings/>}
+ ...(import.meta.env.VITE_HOSTED==='true'?[]:[{id:'server',label:'Server',icon:Cloud,content:<ServerSettings/>}])
  ]}/></Modal>;
 }

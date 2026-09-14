@@ -38,3 +38,7 @@ Sync runs after edits, on foreground/reconnection, and periodically while open. 
 Windows and iOS tokens are stored in the system credential store. Browser tokens stay in memory for the current tab only, and the server must explicitly allow the browser origin. Credentials, server connection state and pending sync operations are excluded from reader backup archives. Reconnect after restoring a backup.
 
 The API contract is version 1. Sync edits, acknowledgements and cursor changes are transactional in IndexedDB and native SQLite. Native clients must restart after upgrading so the new database migration is applied.
+
+## Server-hosted browser build
+
+`npm run build:web` builds the shared reader in hosted mode. Serve `dist-web` through Quire Server's `-web-dir` option. It adds setup/sign-in, invitation redemption, account-specific browser storage, administration and shared-library filters. `npm run build` remains the installed-app build. Browser tokens live only in memory; refreshing requires signing in again. Hosted imports upload to the personal server library, while shared uploads require an admin.

@@ -1,0 +1,11 @@
+import {useEffect,useState} from 'react';
+import {Modal} from '../../components/Modal';
+import type {Account} from '../sync/model';
+import {accountRequest} from '../sync/transport';
+export function AccountPanel({account,onClose}:{account:Account;onClose():void}){
+ const [sessions,setSessions]=useState<{id:string;deviceName:string;createdAt:number}[]>([]),[current,setCurrent]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function refresh(){const v=await accountRequest(account,'/v1/sessions');setSessions(v.sessions);}
+ useEffect(()=>{void refresh().catch(e=>setError(e.message));},[]);
+ async function run(action:()=>Promise<unknown>){setBusy(true);setError('');try{await action();await refresh();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
+ return <Modal title="Your account" onClose={onClose}><div className="settings-body"><h3>{account.username}</h3>{error&&<p role="alert">{error}</p>}<form className="hosted-password" onSubmit={e=>{e.preventDefault();void run(async()=>{await accountRequest(account,'/v1/me/password',{current,password},'PUT');location.reload();});}}><h3>Change password</h3><label>Current password<input type="password" autoComplete="current-password" required value={current} onChange={e=>setCurrent(e.target.value)}/></label><label>New password<input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={password} onChange={e=>setPassword(e.target.value)}/></label><p className="muted">Changing your password signs out all devices.</p><button className="primary" disabled={busy}>Change password</button></form><h3>Signed-in devices</h3>{sessions.map(s=><div key={s.id} className="setting-row"><span>{s.deviceName}{s.id===account.sessionId?' (this tab)':''}</span>{s.id!==account.sessionId&&<button disabled={busy} onClick={()=>void run(()=>accountRequest(account,'/v1/sessions/'+s.id,undefined,'DELETE'))}>Sign out</button>}</div>)}</div></Modal>;
+}

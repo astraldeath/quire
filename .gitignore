@@ -59,3 +59,5 @@ Desktop.ini
 
 # Personal library backups
 *.quire-backup
+
+/dist-web/

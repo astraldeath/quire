@@ -65,7 +65,7 @@ const loadMethod = `    async load(src, afterLoad, beforeRender) {
     }
 `;
 
-export function hardenFoliate(code: string, id: string): string | undefined {
+export function hardenFoliate(code: string, id: string, hosted = false): string | undefined {
   if (!id.split('?')[0].replaceAll('\\', '/').endsWith('/foliate-js/paginator.js')) return;
   const normalized = code.replaceAll('\r\n', '\n');
   const start = normalized.indexOf('    async load(src, afterLoad, beforeRender) {');
@@ -80,5 +80,10 @@ export function hardenFoliate(code: string, id: string): string | undefined {
   const turnMethod = normalized.slice(turnStart, turnEnd);
   if (createHash('sha256').update(turnMethod).digest('hex') !== '54cd719e2da3783549906b32e4e9e8dda488fc68edaff36b27559d9d296043ed') throw new Error('Review foliate page-turn locking before upgrading the renderer.');
   const safeTurn = turnMethod.replace('        const prev =', '        try {\n        const prev =').replace('        this.#locked = false', '        } finally { this.#locked = false }');
-  return (normalized.slice(0, start) + loadMethod + normalized.slice(end)).replace(turnMethod, safeTurn);
+  const browserLoad = hosted ? loadMethod
+    .replace("return new Promise((resolve, reject) => {", "const response = await fetch(src); if (!response.ok) throw new Error('Could not load chapter'); const markup = await response.text(); return new Promise((resolve, reject) => {")
+    .replaceAll('doc.URL !== src', "doc.URL !== 'about:srcdoc'")
+    .replaceAll('doc.URL === src', "doc.URL === 'about:srcdoc'")
+    .replace('this.#iframe.src = src', 'this.#iframe.srcdoc = markup') : loadMethod;
+  return (normalized.slice(0, start) + browserLoad + normalized.slice(end)).replace(turnMethod, safeTurn);
 }

@@ -38,3 +38,7 @@ export async function metadata(a:Account,book:string):Promise<{cover:string}>{
  if(typeof v?.cover!=='string'||v.cover.length>1024*1024||(v.cover!==''&&!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v.cover)))throw new Error('Invalid server cover.');
  return {cover:v.cover};
 }
+
+export async function accountRequest(a:Account,path:string,body?:unknown,method?:string){return web(a.origin,path,body,webToken(a),method);}
+
+export async function uploadShared(a:Account,library:string,id:string,bytes:ArrayBuffer){const r=await fetch(`${a.origin}/v1/admin/libraries/${library}/books/${id}`,{method:'PUT',headers:{Authorization:`Bearer ${webToken(a)}`,'Content-Type':'application/epub+zip'},body:bytes,signal:AbortSignal.timeout(300000)});if(!r.ok)throw new Error('Could not upload the shared book.');}

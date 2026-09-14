@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { hardenFoliate } from '../scripts/foliate-transform';
 const source = readFileSync('node_modules/foliate-js/paginator.js', 'utf8');
 const id = '/node_modules/foliate-js/paginator.js';
-function fixture() {
-  const output = hardenFoliate(source, id)!;
+function fixture(hosted=false) {
+  const output = hardenFoliate(source, id,hosted)!;
   const method = output.slice(output.indexOf('    async load('), output.indexOf('    render(layout) {'));
   const Frame = new Function('getDirection', 'getBackground', `return class {
     #iframe; #vertical; #rtl; #observer = { observe() {} }; #contentRange = { selectNodeContents() {} };
@@ -63,4 +63,13 @@ it('unlocks page navigation after a renderer failure so the next turn can retry'
   const paginator = new TestPaginator();
   await expect(paginator.turn()).rejects.toThrow('failed chapter');
   await paginator.turn(); expect(paginator.attempts).toBe(2);
+});
+
+it('completes a hosted chapter when srcdoc is ready without accepting the initial blank document',async()=>{
+ vi.useFakeTimers();vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,text:async()=>'<html><body>Chapter</body></html>'})));
+ try{const {frame,iframe}=fixture(true);const callback=vi.fn();const loaded=frame.load('blob:test',callback);
+ iframe.contentDocument={URL:'about:blank',readyState:'complete'};await vi.advanceTimersByTimeAsync(100);expect(callback).not.toHaveBeenCalled();
+ iframe.contentDocument={URL:'about:srcdoc',readyState:'complete',body:{style:{}},fonts:{ready:Promise.resolve()}};
+ await vi.advanceTimersByTimeAsync(50);await loaded;expect(callback).toHaveBeenCalledTimes(1);expect(vi.getTimerCount()).toBe(0);
+ }finally{vi.useRealTimers();vi.unstubAllGlobals();}
 });

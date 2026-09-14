@@ -7,3 +7,5 @@
 - Anchor a dialog's top while the keyboard opens; shrink its scrolling body instead of recentering the whole dialog upward. Always respect the status-bar safe area and visual viewport panning. Draw control focus rings inward so scroll clipping cannot remove their edges.
 - Server libraries fetch metadata and cover previews automatically. Fetch the EPUB when the user opens a book, show download activity, and retain it for offline reading. Preserve user metadata, notes, and progress during downloads.
 - Verify settings at phone and desktop sizes, including focused inputs and overflow. Distinguish browser checks from verification on an actual iPhone.
+
+- Hosted mode reuses the reader and isolates browser storage by authenticated user ID. Keep server-only administration and imports behind hosted build configuration; native app behavior must remain unchanged.

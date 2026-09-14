@@ -5,7 +5,9 @@ import { defaults, type Annotation, type Position, type Book, type Preferences }
 import {emptySync,queueChanges,type SyncState} from './features/sync/model';
 interface Record {id:string;metadata:Book;file?:Uint8Array}
 interface LibraryDB extends DBSchema {books:{key:string;value:Record};preferences:{key:string;value:Preferences|SyncState}}
-const browser=()=>openDB<LibraryDB>('quire-library',1,{upgrade(db){db.createObjectStore('books',{keyPath:'id'});db.createObjectStore('preferences');}});
+let browserName='quire-library';
+export function useBrowserAccount(id:string){if(browserPromise)throw new Error('Account storage is already open. Reload before changing account.');browserName='quire-account-'+id;}
+const browser=()=>openDB<LibraryDB>(browserName,1,{upgrade(db){db.createObjectStore('books',{keyPath:'id'});db.createObjectStore('preferences');}});
 let browserPromise:ReturnType<typeof browser>|undefined;const idb=()=>browserPromise??=browser();
 let nativePromise:Promise<Database>|undefined;const sql=()=>nativePromise??=Database.load('sqlite:quire.db');
 let queue:Promise<unknown>=Promise.resolve();
