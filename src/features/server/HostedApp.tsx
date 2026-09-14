@@ -3,7 +3,7 @@ import {LogOut,Shield,BookOpen,Plus,X} from 'lucide-react';
 import {AccountPanel} from './AccountPanel';
 import {App} from '../../App';
 import {useBrowserAccount,syncTransaction} from '../../storage';
-import {login,accountRequest,logout,upload} from '../sync/transport';
+import {login,accountRequest,logout,upload,restoreBrowserAccount,clearBrowserSession} from '../sync/transport';
 import {syncNow} from '../sync/engine';
 import type {Account} from '../sync/model';
 import {AdminPanel} from './AdminPanel';
@@ -15,12 +15,15 @@ export function HostedApp(){
  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [session,setSession]=useState<{account:Account;user:User}>(),[admin,setAdmin]=useState(false),[accountOpen,setAccountOpen]=useState(false),[libraries,setLibraries]=useState<{id:string;name:string;bookIds:string[]}[]>([]);
  useEffect(()=>{if(!session)return;const refresh=()=>{void accountRequest(session.account,'/v1/libraries').then(setLibraries).catch(()=>{});};refresh();window.addEventListener('quire-synced',refresh);return()=>window.removeEventListener('quire-synced',refresh);},[session,admin]);
- useEffect(()=>{if(location.hash.startsWith('#invite='))history.replaceState(null,'',location.pathname);void publicRequest('/v1/setup').then(v=>setSetup(v.required)).catch(e=>setError(e.message));},[]);
- async function submit(){setBusy(true);setError('');try{
- if(setup||invite)await publicRequest(setup?'/v1/setup':'/v1/register',{username,password,code});
- const authenticated=await login(location.origin,username,password);const account={origin:location.origin,username,sessionId:authenticated.id};const user=await accountRequest(account,'/v1/me') as User;
+ useEffect(()=>{if(location.hash.startsWith('#invite='))history.replaceState(null,'',location.pathname);void (async()=>{const saved=restoreBrowserAccount();if(saved){try{await openAccount(saved);return;}catch{clearBrowserSession();}}const v=await publicRequest('/v1/setup');setSetup(v.required);})().catch(e=>setError(e.message));},[]);
+ async function openAccount(account:Account){
+ const user=await accountRequest(account,'/v1/me') as User;
  useBrowserAccount(user.id);
  await syncTransaction(s=>{s.account=account;s.enabled=true;return {result:undefined};});setPassword('');setCode('');setSession({account,user});void syncNow().catch(()=>{});
+ }
+ async function submit(){setBusy(true);setError('');try{
+ if(setup||invite)await publicRequest(setup?'/v1/setup':'/v1/register',{username,password,code});
+ const authenticated=await login(location.origin,username,password);const account={origin:location.origin,username,sessionId:authenticated.id};await openAccount(account);
  }catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
  async function signOut(){if(!session)return;setBusy(true);try{await logout(session.account);}catch{}finally{location.reload();}}
  if(session)return <><div inert={admin}><App serverLibraries={libraries} onImport={async(id,bytes)=>{await upload(session.account,id,bytes);}} accountActions={<div className="hosted-account"><button onClick={()=>setAccountOpen(true)}>{session.user.username}</button>{session.user.admin&&<button onClick={()=>setAdmin(true)}><Shield size={16}/> Administration</button>}<button disabled={busy} onClick={()=>void signOut()}><LogOut size={16}/> Sign out</button></div>}/></div>{accountOpen&&<AccountPanel account={session.account} onClose={()=>setAccountOpen(false)}/>} {admin&&<AdminPanel account={session.account} onClose={()=>{setAdmin(false);void syncNow().catch(()=>{});}}/>}</>;

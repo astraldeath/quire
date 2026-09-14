@@ -10,3 +10,5 @@
 
 - Hosted mode reuses the reader and isolates browser storage by authenticated user ID. Keep server-only administration and imports behind hosted build configuration; native app behavior must remain unchanged.
 - Admin tabs each have a Lucide icon. Access selection uses compact, full-width horizontal rows with styled checkboxes; do not inherit vertical form-label layouts. Keep select chevrons inset and style file-picker buttons consistently.
+
+- Never use Unicode characters as UI icons (including checkmarks). Use Lucide SVG icons with flex alignment for icon-and-label buttons.

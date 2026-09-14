@@ -1,6 +1,18 @@
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import type {Account,SyncResponse} from './model';
 const tokens=new Map<string,string>();
+const browserSessionKey='quire-hosted-session';
+export function clearBrowserSession(){try{sessionStorage.removeItem(browserSessionKey);}catch{}}
+export function restoreBrowserAccount():Account|undefined{
+ if(import.meta.env.VITE_HOSTED!=='true'||isTauri())return;
+ try{const value=JSON.parse(sessionStorage.getItem(browserSessionKey)??'null');
+ if(!value)return;
+ if(value.origin!==location.origin||!['username','sessionId','token'].every(key=>typeof value[key]==='string'&&value[key].length>0)){clearBrowserSession();return;}
+ tokens.set(`${value.username}@${value.origin}`,value.token);
+ return {origin:value.origin,username:value.username,sessionId:value.sessionId};
+ }catch{clearBrowserSession();return;}
+}
+
 export function serverOrigin(raw:string):string{
  const u=new URL(raw);if((u.protocol!=='https:'&&!(u.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(u.hostname)))||u.username||u.password||u.search||u.hash||u.pathname!=='/')throw new Error('Use an HTTPS server address without a path.');return u.origin;
 }
@@ -13,9 +25,9 @@ async function web(origin:string,path:string,body?:unknown,token?:string,method=
 export async function discover(origin:string){origin=serverOrigin(origin);const v=isTauri()?await invoke<any>('sync_discover',{server:origin}):await web(origin,'/.well-known/quire');if(v?.apiVersion!=='1'||v?.apiUrl!==origin+'/v1'||typeof v?.name!=='string')throw new Error('This server is not compatible with Quire.');return {name:v.name.slice(0,100),origin};}
 export async function login(origin:string,username:string,password:string){
  if(isTauri())return await invoke<{id:string}>('sync_login',{server:origin,username,password,device:/iPhone|iPad/.test(navigator.userAgent)?'Quire iOS':'Quire desktop'});
- const v=await web(origin,'/v1/sessions',{username,password,deviceName:'Quire browser'});if(typeof v?.token!=='string'||!v?.session?.id)throw new Error('Invalid session response.');tokens.set(`${username}@${origin}`,v.token);return v.session as {id:string};
+ const v=await web(origin,'/v1/sessions',{username,password,deviceName:'Quire browser'});if(typeof v?.token!=='string'||!v?.session?.id)throw new Error('Invalid session response.');tokens.set(`${username}@${origin}`,v.token);if(import.meta.env.VITE_HOSTED==='true'&&origin===location.origin){try{sessionStorage.setItem(browserSessionKey,JSON.stringify({origin,username,sessionId:v.session.id,token:v.token}));}catch{}}return v.session as {id:string};
 }
-export async function logout(a:Account){if(isTauri())return invoke<void>('sync_logout',{server:a.origin,username:a.username,session:a.sessionId});const key=`${a.username}@${a.origin}`,token=tokens.get(key);tokens.delete(key);if(token)await web(a.origin,`/v1/sessions/${encodeURIComponent(a.sessionId)}`,undefined,token,'DELETE');}
+export async function logout(a:Account){if(isTauri())return invoke<void>('sync_logout',{server:a.origin,username:a.username,session:a.sessionId});const key=`${a.username}@${a.origin}`,token=tokens.get(key);tokens.delete(key);if(import.meta.env.VITE_HOSTED==='true')clearBrowserSession();if(token)await web(a.origin,`/v1/sessions/${encodeURIComponent(a.sessionId)}`,undefined,token,'DELETE');}
 export async function call(a:Account,body:unknown):Promise<SyncResponse>{
  if(isTauri())return await invoke<SyncResponse>('sync_call',{server:a.origin,username:a.username,body});const token=tokens.get(`${a.username}@${a.origin}`);if(!token)throw new Error('Sign in again. Browser sessions last until this tab closes.');return web(a.origin,'/v1/sync',body,token);
 }
