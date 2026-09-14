@@ -9,3 +9,4 @@
 - Verify settings at phone and desktop sizes, including focused inputs and overflow. Distinguish browser checks from verification on an actual iPhone.
 
 - Hosted mode reuses the reader and isolates browser storage by authenticated user ID. Keep server-only administration and imports behind hosted build configuration; native app behavior must remain unchanged.
+- Admin tabs each have a Lucide icon. Access selection uses compact, full-width horizontal rows with styled checkboxes; do not inherit vertical form-label layouts. Keep select chevrons inset and style file-picker buttons consistently.

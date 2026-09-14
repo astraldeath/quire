@@ -40,6 +40,6 @@ export async function resolve(record:RemoteRecord,candidate:Candidate){
 export function startSync(){
  let timer:ReturnType<typeof setTimeout>;const run=()=>{void syncNow().catch(()=>{});};const foreground=()=>{if(document.visibilityState==='visible')run();};
  const changed=()=>{if(running)return;clearTimeout(timer);timer=setTimeout(()=>{void loadSync().then(s=>{if(s.pending.length)run();}).catch(()=>{});},1500);};
- window.addEventListener('quire-storage',changed);window.addEventListener('online',run);document.addEventListener('visibilitychange',foreground);const interval=setInterval(run,60000);run();
+ window.addEventListener('quire-storage',changed);window.addEventListener('online',run);document.addEventListener('visibilitychange',foreground);const interval=setInterval(foreground,import.meta.env.VITE_HOSTED?10000:60000);run();
  return()=>{clearTimeout(timer);clearInterval(interval);window.removeEventListener('quire-storage',changed);window.removeEventListener('online',run);document.removeEventListener('visibilitychange',foreground);};
 }

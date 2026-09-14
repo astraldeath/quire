@@ -103,3 +103,18 @@ body:has(.reader) .hosted-account{display:none}
 .hosted-password{display:grid;gap:16px}.hosted-password label{display:grid;gap:8px}
 
 .library{scrollbar-width:thin;scrollbar-color:var(--line) transparent}@media(max-width:540px){.shelf-toolbar:has(select[aria-label="Library collection"]){flex-direction:column;align-items:stretch;gap:12px}.shelf-toolbar:has(select[aria-label="Library collection"]) .view-controls{justify-content:space-between}.shelf-label h1{white-space:nowrap}}
+
+/* Access choices stay horizontal; full rows are touch and keyboard targets. */
+.admin-shell .admin-access{display:grid;gap:8px;margin:16px 0;padding:0;border:0;min-width:0}
+.admin-access legend{font-weight:600;margin-bottom:10px}
+.admin-shell .admin-member{position:relative;display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:12px;margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:pointer;background:var(--bg)}
+.admin-member input{position:absolute;opacity:0;width:1px;height:1px;padding:0}
+.access-check{display:grid;place-items:center;width:20px;height:20px;flex-shrink:0;border:1px solid var(--muted);border-radius:5px;color:transparent}
+.admin-member:has(input:checked){background:var(--hover)}
+.admin-member input:checked+.access-check{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.admin-member:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.admin-member:has(input:disabled){opacity:.55;cursor:wait}
+.admin-shell .admin-upload{margin:16px 0;gap:8px}
+.admin-upload input{width:100%;padding:6px;font-size:12px;background:var(--bg)}
+.admin-upload input::file-selector-button{font:inherit;color:var(--fg);background:var(--hover);border:0;border-radius:5px;padding:8px 12px;margin-right:12px;cursor:pointer}
+.admin-shell select,.view-controls select{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6' fill='none' stroke='%238994a3' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
