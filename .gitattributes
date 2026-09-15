@@ -1,0 +1,2 @@
+# Keep checkouts consistent with Prettier, including on Windows.
+* text=auto eol=lf
