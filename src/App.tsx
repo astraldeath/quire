@@ -1,3 +1,4 @@
+import type { ActionAnchor } from './components/ActionPopover';
 import { LibraryControls } from './features/library/LibraryControls';
 import { Modal } from './components/Modal';
 import {
@@ -143,6 +144,7 @@ export function App({
   const [actions, setActions] = useState<{
     entry: LibraryEntry;
     initialRemove?: boolean;
+    anchor?: ActionAnchor;
   } | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
@@ -517,11 +519,15 @@ export function App({
       preferencesRef.current = next;
       setPreferences(next);
     });
-  const showActions = (entry: LibraryEntry, initialRemove = false) => {
+  const showActions = (
+    entry: LibraryEntry,
+    initialRemove = false,
+    anchor?: ActionAnchor,
+  ) => {
     const members = entry.series
       ? booksRef.current.filter((b) => b.series === entry.books[0].series)
       : entry.books;
-    setActions({ entry: { ...entry, books: members }, initialRemove });
+    setActions({ entry: { ...entry, books: members }, initialRemove, anchor });
   };
   const removeFromLibrary = (ids: string[]) =>
     enqueue(async () => {
@@ -802,13 +808,18 @@ export function App({
                 )}
                 <button
                   aria-label="Series actions"
-                  onClick={() =>
-                    showActions({
-                      key: group,
-                      title: group,
-                      series: true,
-                      books: seriesBooks,
-                    })
+                  aria-haspopup="menu"
+                  onClick={(e) =>
+                    showActions(
+                      {
+                        key: group,
+                        title: group,
+                        series: true,
+                        books: seriesBooks,
+                      },
+                      false,
+                      e.currentTarget.getBoundingClientRect(),
+                    )
                   }
                 >
                   <Ellipsis />
@@ -1017,7 +1028,9 @@ export function App({
                               : '/books/' + book.id + '/read'
                             : undefined
                         }
-                        onActions={() => showActions(entry)}
+                        onActions={(anchor) =>
+                          showActions(entry, false, anchor)
+                        }
                         onOpen={() =>
                           selecting
                             ? toggleEntry(entry)
@@ -1082,7 +1095,14 @@ export function App({
                           <button
                             className="icon"
                             aria-label={`Actions for ${entry.title}`}
-                            onClick={() => showActions(entry)}
+                            aria-haspopup="menu"
+                            onClick={(e) =>
+                              showActions(
+                                entry,
+                                false,
+                                e.currentTarget.getBoundingClientRect(),
+                              )
+                            }
                           >
                             <Ellipsis />
                           </button>
@@ -1258,6 +1278,7 @@ export function App({
                 }
               : undefined
           }
+          anchor={actions.anchor}
           entry={actions.entry}
           initialRemove={actions.initialRemove}
           onClose={() => setActions(null)}
