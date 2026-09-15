@@ -28,6 +28,8 @@ The installed app uses a public Native App client with Authorization Code + PKCE
 app.quire.reader://oauth/mangabaka
 ```
 
+Sign-in requests `openid`, `profile`, library read/write, and offline access with explicit consent. Account identity comes from MangaBaka's OAuth `userinfo` endpoint; the separate library API is used for reading and updating tracking entries.
+
 The native bridge restricts API requests to MangaBaka, validates the callback and single-use state, and refreshes tokens in secure storage. The browser sign-in returns through the registered app protocol, so no localhost listener or hosted callback is needed. Install the Windows package to register the desktop protocol; iOS packages declare the scheme in their application metadata.
 
 Hosted Quire WebUI continues using its server-side OAuth client and server-managed tracking. A plain development browser build does not implement the installed app's native sign-in. Native and hosted matches are currently independent.

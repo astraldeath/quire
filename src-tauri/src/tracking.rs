@@ -14,6 +14,7 @@ const CALLBACK: &str = "app.quire.reader://oauth/mangabaka";
 const ISSUER: &str = "https://mangabaka.org/auth";
 const API: &str = "https://api.mangabaka.org";
 const TOKEN_URL: &str = "https://mangabaka.org/auth/oauth2/token";
+const USERINFO_URL: &str = "https://mangabaka.org/auth/oauth2/userinfo";
 // One lock covers credential reads, callback consumption, refresh and disconnect.
 static AUTH: Mutex<Option<String>> = Mutex::const_new(None);
 
@@ -78,6 +79,11 @@ fn random() -> Result<String, String> {
 }
 fn client() -> Result<Client, String> {
     Client::builder()
+        .user_agent(concat!(
+            "Quire/",
+            env!("CARGO_PKG_VERSION"),
+            " (https://github.com/astraldeath/quire)"
+        ))
         .https_only(true)
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(15))
@@ -274,18 +280,18 @@ async fn complete_callback(raw: &str) -> Result<(), String> {
     .await?;
     let access_token = token_string(&data, "access_token")?;
     let (status, profile) = response(
-        client()?
-            .get(format!("{API}/v1/my/profile"))
-            .bearer_auth(&access_token)
+        userinfo_request(&access_token)?
             .send()
             .await
             .map_err(|_| "Could not load MangaBaka profile.")?,
     )
     .await?;
     if status != 200 {
-        return Err("Could not verify MangaBaka account.".into());
+        return Err(format!(
+            "MangaBaka account verification failed (HTTP {status}). Connect again to retry."
+        ));
     }
-    let (account_id, name) = profile_identity(&profile)?;
+    let (account_id, name) = userinfo_identity(&profile)?;
     save(
         "session",
         &Session {
@@ -297,28 +303,25 @@ async fn complete_callback(raw: &str) -> Result<(), String> {
         },
     )
 }
-fn profile_identity(profile: &Value) -> Result<(String, String), String> {
-    let profile = &profile["data"];
-    let scopes = profile["scopes"]
-        .as_array()
-        .ok_or("MangaBaka profile has no granted permissions.")?;
-    if !["profile", "library.read", "library.write"]
-        .iter()
-        .all(|required| scopes.iter().any(|scope| scope.as_str() == Some(required)))
-    {
-        return Err("MangaBaka library permissions were not granted. Connect again.".into());
-    }
-    let id = profile["id"]
+fn userinfo_request(access_token: &str) -> Result<reqwest::RequestBuilder, String> {
+    Ok(client()?.get(USERINFO_URL).bearer_auth(access_token))
+}
+fn userinfo_identity(profile: &Value) -> Result<(String, String), String> {
+    // Userinfo is an OAuth identity response, not the library API's data envelope.
+    // Library scopes are checked on the token grant before this request.
+    let id = profile["sub"]
         .as_str()
         .filter(|id| !id.is_empty() && id.len() <= 256)
         .ok_or("MangaBaka profile has no account identity.")?
         .to_owned();
-    let name = profile["nickname"]
+    let name = profile["name"]
         .as_str()
         .filter(|v| !v.is_empty())
         .or_else(|| profile["preferred_username"].as_str())
         .unwrap_or("MangaBaka")
-        .to_owned();
+        .chars()
+        .take(256)
+        .collect();
     Ok((id, name))
 }
 fn check_account(expected: Option<&str>, actual: &str) -> Result<(), String> {
@@ -392,6 +395,15 @@ pub async fn tracking_connect(app: tauri::AppHandle) -> Result<(), String> {
         verifier: random()?,
         expires_at: now() + 600,
     };
+    let url = authorization_url(&pending)?;
+    save("pending", &pending)?;
+    if app.opener().open_url(url.as_str(), None::<&str>).is_err() {
+        remove("pending")?;
+        return Err("Could not open the browser for MangaBaka sign-in.".into());
+    }
+    Ok(())
+}
+fn authorization_url(pending: &Pending) -> Result<Url, String> {
     let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(pending.verifier.as_bytes()));
     let mut url = Url::parse("https://mangabaka.org/auth/oauth2/authorize")
         .map_err(|_| "Invalid authorization address.")?;
@@ -399,17 +411,16 @@ pub async fn tracking_connect(app: tauri::AppHandle) -> Result<(), String> {
         ("client_id", CLIENT_ID),
         ("response_type", "code"),
         ("redirect_uri", CALLBACK),
-        ("scope", "library.read library.write profile offline_access"),
+        (
+            "scope",
+            "openid profile library.read library.write offline_access",
+        ),
+        ("prompt", "consent"),
         ("state", pending.state.as_str()),
         ("code_challenge", challenge.as_str()),
         ("code_challenge_method", "S256"),
     ]);
-    save("pending", &pending)?;
-    if app.opener().open_url(url.as_str(), None::<&str>).is_err() {
-        remove("pending")?;
-        return Err("Could not open the browser for MangaBaka sign-in.".into());
-    }
-    Ok(())
+    Ok(url)
 }
 #[tauri::command]
 pub async fn tracking_disconnect() -> Result<(), String> {
@@ -478,6 +489,51 @@ pub async fn tracking_provider(
 mod tests {
     use super::*;
     #[test]
+    fn identity_request_uses_oauth_endpoint_and_bearer_header() {
+        let request = userinfo_request("test-access-token")
+            .unwrap()
+            .build()
+            .unwrap();
+        assert_eq!(
+            request.url().as_str(),
+            "https://mangabaka.org/auth/oauth2/userinfo"
+        );
+        assert_eq!(
+            request.headers()["authorization"],
+            "Bearer test-access-token"
+        );
+        assert!(request.url().query().is_none());
+    }
+    #[test]
+    fn oauth_userinfo_uses_subject_without_library_profile_envelope() {
+        assert_eq!(
+            userinfo_identity(&json!({"sub":"account-1","name":"Reader"})).unwrap(),
+            ("account-1".into(), "Reader".into())
+        );
+        assert!(userinfo_identity(&json!({"name":"Reader"})).is_err());
+        assert!(userinfo_identity(&json!({"sub":""})).is_err());
+        assert_eq!(
+            userinfo_identity(&json!({"sub":"account-2","preferred_username":"reader2"}))
+                .unwrap()
+                .1,
+            "reader2"
+        );
+    }
+    #[test]
+    fn native_authorization_requests_identity_and_fresh_consent() {
+        let pending = Pending {
+            state: "state".into(),
+            verifier: "verifier".into(),
+            expires_at: 200,
+        };
+        let url = authorization_url(&pending).unwrap();
+        let params: std::collections::HashMap<_, _> = url.query_pairs().collect();
+        assert!(params["scope"].split_whitespace().any(|s| s == "openid"));
+        assert_eq!(params["prompt"], "consent");
+        assert_eq!(params["redirect_uri"], CALLBACK);
+        assert_eq!(params["code_challenge_method"], "S256");
+    }
+    #[test]
     fn provider_unwraps_success_envelope_and_preserves_error_status() {
         assert_eq!(
             provider_result(200, json!({"status":200,"data":{"state":"reading"}})),
@@ -496,16 +552,6 @@ mod tests {
         )
         .is_ok());
         assert!(check_token_scope(&json!({"scope":"profile library.read"})).is_err());
-    }
-    #[test]
-    fn profile_requires_library_scopes_and_uses_provider_display_name() {
-        let mut profile = json!({"data":{"id":"account-1","nickname":"Reader","preferred_username":"reader1","scopes":["profile","library.read","library.write"]}});
-        assert_eq!(
-            profile_identity(&profile).unwrap(),
-            ("account-1".into(), "Reader".into())
-        );
-        profile["data"]["scopes"] = json!(["profile", "library.read"]);
-        assert!(profile_identity(&profile).is_err());
     }
     #[test]
     fn account_binding_rejects_missing_and_stale_identity() {
