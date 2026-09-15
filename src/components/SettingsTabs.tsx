@@ -1,8 +1,8 @@
 import {useId,useRef,useState,useLayoutEffect,type ReactNode} from 'react';
 import type {LucideIcon} from 'lucide-react';
 interface Tab {id:string;label:string;icon:LucideIcon;content:ReactNode}
-export function SettingsTabs({tabs,label,disabled=false}:{tabs:Tab[];label:string;disabled?:boolean}){
- const [active,setActive]=useState(tabs[0].id);const id=useId();const buttons=useRef<(HTMLButtonElement|null)[]>([]);
+export function SettingsTabs({tabs,label,disabled=false,active:controlled,onActiveChange}:{tabs:Tab[];label:string;disabled?:boolean;active?:string;onActiveChange?:(id:string)=>void}){
+ const [localActive,setLocalActive]=useState(tabs[0].id);const active=controlled??localActive;const setActive=(id:string)=>{setLocalActive(id);onActiveChange?.(id);};const id=useId();const buttons=useRef<(HTMLButtonElement|null)[]>([]);
  const panels=useRef<HTMLDivElement>(null);useLayoutEffect(()=>{if(panels.current)panels.current.scrollTop=0;},[active]);
  return <div className="settings-tabs"><div className="settings-tablist" role="tablist" aria-label={label}>
  {tabs.map((tab,index)=><button key={tab.id} ref={el=>{buttons.current[index]=el;}} type="button" role="tab" id={`${id}-${tab.id}-tab`} aria-label={tab.label} title={tab.label} aria-controls={`${id}-${tab.id}-panel`} aria-selected={active===tab.id} tabIndex={active===tab.id?0:-1} disabled={disabled} onClick={()=>setActive(tab.id)} onKeyDown={e=>{

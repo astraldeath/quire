@@ -1,3 +1,4 @@
+import {useWebPath,parseWebRoute,navigateWeb} from '../navigation/routes';
 import {ServerBackups} from './ServerBackups';
 import {Management} from './Management';
 import {useEffect,useState,useRef} from 'react';
@@ -8,7 +9,8 @@ interface User {id:string;username:string;admin:boolean;disabled:boolean}
 interface Invite {id:string;status:string;expiresAt:number}
 export function AdminPanel({account,onClose}:{account:Account;onClose():void}){
  const panel=useRef<HTMLElement>(null);useEffect(()=>{panel.current?.focus();},[]);
- const [tab,setTab]=useState<'overview'|'libraries'|'folders'|'settings'|'accounts'|'invites'|'backups'>('overview'),[users,setUsers]=useState<User[]>([]),[invites,setInvites]=useState<Invite[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[link,setLink]=useState(''),[libraries,setLibraries]=useState<{id:string;name:string}[]>([]),[grants,setGrants]=useState<string[]>([]);
+ const path=useWebPath();const tab=(parseWebRoute(path).tab??'overview') as 'overview'|'libraries'|'folders'|'settings'|'accounts'|'invites'|'backups';const setTab=(value:typeof tab)=>navigateWeb('/admin/'+value);
+ const [users,setUsers]=useState<User[]>([]),[invites,setInvites]=useState<Invite[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[link,setLink]=useState(''),[libraries,setLibraries]=useState<{id:string;name:string}[]>([]),[grants,setGrants]=useState<string[]>([]);
  async function refresh(){const [u,i]=await Promise.all([accountRequest(account,'/v1/admin/users'),accountRequest(account,'/v1/admin/invites')]);setUsers(u);setInvites(i);setLibraries(await accountRequest(account,'/v1/admin/libraries'));}
  useEffect(()=>{void refresh().catch(e=>setError(e.message));},[]);
  async function run(action:()=>Promise<unknown>){setBusy(true);setError('');try{await action();await refresh();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}

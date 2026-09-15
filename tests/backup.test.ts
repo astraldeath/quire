@@ -29,3 +29,7 @@ it('rejects future formats, duplicate books, and unsafe cover URLs',async()=>{
 });
 it('rejects archives with missing book files',async()=>{await expect(readBackup(await archiveWith({...manifest,kind:'full',files:[book.id]}))).rejects.toThrow();});
 it('keeps newer incoming progress but never removes unrelated annotations',()=>{const p={cfi:'new',fraction:.1,section:'One',updatedAt:10};expect(mergeBook({...book,position:{...p,updatedAt:1}},{...book,position:p}).position).toEqual(p);});
+it.each(['added','last-read','volume'] as const)('roundtrips %s sort preference',async(sort)=>{
+ const restored=await readBackup(await createBackup([{book}],{...defaults,sort},'data'));
+ expect(restored.preferences.sort).toBe(sort);
+});

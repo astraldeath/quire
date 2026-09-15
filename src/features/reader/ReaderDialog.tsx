@@ -20,7 +20,7 @@ export function ReaderDialog({label,onClose,children}:{label:string;onClose():vo
     if(!element.current?.contains(document.activeElement))element.current?.focus();
     return()=>{vv?.removeEventListener('resize',update);vv?.removeEventListener('scroll',update);window.removeEventListener('resize',update);if(previous?.isConnected)previous.focus({preventScroll:true});};
   },[]);
-  return <div className="reader-dialog-layer" style={viewport} onKeyDown={e=>{
+  return <div className="reader-dialog-layer" style={viewport} onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)onClose();}} onKeyDown={e=>{
     e.stopPropagation();
     if(e.key==='Escape'){e.preventDefault();onClose();}
     if(e.key==='Tab'){

@@ -63,7 +63,7 @@ export async function openArchive(bytes: Uint8Array) {
   const files = new Map<string, Uint8Array>();
   let total = 0;
   try {
-    let count = 0;
+    let count = 0;let yieldedAt=performance.now();
     for await (const entry of reader.getEntriesGenerator()) {
       if (++count > 5000) throw new Error('EPUB has too many archive entries.');
       localPath(entry.filename);
@@ -80,6 +80,7 @@ export async function openArchive(bytes: Uint8Array) {
       const data = new Uint8Array(size); let offset = 0;
       for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
       files.set(entry.filename, data);
+      if(performance.now()-yieldedAt>12){await new Promise<void>(resolve=>setTimeout(resolve,0));yieldedAt=performance.now();}
     }
   } catch (error) { throw new Error(`Cannot open EPUB: ${error instanceof Error ? error.message : 'invalid archive'}`); }
   finally { await reader.close(); }

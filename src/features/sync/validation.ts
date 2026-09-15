@@ -16,7 +16,7 @@ export function validateResponse(v:unknown,cursor:number,ids:string[]):SyncRespo
 function validValue(kind:Kind,v:Value){
  if(!v||Array.isArray(v)||new TextEncoder().encode(JSON.stringify(v)).length>32768)return false;
  if(kind==='book')return text(v.title,2048)&&!!v.title&&(v.author===undefined||text(v.author,2048))&&(v.series===undefined||text(v.series,2048))&&(v.volume==null||typeof v.volume==='number'&&Number.isFinite(v.volume));
- if(!text(v.cfi,8192)||!v.cfi||(v.section!==undefined&&!text(v.section,2048)))return false;
- if(kind==='position')return typeof v.fraction==='number'&&v.fraction>=0&&v.fraction<=1;
- return ['highlight','bookmark'].includes(String(v.kind))&&(v.text===undefined||text(v.text))&&(v.note===undefined||text(v.note));
+ if(!text(v.cfi,8192)||(v.section!==undefined&&!text(v.section,2048)))return false;
+ if(kind==='position')return typeof v.fraction==='number'&&v.fraction>=0&&v.fraction<=1&&(!!v.cfi||v.fraction===1);
+ return !!v.cfi&&['highlight','bookmark'].includes(String(v.kind))&&(v.text===undefined||text(v.text))&&(v.note===undefined||text(v.note));
 }

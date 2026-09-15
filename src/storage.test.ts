@@ -21,7 +21,7 @@ describe('durable library lifecycle', () => {
     await putBook({ ...book, title: 'Reimport metadata' }, bytes);
     expect(Array.from((await getFile(book.id))!)).toEqual(Array.from(bytes));
     expect((await listBooks()).find(b => b.id === book.id)).toEqual(edited);
-    const independentConnection = await openDB('quire-library', 1);
+    const independentConnection = await openDB('quire-library');
     expect((await independentConnection.get('books', book.id)).metadata.annotations).toEqual(edited.annotations);
     independentConnection.close();
   });
@@ -29,7 +29,7 @@ describe('durable library lifecycle', () => {
   it('merges new defaults into persisted partial reader preferences', async () => {
     await savePreferences({ ...defaults, theme: 'dark', reader: { ...defaults.reader, size: 27 } });
     expect((await loadPreferences()).reader.size).toBe(27);
-    const connection = await openDB('quire-library', 1);
+    const connection = await openDB('quire-library');
     await connection.put('preferences', { theme: 'light', reader: { size: 25 } }, 'device');
     connection.close();
     expect(await loadPreferences()).toEqual({ ...defaults, theme: 'light', reader: { ...defaults.reader, size: 25 } });
@@ -43,7 +43,7 @@ it('browser progress updates preserve saved notes across an independent connecti
  const book:Book={id:'note-progress',title:'Book',author:'',series:'',volume:null,cover:'',addedAt:0,local:true};await putBook(book,new Uint8Array([1]));
  const notes:NonNullable<Book['annotations']>=[{id:'note',kind:'highlight',cfi:'epubcfi(/6/2)',text:'Word',note:'Saved note',section:'one',createdAt:0,updatedAt:0}];
  await saveBookAnnotations(book.id,notes);await saveReadingPosition(book.id,{cfi:'epubcfi(/6/4)',fraction:.4,section:'two',updatedAt:1});
- const connection=await openDB('quire-library',1);expect((await connection.get('books',book.id)).metadata.annotations).toEqual(notes);connection.close();
+ const connection=await openDB('quire-library');expect((await connection.get('books',book.id)).metadata.annotations).toEqual(notes);connection.close();
 });
 
 it('restores a batch while retaining existing files for data-only records',async()=>{

@@ -12,7 +12,7 @@ export interface ReaderPreferences {
 export interface Preferences {
   lastBackupAt?: number;
   theme: 'system' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom'; background: string; foreground: string; accent: string; view: 'grid' | 'list';
-  sort: 'recent' | 'title' | 'author'; groupSeries: boolean; coverSize: number;
+  sort: 'recent' | 'title' | 'author' | 'added' | 'last-read' | 'volume'; groupSeries: boolean; coverSize: number;
   reader: ReaderPreferences;
 }
 export const defaults: Preferences = {

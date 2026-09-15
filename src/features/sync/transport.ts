@@ -20,6 +20,7 @@ export function serverOrigin(raw:string):string{
 }
 async function web(origin:string,path:string,body?:unknown,token?:string,method=body?'POST':'GET'){
  const response=await fetch(origin+path,{method,redirect:'error',credentials:credentials(origin),headers:{...(body?{'Content-Type':'application/json'}:{}),...requestHeaders(token)},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('/v1/admin/watches')&&method==='POST'?300000:30000)});
+ if(!response.ok&&path.startsWith('/v1/tracking')){let message='Tracking request failed. Try again.';try{const error=await response.json();if(typeof error.error==='string')message=error.error.slice(0,300);}catch{}throw new Error(message);}
  if(!response.ok)throw new Error(response.status===401?'Sign in again; this session expired or was revoked.':response.status===409?'Sync conflict requires attention. Local changes are saved.':response.status===429?'Server is busy. Try again shortly.':'The server could not complete this request.');
  if(response.status===204)return null;
  const reader=response.body?.getReader();if(!reader)throw new Error('Empty server response.');let size=0;const chunks:Uint8Array[]=[];while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>64*1024*1024){await reader.cancel();throw new Error('Server response is too large.');}chunks.push(value);}const bytes=new Uint8Array(size);let at=0;for(const c of chunks){bytes.set(c,at);at+=c.length;}return JSON.parse(new TextDecoder().decode(bytes));

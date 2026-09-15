@@ -1,0 +1,21 @@
+import {act} from 'react';
+import {createRoot} from 'react-dom/client';
+import {afterEach,expect,it,vi} from 'vitest';
+import {BookDetails} from '../src/features/library/BookDetails';
+vi.mock('../src/features/sync/BookServerActions',()=>({BookServerActions:()=>null}));
+(globalThis as unknown as {IS_REACT_ACT_ENVIRONMENT:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
+afterEach(()=>document.body.replaceChildren());
+it('shows a summary first and reveals metadata editing without changing saved details',async()=>{
+ HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const book={id:'one',title:'One',author:'Author',series:'Series',volume:1,cover:'',addedAt:0,local:true};
+ const save=vi.fn().mockResolvedValue(undefined),remove=vi.fn().mockResolvedValue(undefined),close=vi.fn();
+ await act(async()=>root.render(<BookDetails book={book} onClose={close} onSave={save} onRemove={remove} onRead={()=>{}} onImport={()=>{}} onDelete={()=>{}}/>));
+ const click=async(text:string)=>act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent===text)!.click());
+ expect(host.querySelector('input')).toBeNull();expect(host.textContent).toContain('Author');
+ await click('Edit details');expect(host.querySelector('input')?.value).toBe('One');
+ await click('Cancel');expect(host.querySelector('input')).toBeNull();expect(save).not.toHaveBeenCalled();expect(close).not.toHaveBeenCalled();
+ await click('Edit details');await click('Save changes');expect(save).toHaveBeenCalledWith(book);
+ await click('Remove download');expect(remove).not.toHaveBeenCalled();await click('Keep download');expect(remove).not.toHaveBeenCalled();
+ await act(async()=>root.unmount());
+});

@@ -6,9 +6,9 @@ import {defaults,type Book,type Preferences} from '../../domain/models';
 import {Modal} from '../../components/Modal';
 import {SettingsTabs} from '../../components/SettingsTabs';
 import {ThemePicker,StepperControl,Switch,ColorControl} from '../../components/Controls';
-export function Settings({preferences:p,books,backupActions,onChange,onClose}:{books:Book[];backupActions:BackupActions;preferences:Preferences;onChange(p:Preferences):void;onClose():void}){
+export function Settings({preferences:p,books,backupActions,onChange,onClose,activeTab,onTabChange}:{activeTab?:string;onTabChange?:(id:string)=>void;books:Book[];backupActions:BackupActions;preferences:Preferences;onChange(p:Preferences):void;onClose():void}){
  const [working,setWorking]=useState(false);
- return <Modal title="Settings" onClose={()=>{if(!working)onClose();}}><SettingsTabs label="Settings sections" disabled={working} tabs={[
+ return <Modal title="Settings" onClose={()=>{if(!working)onClose();}}><SettingsTabs active={activeTab} onActiveChange={onTabChange} label="Settings sections" disabled={working} tabs={[
  {id:'appearance',label:'Appearance',icon:Palette,content:<div className="settings-body">
  <ThemePicker label="App theme" value={p.theme} options={['system','light','dark','onyx','contrast','custom']} onChange={theme=>onChange({...p,theme})}/>
  {p.theme==='custom'&&<><ColorControl label="Background color" value={p.background} onChange={background=>onChange({...p,background})}/><ColorControl label="Text color" value={p.foreground} onChange={foreground=>onChange({...p,foreground})}/></>}

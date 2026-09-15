@@ -6,3 +6,11 @@ it('tracks the visual viewport when the software keyboard shrinks and pans it',a
  await act(async()=>{viewport.height=410;viewport.offsetTop=74;viewport.dispatchEvent(new Event('resize'));});expect(layer.style.height).toBe('410px');expect(layer.style.top).toBe('74px');expect(host.querySelector('textarea')!.value).toBe('Draft');}
  finally{await act(async()=>root.unmount());host.remove();if(previous)Object.defineProperty(window,'visualViewport',previous);else Reflect.deleteProperty(window,'visualViewport');}
 });
+
+it('dismisses from the backdrop without treating inside clicks as outside',async()=>{
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);let closed=0;
+ await act(async()=>root.render(<ReaderDialog label="Reading settings" onClose={()=>closed++}><button>Change setting</button></ReaderDialog>));
+ await act(async()=>host.querySelector('button')!.click());expect(closed).toBe(0);
+ await act(async()=>host.querySelector<HTMLElement>('.reader-dialog-layer')!.click());expect(closed).toBe(1);
+ await act(async()=>root.unmount());host.remove();
+});
