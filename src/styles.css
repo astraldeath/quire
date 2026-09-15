@@ -2587,8 +2587,8 @@ a.book-open {
     grid-column: 4;
     grid-row: 2;
   }
-  .topbar:not(:has(.hosted-account)) .searchbox {
-    grid-column: 1/4;
+  .topbar:not(:has(.hosted-account)) > .icon {
+    grid-column: 4;
   }
   .shelf-controls {
     gap: 8px;
