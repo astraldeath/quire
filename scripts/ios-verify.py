@@ -25,6 +25,8 @@ with zipfile.ZipFile(ipas[0]) as archive:
         raise SystemExit('Expected one application inside Payload')
     info = plistlib.loads(archive.read(plists[0]))
     assert info['CFBundleIdentifier'] == 'app.quire.reader', 'Unexpected bundle identifier'
+    schemes = {scheme for entry in info.get('CFBundleURLTypes', []) for scheme in entry.get('CFBundleURLSchemes', [])}
+    assert 'app.quire.reader' in schemes, 'Standalone tracking OAuth callback scheme is missing'
     assert info['CFBundleSupportedPlatforms'] == ['iPhoneOS'], 'Simulator apps cannot be installed on an iPhone'
     assert not any(n.endswith('embedded.mobileprovision') or '/_CodeSignature/' in n for n in names), 'Signing files found in unsigned build'
     executable = plists[0].removesuffix('Info.plist') + info['CFBundleExecutable']

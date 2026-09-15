@@ -3,5 +3,11 @@
   "identifier": "main",
   "description": "Local library access for the application window; no remote origins.",
   "windows": ["main"],
-  "permissions": ["sql:allow-load", "sql:allow-select", "sql:allow-execute"]
+  "permissions": [
+    "sql:allow-load", "sql:allow-select", "sql:allow-execute",
+    { "identifier": "opener:allow-open-url", "allow": [
+      { "url": "https://mangabaka.org/*" },
+      { "url": "https://en.wiktionary.org/*" }
+    ] }
+  ]
 }

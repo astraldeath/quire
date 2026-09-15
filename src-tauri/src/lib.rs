@@ -1,18 +1,32 @@
 mod backup;
 mod sync;
+mod tracking;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
+#[cfg(desktop)]
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }));
+    builder
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|_app| {
             #[cfg(mobile)]
             _app.handle().plugin(tauri_plugin_haptics::init())?;
+            tracking::setup(_app.handle())?;
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![backup::export_backup, sync::sync_discover, sync::sync_login, sync::sync_call, sync::sync_logout, sync::sync_files, sync::sync_upload, sync::sync_download, sync::sync_metadata])
+        .invoke_handler(tauri::generate_handler![backup::export_backup, sync::sync_discover, sync::sync_login, sync::sync_call, sync::sync_logout, sync::sync_files, sync::sync_upload, sync::sync_download, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
         .plugin(tauri_plugin_sql::Builder::default().add_migrations("sqlite:quire.db", vec![Migration {
             version: 1,
             description: "local library and device preferences",

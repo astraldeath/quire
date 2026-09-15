@@ -22,4 +22,5 @@ jobs:
       - run: npm test
       - run: rustup toolchain install 1.95.0 --profile minimal
       - run: rustup override set 1.95.0
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
       - run: npx tauri build --ci --no-bundle
