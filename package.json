@@ -9,7 +9,9 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "tauri": "tauri",
-    "build:web": "tsc --noEmit && vite build --mode hosted --outDir dist-web"
+    "build:web": "tsc --noEmit && vite build --mode hosted --outDir dist-web",
+    "format": "prettier --write src tests *.json *.ts",
+    "format:check": "prettier --check src tests *.json *.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
@@ -31,6 +33,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
+    "prettier": "3.9.6",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.0"

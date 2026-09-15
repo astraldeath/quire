@@ -3,53 +3,100 @@ import { describe, expect, it, vi } from 'vitest';
 import { hardenFoliate } from '../scripts/foliate-transform';
 const source = readFileSync('node_modules/foliate-js/paginator.js', 'utf8');
 const id = '/node_modules/foliate-js/paginator.js';
-function fixture(hosted=false) {
-  const output = hardenFoliate(source, id,hosted)!;
-  const method = output.slice(output.indexOf('    async load('), output.indexOf('    render(layout) {'));
-  const Frame = new Function('getDirection', 'getBackground', `return class {
+function fixture(hosted = false) {
+  const output = hardenFoliate(source, id, hosted)!;
+  const method = output.slice(
+    output.indexOf('    async load('),
+    output.indexOf('    render(layout) {'),
+  );
+  const Frame = new Function(
+    'getDirection',
+    'getBackground',
+    `return class {
     #iframe; #vertical; #rtl; #observer = { observe() {} }; #contentRange = { selectNodeContents() {} };
     constructor(iframe) { this.#iframe = iframe; }
     get document() { return this.#iframe.contentDocument; }
     render() {} expand() {}
     ${method}
-  }`)(() => ({ vertical: false, rtl: false }), () => 'white');
-  const iframe = Object.assign(new EventTarget(), { src: '', style: {} as Record<string, string>, contentDocument: null as any });
+  }`,
+  )(
+    () => ({ vertical: false, rtl: false }),
+    () => 'white',
+  );
+  const iframe = Object.assign(new EventTarget(), {
+    src: '',
+    style: {} as Record<string, string>,
+    contentDocument: null as any,
+  });
   const frame = new Frame(iframe);
   return { iframe, frame };
 }
 describe('foliate sandbox and bounded loading', () => {
   it('applies frame readiness handling to Vite cache-tagged module URLs', () => {
-    expect(hardenFoliate(source, id + '?v=cache')).toContain('Book frame load timed out');
+    expect(hardenFoliate(source, id + '?v=cache')).toContain(
+      'Book frame load timed out',
+    );
   });
   it('keeps trusted parent event listeners compatible with WebKit and rejects upstream drift', () => {
-    expect(hardenFoliate(source, id)).toContain("'allow-same-origin allow-scripts'");
-    expect(() => hardenFoliate(source.replace('afterLoad?.(doc)', 'changed(doc)'), id)).toThrow(/review/i);
+    expect(hardenFoliate(source, id)).toContain(
+      "'allow-same-origin allow-scripts'",
+    );
+    expect(() =>
+      hardenFoliate(source.replace('afterLoad?.(doc)', 'changed(doc)'), id),
+    ).toThrow(/review/i);
   });
   it('rejects a stalled frame with its observed readiness after the deadline', async () => {
-    vi.useFakeTimers(); const { frame } = fixture();
-    const result = expect(frame.load('blob:test')).rejects.toThrow(/timed out.*unavailable/i);
-    await vi.advanceTimersByTimeAsync(15000); await result; vi.useRealTimers();
+    vi.useFakeTimers();
+    const { frame } = fixture();
+    const result = expect(frame.load('blob:test')).rejects.toThrow(
+      /timed out.*unavailable/i,
+    );
+    await vi.advanceTimersByTimeAsync(15000);
+    await result;
+    vi.useRealTimers();
   });
   it('reports callback exceptions rather than leaving load pending', async () => {
-    const { frame, iframe } = fixture(); iframe.contentDocument = { URL: 'blob:test', readyState: 'complete' };
-    const result = expect(frame.load('blob:test', () => { throw new Error('layout failed'); })).rejects.toThrow('layout failed');
-    iframe.dispatchEvent(new Event('load')); await result;
+    const { frame, iframe } = fixture();
+    iframe.contentDocument = { URL: 'blob:test', readyState: 'complete' };
+    const result = expect(
+      frame.load('blob:test', () => {
+        throw new Error('layout failed');
+      }),
+    ).rejects.toThrow('layout failed');
+    iframe.dispatchEvent(new Event('load'));
+    await result;
   });
   it('loads a ready book without an iframe load event, only once', async () => {
-    vi.useFakeTimers(); const { frame, iframe } = fixture(); const callback = vi.fn();
+    vi.useFakeTimers();
+    const { frame, iframe } = fixture();
+    const callback = vi.fn();
     const result = frame.load('blob:test', callback);
-    iframe.contentDocument = { URL: 'blob:test', readyState: 'complete', body: { style: {} }, fonts: { ready: Promise.resolve() } };
-    await vi.advanceTimersByTimeAsync(50); await result;
-    iframe.dispatchEvent(new Event('load')); await vi.advanceTimersByTimeAsync(100);
-    expect(callback).toHaveBeenCalledTimes(1); expect(iframe.style.display).toBe('block');
-    expect(vi.getTimerCount()).toBe(0); vi.useRealTimers();
+    iframe.contentDocument = {
+      URL: 'blob:test',
+      readyState: 'complete',
+      body: { style: {} },
+      fonts: { ready: Promise.resolve() },
+    };
+    await vi.advanceTimersByTimeAsync(50);
+    await result;
+    iframe.dispatchEvent(new Event('load'));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(iframe.style.display).toBe('block');
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
   });
 });
 
 it('unlocks page navigation after a renderer failure so the next turn can retry', async () => {
   const output = hardenFoliate(source, id)!;
-  const method = output.slice(output.indexOf('    async #turnPage('), output.indexOf('    async prev(distance)'));
-  const TestPaginator = new Function('wait', `return class {
+  const method = output.slice(
+    output.indexOf('    async #turnPage('),
+    output.indexOf('    async prev(distance)'),
+  );
+  const TestPaginator = new Function(
+    'wait',
+    `return class {
     #locked = false;
     attempts = 0;
     hasAttribute() { return true; }
@@ -59,17 +106,42 @@ it('unlocks page navigation after a renderer failure so the next turn can retry'
     async #goTo() {}
     turn() { return this.#turnPage(1); }
     ${method}
-  }`)(async () => {});
+  }`,
+  )(async () => {});
   const paginator = new TestPaginator();
   await expect(paginator.turn()).rejects.toThrow('failed chapter');
-  await paginator.turn(); expect(paginator.attempts).toBe(2);
+  await paginator.turn();
+  expect(paginator.attempts).toBe(2);
 });
 
-it('completes a hosted chapter when srcdoc is ready without accepting the initial blank document',async()=>{
- vi.useFakeTimers();vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,text:async()=>'<html><body>Chapter</body></html>'})));
- try{const {frame,iframe}=fixture(true);const callback=vi.fn();const loaded=frame.load('blob:test',callback);
- iframe.contentDocument={URL:'about:blank',readyState:'complete'};await vi.advanceTimersByTimeAsync(100);expect(callback).not.toHaveBeenCalled();
- iframe.contentDocument={URL:'about:srcdoc',readyState:'complete',body:{style:{}},fonts:{ready:Promise.resolve()}};
- await vi.advanceTimersByTimeAsync(50);await loaded;expect(callback).toHaveBeenCalledTimes(1);expect(vi.getTimerCount()).toBe(0);
- }finally{vi.useRealTimers();vi.unstubAllGlobals();}
+it('completes a hosted chapter when srcdoc is ready without accepting the initial blank document', async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: true,
+      text: async () => '<html><body>Chapter</body></html>',
+    })),
+  );
+  try {
+    const { frame, iframe } = fixture(true);
+    const callback = vi.fn();
+    const loaded = frame.load('blob:test', callback);
+    iframe.contentDocument = { URL: 'about:blank', readyState: 'complete' };
+    await vi.advanceTimersByTimeAsync(100);
+    expect(callback).not.toHaveBeenCalled();
+    iframe.contentDocument = {
+      URL: 'about:srcdoc',
+      readyState: 'complete',
+      body: { style: {} },
+      fonts: { ready: Promise.resolve() },
+    };
+    await vi.advanceTimersByTimeAsync(50);
+    await loaded;
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
 });

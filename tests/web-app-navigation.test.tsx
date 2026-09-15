@@ -1,39 +1,165 @@
-import {act} from 'react';
-import {createRoot} from 'react-dom/client';
-import {it,expect,vi} from 'vitest';
-import {App} from '../src/App';
-import {defaults} from '../src/domain/models';
-import {navigateWeb} from '../src/features/navigation/routes';
-const {books,ensure}=vi.hoisted(()=>({books:[{id:'a'.repeat(64),title:'Book One',author:'Author',series:'A/B',volume:1,cover:'',addedAt:1,local:true},{id:'b'.repeat(64),title:'Book Two',author:'Author',series:'A/B',volume:2,cover:'',addedAt:1,local:true}],ensure:vi.fn(async()=>new Uint8Array([1]))}));
-vi.mock('../src/features/navigation/routes',async()=>({...await vi.importActual('../src/features/navigation/routes'),hostedWeb:true}));
-vi.mock('../src/storage',()=>({listBooks:async()=>books,loadPreferences:async()=>defaults,loadSync:async()=>({enabled:false}),saveReadingPosition:vi.fn(),saveBookAnnotations:vi.fn()}));
-vi.mock('../src/features/sync/engine',()=>({startSync:()=>()=>{},syncNow:async()=>{}}));
-vi.mock('../src/features/sync/library',()=>({ensureBookFile:ensure}));
-vi.mock('../src/features/tracking/TrackingDialog',()=>({TrackingDialog:()=> <aside role="dialog">Tracking</aside>}));
-vi.mock('../src/features/reader/Reader',()=>({Reader:({book,onClose}:{book:{title:string};onClose():void})=><section data-reader>{book.title}<button onClick={onClose}>Leave reader</button></section>}));
-(globalThis as unknown as {IS_REACT_ACT_ENVIRONMENT:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
-it('opens a series directly, routes into its reader, and restores the series on browser Back',async()=>{
- history.replaceState(null,'','/series/A%2FB');const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{
-  await act(async()=>root.render(<App/>));expect(host.querySelector('h1')?.textContent).toBe('A/B');
-  const shelf=host.querySelector<HTMLElement>('main.library')!;
-  shelf.scrollTop=240;await act(async()=>shelf.dispatchEvent(new Event('scroll',{bubbles:true})));
-  await act(async()=>navigateWeb('/books/'+books[0].id+'/tracking'));expect(shelf.scrollTop).toBe(240);
-  await act(async()=>{const popped=new Promise<void>(resolve=>window.addEventListener('popstate',()=>resolve(),{once:true}));history.back();await popped;});
-  const link=host.querySelector<HTMLAnchorElement>('[aria-label="Open Book One"]')!;expect(link.getAttribute('href')).toBe('/books/'+books[0].id+'/read');
-  await act(async()=>link.click());
-  expect(location.pathname).toBe('/books/'+books[0].id+'/read');expect(host.querySelector('[data-reader]')?.textContent).toContain('Book One');
-  await act(async()=>{const popped=new Promise<void>(resolve=>window.addEventListener('popstate',()=>resolve(),{once:true}));history.back();await popped;});
-  expect(host.querySelector('h1')?.textContent).toBe('A/B');expect(host.querySelector('[data-reader]')).toBeNull();expect(host.querySelector<HTMLElement>('main.library')!.scrollTop).toBe(240);
-  await act(async()=>navigateWeb('/books/'+books[1].id+'/read'));expect(host.querySelector('[data-reader]')?.textContent).toContain('Book Two');
- }finally{await act(async()=>root.unmount());host.remove();history.replaceState(null,'','/');}
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { it, expect, vi } from 'vitest';
+import { App } from '../src/App';
+import { defaults } from '../src/domain/models';
+import { navigateWeb } from '../src/features/navigation/routes';
+const { books, ensure } = vi.hoisted(() => ({
+  books: [
+    {
+      id: 'a'.repeat(64),
+      title: 'Book One',
+      author: 'Author',
+      series: 'A/B',
+      volume: 1,
+      cover: '',
+      addedAt: 1,
+      local: true,
+    },
+    {
+      id: 'b'.repeat(64),
+      title: 'Book Two',
+      author: 'Author',
+      series: 'A/B',
+      volume: 2,
+      cover: '',
+      addedAt: 1,
+      local: true,
+    },
+  ],
+  ensure: vi.fn(async () => new Uint8Array([1])),
+}));
+vi.mock('../src/features/navigation/routes', async () => ({
+  ...(await vi.importActual('../src/features/navigation/routes')),
+  hostedWeb: true,
+}));
+vi.mock('../src/storage', () => ({
+  listBooks: async () => books,
+  loadPreferences: async () => defaults,
+  loadSync: async () => ({ enabled: false }),
+  saveReadingPosition: vi.fn(),
+  saveBookAnnotations: vi.fn(),
+}));
+vi.mock('../src/features/sync/engine', () => ({
+  startSync: () => () => {},
+  syncNow: async () => {},
+}));
+vi.mock('../src/features/sync/library', () => ({ ensureBookFile: ensure }));
+vi.mock('../src/features/tracking/TrackingDialog', () => ({
+  TrackingDialog: () => <aside role="dialog">Tracking</aside>,
+}));
+vi.mock('../src/features/reader/Reader', () => ({
+  Reader: ({ book, onClose }: { book: { title: string }; onClose(): void }) => (
+    <section data-reader>
+      {book.title}
+      <button onClick={onClose}>Leave reader</button>
+    </section>
+  ),
+}));
+(
+  globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+it('opens a series directly, routes into its reader, and restores the series on browser Back', async () => {
+  history.replaceState(null, '', '/series/A%2FB');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    expect(host.querySelector('h1')?.textContent).toBe('A/B');
+    const shelf = host.querySelector<HTMLElement>('main.library')!;
+    shelf.scrollTop = 240;
+    await act(async () =>
+      shelf.dispatchEvent(new Event('scroll', { bubbles: true })),
+    );
+    await act(async () => navigateWeb('/books/' + books[0].id + '/tracking'));
+    expect(shelf.scrollTop).toBe(240);
+    await act(async () => {
+      const popped = new Promise<void>((resolve) =>
+        window.addEventListener('popstate', () => resolve(), { once: true }),
+      );
+      history.back();
+      await popped;
+    });
+    const link = host.querySelector<HTMLAnchorElement>(
+      '[aria-label="Open Book One"]',
+    )!;
+    expect(link.getAttribute('href')).toBe('/books/' + books[0].id + '/read');
+    await act(async () => link.click());
+    expect(location.pathname).toBe('/books/' + books[0].id + '/read');
+    expect(host.querySelector('[data-reader]')?.textContent).toContain(
+      'Book One',
+    );
+    await act(async () => {
+      const popped = new Promise<void>((resolve) =>
+        window.addEventListener('popstate', () => resolve(), { once: true }),
+      );
+      history.back();
+      await popped;
+    });
+    expect(host.querySelector('h1')?.textContent).toBe('A/B');
+    expect(host.querySelector('[data-reader]')).toBeNull();
+    expect(host.querySelector<HTMLElement>('main.library')!.scrollTop).toBe(
+      240,
+    );
+    await act(async () => navigateWeb('/books/' + books[1].id + '/read'));
+    expect(host.querySelector('[data-reader]')?.textContent).toContain(
+      'Book Two',
+    );
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    history.replaceState(null, '', '/');
+  }
 });
 
-it('clears empty search in both URL and rendered results',async()=>{
- history.replaceState(null,'','/library?q=no_matching_book');const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{await act(async()=>root.render(<App/>));expect(host.textContent).toContain('No books found');const clear=[...host.querySelectorAll('button')].find(b=>b.textContent==='Clear search')!;await act(async()=>clear.click());expect(location.search).toBe('');expect(host.textContent).not.toContain('No books found');}finally{await act(async()=>root.unmount());host.remove();history.replaceState(null,'','/');}
+it('clears empty search in both URL and rendered results', async () => {
+  history.replaceState(null, '', '/library?q=no_matching_book');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    expect(host.textContent).toContain('No books found');
+    const clear = [...host.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Clear search',
+    )!;
+    await act(async () => clear.click());
+    expect(location.search).toBe('');
+    expect(host.textContent).not.toContain('No books found');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    history.replaceState(null, '', '/');
+  }
 });
-it('selects the exact number of books in a grouped series',async()=>{
- history.replaceState(null,'','/library');const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{await act(async()=>root.render(<App/>));await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Select')!.click());await act(async()=>host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click());expect(host.querySelector('[aria-label="Selected books"]')?.textContent).toContain('2 selected');await act(async()=>host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click());expect(host.querySelector('[aria-label="Selected books"]')?.textContent).toContain('0 selected');}finally{await act(async()=>root.unmount());host.remove();history.replaceState(null,'','/');}
+it('selects the exact number of books in a grouped series', async () => {
+  history.replaceState(null, '', '/library');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    await act(async () =>
+      [...host.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Select')!
+        .click(),
+    );
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click(),
+    );
+    expect(
+      host.querySelector('[aria-label="Selected books"]')?.textContent,
+    ).toContain('2 selected');
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click(),
+    );
+    expect(
+      host.querySelector('[aria-label="Selected books"]')?.textContent,
+    ).toContain('0 selected');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    history.replaceState(null, '', '/');
+  }
 });
