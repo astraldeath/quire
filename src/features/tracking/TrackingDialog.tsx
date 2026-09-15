@@ -12,9 +12,14 @@ import {
 import { Modal } from '../../components/Modal';
 import { Switch } from '../../components/Controls';
 import type { Book } from '../../domain/models';
-import { loadSync } from '../../storage';
-import type { Account } from '../sync/model';
-import { accountRequest } from '../sync/transport';
+import { isTauri } from '@tauri-apps/api/core';
+import {
+  trackingSession,
+  trackingRequest,
+  connectTracking,
+  type TrackingSession,
+} from './client';
+
 import { syncNow } from '../sync/engine';
 
 type Match = {
@@ -40,6 +45,9 @@ type Link = {
   error: string;
 };
 type Tracking = {
+  error?: string;
+  pending?: boolean;
+  accountId?: string;
   oauthAvailable: boolean;
   connected: boolean;
   name: string;
@@ -66,11 +74,12 @@ export function TrackingDialog({
   onClose(): void;
 }) {
   const title = series || book.title;
-  const [account, setAccount] = useState<Account>(),
+  const [account, setAccount] = useState<TrackingSession>(),
     [state, setState] = useState<Tracking>(),
     [busy, setBusy] = useState('Loading'),
     [error, setError] = useState('');
   const [editing, setEditing] = useState(false),
+    [editAccountId, setEditAccountId] = useState(''),
     [query, setQuery] = useState(title),
     [results, setResults] = useState<Match[]>([]),
     [searched, setSearched] = useState(false),
@@ -93,18 +102,22 @@ export function TrackingDialog({
   const linkedAuto = series
     ? seriesLinks.length > 0 && seriesLinks.every((l) => l.auto)
     : !!link?.auto;
+  useEffect(() => {
+    if (isTauri()) {
+      setAutomatic(false);
+      setEditAccountId(state?.accountId ?? '');
+    }
+  }, [state?.accountId]);
   async function refresh(a = account) {
-    if (a) setState(await accountRequest(a, '/v1/tracking'));
+    if (a) setState(await trackingRequest(a, '/v1/tracking'));
   }
   useEffect(() => {
     let alive = true;
-    void loadSync()
-      .then(async (s) => {
-        if (!s.enabled || !s.account)
-          throw new Error('Sign in to your Quire server to use tracking.');
-        const data = await accountRequest(s.account, '/v1/tracking');
+    void trackingSession()
+      .then(async (session) => {
+        const data = await trackingRequest(session, '/v1/tracking');
         if (alive) {
-          setAccount(s.account);
+          setAccount(session);
           setState(data);
         }
       })
@@ -118,6 +131,32 @@ export function TrackingDialog({
       alive = false;
     };
   }, [book.id, series]);
+  useEffect(() => {
+    if (!account || account.kind !== 'native') return;
+    let alive = true;
+    let reading = false;
+    const update = () => {
+      if (document.hidden || reading) return;
+      reading = true;
+      void trackingRequest(account, '/v1/tracking')
+        .then((data) => {
+          if (alive) setState(data);
+        })
+        .catch((e) => {
+          if (alive) setError(String(e));
+        })
+        .finally(() => {
+          reading = false;
+        });
+    };
+    const timer = setInterval(update, 2000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [account]);
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label);
     setError('');
@@ -133,6 +172,7 @@ export function TrackingDialog({
   }
   function edit() {
     setEditing(true);
+    setEditAccountId(state?.accountId ?? '');
     setSelected(link ? matchFor(link) : undefined);
     setResults([]);
     setSearched(false);
@@ -146,7 +186,7 @@ export function TrackingDialog({
     if (!account) return;
     setSelected(undefined);
     await run('Searching', async () => {
-      const data = await accountRequest(
+      const data = await trackingRequest(
         account,
         '/v1/tracking/search?q=' + encodeURIComponent(query.trim()),
       );
@@ -168,27 +208,16 @@ export function TrackingDialog({
   async function connect() {
     if (!account) return;
     await run('Opening MangaBaka', async () => {
-      const response = await accountRequest(
-        account,
-        '/v1/tracking/oauth/start',
-        {},
-        'POST',
-      );
-      const destination = new URL(response.url);
-      if (
-        destination.origin !== 'https://mangabaka.org' ||
-        destination.pathname !== '/auth/oauth2/authorize'
-      )
-        throw new Error('Invalid MangaBaka authorization address.');
-      window.location.assign(destination.href);
+      await connectTracking(account);
+      if (account.kind === 'native') await refresh();
     });
   }
   async function save() {
     if (!account || !selected) return;
     await run('Saving', async () => {
-      await syncNow();
+      if (!isTauri()) await syncNow();
       if (series)
-        await accountRequest(
+        await trackingRequest(
           account,
           '/v1/tracking/series',
           {
@@ -196,11 +225,14 @@ export function TrackingDialog({
             seriesId: selected.id,
             title: selected.title,
             auto: automatic && !!state?.connected,
+            ...(account.kind === 'native'
+              ? { expectedAccountId: editAccountId }
+              : {}),
           },
           'PUT',
         );
       else
-        await accountRequest(
+        await trackingRequest(
           account,
           `/v1/tracking/books/${book.id}`,
           {
@@ -210,6 +242,9 @@ export function TrackingDialog({
             seriesKey: scope === 'series' ? book.series : '',
             volume,
             auto: automatic && !!state?.connected,
+            ...(account.kind === 'native'
+              ? { expectedAccountId: editAccountId }
+              : {}),
             completeEntry: scope === 'book' && complete,
           },
           'PUT',
@@ -217,7 +252,7 @@ export function TrackingDialog({
       setEditing(false);
       await refresh();
       if (automatic) {
-        await accountRequest(account, '/v1/tracking/sync', {}, 'POST');
+        await trackingRequest(account, '/v1/tracking/sync', {}, 'POST');
         await refresh();
       }
     });
@@ -225,14 +260,14 @@ export function TrackingDialog({
   async function remove() {
     await run('Unlinking', async () => {
       if (series)
-        await accountRequest(
+        await trackingRequest(
           account!,
           '/v1/tracking/series',
           { seriesKey: series },
           'DELETE',
         );
       else
-        await accountRequest(
+        await trackingRequest(
           account!,
           `/v1/tracking/books/${book.id}`,
           undefined,
@@ -251,15 +286,20 @@ export function TrackingDialog({
     >
       <div className="tracker-body">
         <p className="tracker-context">{title}</p>
-        {error && (
+        {(error || state?.error) && (
           <p role="alert" className="error">
-            {error}
+            {error || state?.error}
           </p>
         )}
         {busy && (
           <p className="tracker-status" role="status">
             <LoaderCircle className="spinning" />
             {busy}…
+          </p>
+        )}
+        {state?.pending && !busy && (
+          <p role="status" className="muted">
+            Finish signing in to MangaBaka in your browser.
           </p>
         )}
         {state && !editing && (
@@ -303,8 +343,8 @@ export function TrackingDialog({
                         disabled={!!busy}
                         onClick={() =>
                           void run('Updating', async () => {
-                            await syncNow();
-                            await accountRequest(
+                            if (!isTauri()) await syncNow();
+                            await trackingRequest(
                               account!,
                               '/v1/tracking/sync',
                               {},
@@ -368,7 +408,7 @@ export function TrackingDialog({
                     disabled={!!busy}
                     onClick={() =>
                       void run('Disconnecting', async () => {
-                        await accountRequest(
+                        await trackingRequest(
                           account!,
                           '/v1/tracking/account',
                           undefined,

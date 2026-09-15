@@ -35,7 +35,7 @@ The API contract is version 1. Sync edits, acknowledgements and cursor changes a
 
 Library filters cover reading status and local availability. Sort by last read, date added, title, or author; series additionally sort by volume. View controls set grid/list, cover size, and grouping. Select mode offers batch download, finished/unread status, and confirmed removal. Series continuation skips finished volumes. Book and series overflow menus are also available by hold or right-click.
 
-Hosted URLs support refresh, browser history, and direct book links. MangaBaka connections use server-side OAuth; tracking is optional per book or explicitly applied to a series, with individual overrides preserved. See the server tracking guide for deployment configuration and current limits.
+Hosted URLs support refresh, browser history, and direct book links. Installed Quire connects directly to MangaBaka without a Quire server; the hosted WebUI uses server-side OAuth. Tracking is optional per book or explicitly applied to a series, with individual overrides preserved. See [standalone tracking](TRACKING.md) for account setup and limitations.
 
 Browser storage version 2 separates EPUB bytes from metadata. The first upgrade is transactional and preserves notes and files; reload all open Quire tabs if an older tab blocks it. Native SQLite storage is unchanged. Downloads are SHA-256 verified before caching; the reader validates the archive and sanitizes chapter content before display.
 

@@ -1,5 +1,6 @@
 import { TrackingDialog } from '../tracking/TrackingDialog';
 import { TrackingButton } from '../tracking/TrackingButton';
+import { isTauri } from '@tauri-apps/api/core';
 import { useState } from 'react';
 import { BookOpen, HardDriveDownload, Pencil, Trash2 } from 'lucide-react';
 import type { Book } from '../../domain/models';
@@ -231,7 +232,7 @@ export function BookDetails({
           )}
           <BookServerActions book={book} />
         </section>
-        {import.meta.env.VITE_HOSTED === 'true' && (
+        {(import.meta.env.VITE_HOSTED === 'true' || isTauri()) && (
           <section className="book-details-group" aria-label="Tracking">
             <h3>Tracking</h3>
             <TrackingButton

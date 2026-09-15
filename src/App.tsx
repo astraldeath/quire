@@ -13,6 +13,8 @@ import { ensureBookFile } from './features/sync/library';
 import { startSync } from './features/sync/engine';
 import { TrackingDialog } from './features/tracking/TrackingDialog';
 import { TrackingButton } from './features/tracking/TrackingButton';
+import { isTauri } from '@tauri-apps/api/core';
+import { startNativeTracking } from './features/tracking/native';
 import { BookActions } from './features/library/BookActions';
 import { createBackup, type Backup } from './features/backup/archive';
 import { mergeBook } from './features/backup/merge';
@@ -171,8 +173,10 @@ export function App({
     };
     window.addEventListener('quire-synced', update);
     const stop = startSync();
+    const stopTracking = startNativeTracking();
     return () => {
       stop();
+      stopTracking();
       window.removeEventListener('quire-synced', update);
     };
   }, []);
@@ -427,7 +431,10 @@ export function App({
           ? '/series/' + encodeURIComponent(series) + '/tracking'
           : '/books/' + book.id + '/tracking',
       );
-    else setSeriesTracking(series ?? null);
+    else {
+      setSeriesTracking(series ?? null);
+      setBookTracking(series ? null : book.id);
+    }
   };
   const changeFilter = (key: string, value: string) => {
     if (!hostedWeb) {
@@ -786,7 +793,7 @@ export function App({
                     Continue
                   </button>
                 )}
-                {hostedWeb && (
+                {(hostedWeb || isTauri()) && (
                   <TrackingButton
                     bookId=""
                     series={group}
@@ -1153,7 +1160,11 @@ export function App({
       {bookTracking && books.find((b) => b.id === bookTracking) && (
         <TrackingDialog
           book={books.find((b) => b.id === bookTracking)!}
-          onClose={() => closeWeb('/books/' + bookTracking)}
+          onClose={() =>
+            hostedWeb
+              ? closeWeb('/books/' + bookTracking)
+              : setBookTracking(null)
+          }
         />
       )}
       {hostedWeb &&
@@ -1237,7 +1248,7 @@ export function App({
               : undefined
           }
           onTracking={
-            hostedWeb
+            hostedWeb || isTauri()
               ? () => {
                   goTracking(
                     actions.entry.books[0],
@@ -1273,7 +1284,9 @@ export function App({
       )}
       {details && (
         <BookDetails
-          onTracking={hostedWeb ? () => goTracking(details) : undefined}
+          onTracking={
+            hostedWeb || isTauri() ? () => goTracking(details) : undefined
+          }
           onDelete={() => {
             setDetailsId(null);
             showActions(

@@ -10,7 +10,8 @@ An offline-first EPUB reader for Windows, iOS, and the browser. The installed re
 - Paginated and scrolling reading, configurable typography and themes.
 - Bookmarks, highlights, notes, in-book search, and online Wiktionary definitions.
 - Full-library or data-only backups with a preview before restoring.
-- Optional server sync and MangaBaka book or series tracking.
+- MangaBaka book or series tracking directly from the installed app, with no Quire server required.
+- Optional server sync and shared libraries.
 
 DRM-free, reflowable EPUBs are supported. Fixed-layout EPUBs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
 
@@ -41,6 +42,7 @@ Use `npm run format` to format source and tests. Type checking rejects unused de
 ## Documentation
 
 - [Reader, backups, sync, and storage guide](docs/READER.md)
+- [Standalone MangaBaka tracking](docs/TRACKING.md)
 - [Build and installation guide](docs/BUILDING.md)
 - [Server setup and administration](https://github.com/astraldeath/quire-server)
 
