@@ -1,3 +1,4 @@
+import type { ActionAnchor } from '../../components/ActionPopover';
 import { holdFeedback } from './haptics';
 import { useEffect, useRef, type ReactNode } from 'react';
 export function BookOpenButton({
@@ -10,7 +11,7 @@ export function BookOpenButton({
   href?: string;
   label: string;
   onOpen(): void;
-  onActions(): void;
+  onActions(anchor: ActionAnchor): void;
   children: ReactNode;
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -27,17 +28,19 @@ export function BookOpenButton({
       href={href}
       className="book-open"
       aria-label={label}
-      aria-haspopup="dialog"
+      aria-haspopup="menu"
       onPointerDown={(e) => {
         cancel();
         held.current = false;
         if (e.pointerType === 'mouse' || !e.isPrimary) return;
         start.current = { x: e.clientX, y: e.clientY };
+        const point = { left: e.clientX, top: e.clientY, bottom: e.clientY };
+        e.currentTarget.focus({ preventScroll: true });
         timer.current = setTimeout(() => {
           held.current = true;
           start.current = null;
           holdFeedback();
-          onActions();
+          onActions(point);
         }, 500);
       }}
       onPointerMove={(e) => {
@@ -58,7 +61,8 @@ export function BookOpenButton({
         if (!held.current) {
           held.current = true;
           if (touchHold) holdFeedback();
-          onActions();
+          e.currentTarget.focus({ preventScroll: true });
+          onActions({ left: e.clientX, top: e.clientY, bottom: e.clientY });
         }
       }}
       onKeyDown={(e) => {
@@ -67,7 +71,7 @@ export function BookOpenButton({
           e.preventDefault();
           cancel();
           held.current = true;
-          onActions();
+          onActions(e.currentTarget.getBoundingClientRect());
         }
       }}
       onClick={(e) => {

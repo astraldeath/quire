@@ -1,3 +1,7 @@
+import {
+  ActionPopover,
+  type ActionAnchor,
+} from '../../components/ActionPopover';
 import { TrackingDialog } from '../tracking/TrackingDialog';
 import { TrackingButton } from '../tracking/TrackingButton';
 import { useState } from 'react';
@@ -14,6 +18,7 @@ import { Modal } from '../../components/Modal';
 import type { LibraryEntry } from '../../domain/library';
 export function BookActions({
   entry,
+  anchor,
   initialRemove = false,
   onClose,
   onOpen,
@@ -30,6 +35,7 @@ export function BookActions({
   onContinue?: () => void;
   onTracking?: () => void;
   entry: LibraryEntry;
+  anchor?: ActionAnchor;
   initialRemove?: boolean;
   onClose(): void;
   onOpen(): void;
@@ -64,11 +70,13 @@ export function BookActions({
       <TrackingDialog
         book={entry.books[0]}
         series={entry.series ? entry.title : undefined}
-        onClose={() => setTracking(false)}
+        onClose={onClose}
       />
     );
+  const Container = confirm ? Modal : ActionPopover;
   return (
-    <Modal
+    <Container
+      anchor={anchor}
       title={
         confirm
           ? 'Confirm removal'
@@ -165,13 +173,11 @@ export function BookActions({
                 )}
               </>
             )}
-            {import.meta.env.VITE_HOSTED === 'true' && (
-              <TrackingButton
-                bookId={entry.books[0].id}
-                series={entry.series ? entry.title : undefined}
-                onClick={() => (onTracking ? onTracking() : setTracking(true))}
-              />
-            )}
+            <TrackingButton
+              bookId={entry.books[0].id}
+              series={entry.series ? entry.title : undefined}
+              onClick={() => (onTracking ? onTracking() : setTracking(true))}
+            />
             {!entry.series && (
               <button onClick={onDetails}>
                 <Info />
@@ -196,6 +202,6 @@ export function BookActions({
           </p>
         )}
       </div>
-    </Modal>
+    </Container>
   );
 }

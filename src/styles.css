@@ -1201,6 +1201,37 @@ dialog:has(.settings-tabs) .modal-header {
   flex-direction: column;
   gap: 18px;
 }
+.action-popover {
+  position: fixed;
+  z-index: 100;
+  width: 264px;
+  padding: 6px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px #0003;
+}
+.action-popover .book-actions {
+  gap: 4px;
+}
+.action-popover .book-action-title {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.action-popover .book-action-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.action-popover .book-action-list {
+  gap: 0;
+}
+.action-popover .book-action-list button {
+  width: 100%;
+  border-radius: 6px;
+}
 .book-actions p {
   font-size: 13px;
   line-height: 1.6;

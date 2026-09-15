@@ -131,7 +131,7 @@ it('requires explicit group removal confirmation with the number of books', asyn
   );
   const click = async (text: string) =>
     act(async () =>
-      Array.from(host.querySelectorAll('button'))
+      Array.from(document.querySelectorAll('button'))
         .find((b) => b.textContent === text)!
         .click(),
     );
@@ -144,4 +144,69 @@ it('requires explicit group removal confirmation with the number of books', asyn
   await click('Remove 2 books');
   expect(remove).toHaveBeenCalledTimes(1);
   await act(async () => root.unmount());
+});
+
+it('offers tracking directly in a non-modal menu and supports dismissal and keyboard navigation', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const close = vi.fn(),
+    track = vi.fn(),
+    details = vi.fn();
+  const book = {
+    id: 'one',
+    title: 'One',
+    author: '',
+    series: '',
+    volume: null,
+    cover: '',
+    addedAt: 0,
+    local: true,
+  };
+  await act(async () =>
+    root.render(
+      <BookActions
+        entry={{ key: 'one', title: 'One', series: false, books: [book] }}
+        anchor={{ left: 300, top: 200, bottom: 200 }}
+        onClose={close}
+        onOpen={() => {}}
+        onDetails={details}
+        onTracking={track}
+        onRemoveDownload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    ),
+  );
+  try {
+    const menu = document.querySelector('[role="menu"]')!;
+    expect(menu).toBeTruthy();
+    expect(document.querySelector('dialog')).toBeNull();
+    const buttons = [...menu.querySelectorAll('button')];
+    expect(document.activeElement).toBe(buttons[0]);
+    await act(async () =>
+      buttons[0].dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+      ),
+    );
+    expect(document.activeElement).toBe(buttons[1]);
+    const tracking = buttons.find(
+      (button) => button.textContent === 'Tracking',
+    )!;
+    expect(tracking.getAttribute('role')).toBe('menuitem');
+    await act(async () => tracking.click());
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(details).not.toHaveBeenCalled();
+    await act(async () =>
+      menu.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      ),
+    );
+    expect(close).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })),
+    );
+    expect(close).toHaveBeenCalledTimes(2);
+  } finally {
+    await act(async () => root.unmount());
+  }
 });
