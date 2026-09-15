@@ -6,7 +6,7 @@ Import DRM-free, reflowable EPUBs, organize them in a grid or list, edit series 
 
 See [building and private iPhone installation](docs/BUILDING.md) for setup. The iOS workflow produces an unsigned IPA for local signing with Feather; hosted builds and physical-device behavior still need validation.
 
-Fixed-layout EPUBs, optional server sync, and tracker integrations are not implemented yet. No account is required for the local reader.
+Fixed-layout EPUBs are not supported. Optional server sync and MangaBaka tracking are available in the hosted WebUI. No account is required for the local reader.
 
 The optional sync server is a separate repository in `../quire-server`.
 
@@ -33,7 +33,7 @@ Long-press a book or series on touch devices, or right-click it on desktop, to o
 
 Open **Settings > Server**, enter your `user@server` account, find the server, then sign in. Use Advanced server address for custom ports. Accounts are created by your server owner. The reader remains usable offline and saves local changes with a durable sync outbox.
 
-Sync runs after edits, on foreground/reconnection, and periodically while open. Conflicting notes or reading positions appear in Server settings for an explicit choice. Library metadata, progress and saved passages sync; EPUBs and device appearance settings do not upload automatically. Use **Book details > Server copy** to upload/download EPUBs or remove an uploaded server copy. Watched-folder originals cannot be deleted from the reader. Removing a server upload never removes downloaded copies or reading data.
+Sync runs after edits, on foreground/reconnection, and periodically while open. Conflicting notes or reading positions appear in Server settings for an explicit choice. Library metadata, progress and saved passages sync; EPUBs and device appearance settings do not upload automatically. Use **Book details > Server copy** to upload EPUBs or remove an uploaded server copy. Watched-folder originals cannot be deleted from the reader. Removing a server upload never removes downloaded copies or reading data.
 
 Windows and iOS tokens are stored in the system credential store. Standalone browser tokens stay in memory; hosted WebUI sessions use persistent HttpOnly cookies, and the server must explicitly allow the browser origin. Credentials, server connection state and pending sync operations are excluded from reader backup archives. Reconnect after restoring a backup.
 
@@ -42,3 +42,13 @@ The API contract is version 1. Sync edits, acknowledgements and cursor changes a
 ## Server-hosted browser build
 
 `npm run build:web` builds the shared reader in hosted mode. Serve `dist-web` through Quire Server's `-web-dir` option. It adds setup/sign-in, invitation redemption, account-specific browser storage, administration and shared-library filters. `npm run build` remains the installed-app build. Hosted browser sessions use 30-day HttpOnly, SameSite=Strict cookies (Secure on HTTPS). Reopening the WebUI restores the account from the server. Cookie writes require the exact configured public origin, and every tab binds requests to its session ID to prevent cross-account sync after an account switch. Sign-out revokes the session and clears the cookie. Hosted imports upload to the personal server library, while shared uploads require an admin.
+
+## Library and tracking
+
+Library filters cover reading status and local availability. Sort by last read, date added, title, or author; series additionally sort by volume. View controls set grid/list, cover size, and grouping. Select mode offers batch download, finished/unread status, and confirmed removal. Series continuation skips finished volumes. Book and series overflow menus are also available by hold or right-click.
+
+Hosted URLs support refresh, browser history, and direct book links. MangaBaka connections use server-side OAuth; tracking is optional per book or explicitly applied to a series, with individual overrides preserved. See the server tracking guide for deployment configuration and current limits.
+
+Browser storage version 2 separates EPUB bytes from metadata. The first upgrade is transactional and preserves notes and files; reload all open Quire tabs if an older tab blocks it. Native SQLite storage is unchanged. Downloads are SHA-256 verified before caching; the reader validates the archive and sanitizes chapter content before display.
+
+Changes use incremental Conventional Commits. Run `npm test`, `npm run build`, and `npm run build:web` before shipping. A production deployment must use the matching server release and HTTPS; physical iOS testing remains separate from browser checks.

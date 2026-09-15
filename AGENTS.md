@@ -14,3 +14,11 @@
 - Never use Unicode characters as UI icons (including checkmarks). Use Lucide SVG icons with flex alignment for icon-and-label buttons.
 
 - Hosted authentication uses same-origin HttpOnly cookies and X-Quire-Session binding on authenticated requests. Never store hosted tokens in browser storage or remove the session binding; it prevents stale tabs from syncing into a different account.
+
+- Keep tracking and similar feature dialogs concise: show the match, status, and primary action; place optional explanations and advanced controls behind disclosure. Offer series actions at the series level, preserving individual book overrides.
+
+- WebUI destinations use meaningful URLs and browser history; preserve direct links, refresh, Back/Forward, and opening books in new tabs. Native app navigation remains local. Reading dialogs dismiss on backdrop clicks, while clicks inside keep them open.
+
+- Library browsing uses a compact Filters / Sort / View / Select toolbar. Keep account actions in one menu, show Lucide overflow actions on every book and series, emphasize volume numbers within a series, and reveal bulk actions only in selection mode. Book details starts with a summary; metadata editing is explicit. Reading excludes finished books, and continuation respects the selected library.
+
+- Use incremental Conventional Commits for completed changes. Commit and push when requested; exclude runtime data, OAuth secrets, and generated builds.
