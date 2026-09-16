@@ -3,9 +3,87 @@ import {
   inferSeriesVolume,
   buildBookStructure,
   completedChapterAt,
+  chapterHrefAtRange,
 } from './book-structure';
 
 describe('explicit book structure', () => {
+  it('resolves in-book anchors even when the navigation has no chapter entries', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><section id="one"><h2>Chapter 1</h2></section><section id="two"><h2>Chapter 2</h2><p>Reading here</p></section></body></html>',
+      'text/html',
+    );
+    const range = doc.createRange();
+    range.selectNodeContents(doc.querySelector('p')!);
+    const structure = buildBookStructure(
+      [
+        { label: 'Chapter 1', href: 'a.xhtml#one' },
+        { label: 'Chapter 2', href: 'a.xhtml#two' },
+      ],
+      ['a.xhtml'],
+    );
+    expect(chapterHrefAtRange(structure, 0, range)).toBe('a.xhtml#two');
+    expect(
+      completedChapterAt(structure, {
+        spineIndex: 0,
+        href: chapterHrefAtRange(structure, 0, range),
+      }),
+    ).toBe(1);
+  });
+  it.each([
+    'Ch. 001: Start',
+    'Chapter One: Start',
+    'Chapter I — Start',
+    'Vol. 2 Chapter 01: Start',
+    'Ｃｈａｐｔｅｒ ００１ Start',
+  ])('recognizes %s', (label) => {
+    expect(
+      buildBookStructure([{ label, href: 'a.xhtml' }], ['a.xhtml']).chapters[0]
+        ?.number,
+    ).toBe(1);
+  });
+  it.each(['001 Start', '01 — Start', '0001: Start', '1. Start'])(
+    'requires sequence evidence for %s',
+    (label) => {
+      expect(
+        buildBookStructure([{ label, href: 'a.xhtml' }], ['a.xhtml']).chapters,
+      ).toEqual([]);
+      expect(
+        buildBookStructure(
+          [
+            { label, href: 'a.xhtml' },
+            { label: '002 Next', href: 'b.xhtml' },
+          ],
+          ['a.xhtml', 'b.xhtml'],
+        ).chapters.map((c) => c.number),
+      ).toEqual([1, 2]);
+    },
+  );
+  it('rejects decimal chapters, dates, ranges and malformed Roman numbers', () => {
+    for (const label of [
+      'Chapter 1.5 Bonus',
+      'Chapter 1-3',
+      'Chapter IIX',
+      '2025-01-01',
+      '1984 A novel',
+    ]) {
+      expect(
+        buildBookStructure([{ label, href: 'a.xhtml' }], ['a.xhtml']).chapters,
+      ).toEqual([]);
+    }
+  });
+  it('understands compound written and Roman chapter numbers', () => {
+    const labels = [
+      'Chapter Twenty-One',
+      'Chapter XXII',
+      'Chapter Twenty Three',
+    ];
+    expect(
+      buildBookStructure(
+        labels.map((label, i) => ({ label, href: `${i}.xhtml` })),
+        ['0.xhtml', '1.xhtml', '2.xhtml'],
+      ).chapters.map((c) => c.number),
+    ).toEqual([21, 22, 23]);
+  });
   it('uses explicit title volumes before filenames and preserves metadata', () => {
     expect(
       inferSeriesVolume(

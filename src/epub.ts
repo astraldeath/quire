@@ -3,6 +3,7 @@ import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import type { Book } from './domain/models';
 import {
   buildBookStructure,
+  chapterLabel,
   inferSeriesVolume,
   type BookStructure,
   type ChapterLink,
@@ -284,7 +285,7 @@ export async function openArchive(bytes: Uint8Array) {
   };
 }
 
-/** Read only explicit chapter labels from the publication's navigation. */
+/** Combine publication navigation with chapter headings in reading order. */
 export function detectBookStructure(
   archive: Awaited<ReturnType<typeof openArchive>>,
 ): BookStructure {
@@ -310,6 +311,7 @@ export function detectBookStructure(
     items.find(
       (item) => item.getAttribute('media-type') === 'application/x-dtbncx+xml',
     );
+  let navigationLinks: ChapterLink[] = [];
   for (const item of [navigation, ncx]) {
     if (!item) continue;
     try {
@@ -352,13 +354,111 @@ export function detectBookStructure(
           add(label?.textContent ?? '', content?.getAttribute('src') ?? null);
         }
       }
-      const structure = buildBookStructure(links, spine);
-      if (structure.chapters.length) return structure;
+      if (links.length) {
+        if (links.some((link) => chapterLabel(link.label))) {
+          navigationLinks = links;
+          break;
+        }
+        if (!navigationLinks.length) navigationLinks = links;
+      }
     } catch {
       // Optional malformed navigation must not prevent opening a readable EPUB.
     }
   }
-  return { chapters: [] };
+  const links: ChapterLink[] = [];
+  const types = (element: Element) =>
+    (
+      element.getAttributeNS('http://www.idpf.org/2007/ops', 'type') ??
+      element.getAttribute('epub:type') ??
+      ''
+    ).split(/\s+/);
+  for (const path of spine) {
+    if (!path) continue;
+    const nav = navigationLinks.filter(
+      (link) => link.href.split('#')[0] === path,
+    );
+    const numbered = nav.filter((link) => chapterLabel(link.label));
+    const headings: ChapterLink[] = [];
+    try {
+      const data = files.get(path);
+      if (data) {
+        const doc = xml(new TextDecoder().decode(data));
+        for (const heading of Array.from(
+          doc.querySelectorAll('h1, h2, h3, h4, h5, h6'),
+        )) {
+          let semantic = false;
+          let excluded = false;
+          let id = heading.id;
+          for (
+            let parent: Element | null = heading;
+            parent;
+            parent = parent.parentElement
+          ) {
+            const tokens = types(parent);
+            if (
+              tokens.includes('chapter') ||
+              parent.getAttribute('role') === 'doc-chapter'
+            ) {
+              semantic = true;
+              id ||= parent.id;
+            }
+            if (
+              tokens.some((t) =>
+                [
+                  'frontmatter',
+                  'backmatter',
+                  'toc',
+                  'page-list',
+                  'cover',
+                  'titlepage',
+                  'copyright-page',
+                  'prologue',
+                  'epilogue',
+                  'appendix',
+                  'footnotes',
+                  'endnotes',
+                ].includes(t),
+              ) ||
+              parent.localName === 'nav' ||
+              parent.getAttribute('aria-hidden') === 'true' ||
+              parent.hasAttribute('hidden')
+            )
+              excluded = true;
+          }
+          const label = heading.textContent?.trim() ?? '';
+          if (excluded || !chapterLabel(label)) continue;
+          // Multiple chapters in one document require real anchors for progress.
+          if (!id && headings.length) continue;
+          const href = path + (id ? '#' + encodeURIComponent(id) : '');
+          const target = nav.find((link) => link.href === href);
+          headings.push({ label, href: target?.href ?? href, semantic });
+        }
+      }
+    } catch {
+      // Malformed optional heading markup must not prevent reading the book.
+    }
+    if (numbered.length) {
+      if (
+        headings.some((heading) => {
+          const same = numbered.find((link) => link.href === heading.href);
+          return (
+            same &&
+            chapterLabel(same.label)?.number !==
+              chapterLabel(heading.label)?.number
+          );
+        })
+      )
+        return { chapters: [] };
+      links.push(...numbered);
+    } else links.push(...headings);
+  }
+  // Validate original navigation order before using spine-ordered fallbacks.
+  if (
+    navigationLinks.some((link) => chapterLabel(link.label)?.explicit) &&
+    !buildBookStructure(navigationLinks, spine).chapters.length
+  )
+    return { chapters: [] };
+  return buildBookStructure(links, spine);
 }
 
 export async function importEpub(
