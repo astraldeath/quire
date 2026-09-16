@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { LogOut, Shield, UserRound } from 'lucide-react';
 import { AccountPanel } from './AccountPanel';
 import { App } from '../../App';
+import { Wordmark } from '../../components/Wordmark';
 import { Modal } from '../../components/Modal';
 import { useBrowserAccount, syncTransaction } from '../../storage';
 import {
@@ -240,7 +241,7 @@ export function HostedApp() {
     <main className="hosted-entry">
       <section className="hosted-card">
         <h1>
-          quire<span>.</span>
+          <Wordmark />
         </h1>
         <h2>
           {setup ? 'Create admin account' : invite ? 'Join Quire' : 'Sign in'}
