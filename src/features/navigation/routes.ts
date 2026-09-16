@@ -54,7 +54,8 @@ export function parseWebRoute(path: string): WebRoute {
     if (
       parts[0] === 'settings' &&
       parts.length <= 2 &&
-      (!parts[1] || ['appearance', 'library', 'backups'].includes(parts[1]))
+      (!parts[1] ||
+        ['appearance', 'library', 'backups', 'statistics'].includes(parts[1]))
     )
       return { kind: 'settings', tab: parts[1] || 'appearance' };
     if (

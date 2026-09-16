@@ -202,6 +202,15 @@ export async function call(a: Account, body: unknown): Promise<SyncResponse> {
     });
   return web(a.origin, '/v1/sync', body, webToken(a));
 }
+export async function statsCall(a: Account, body: unknown): Promise<unknown> {
+  if (isTauri())
+    return invoke('statistics_call', {
+      server: a.origin,
+      username: a.username,
+      body,
+    });
+  return web(a.origin, '/v1/statistics/sync', body, webToken(a));
+}
 export interface ServerFile {
   bookId: string;
   size: number;

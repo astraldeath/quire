@@ -39,6 +39,8 @@ vi.mock('../src/storage', () => ({
   loadSync: async () => ({ enabled: false }),
   saveReadingPosition: vi.fn(),
   saveBookAnnotations: vi.fn(),
+  listReadingActivity: async () => [],
+  saveReadingActivity: vi.fn(async () => {}),
 }));
 vi.mock('../src/features/sync/engine', () => ({
   startSync: () => () => {},

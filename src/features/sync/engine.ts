@@ -1,3 +1,4 @@
+import { syncReadingActivity } from '../statistics/sync';
 import { fetchCovers } from './library';
 import { loadSync, syncTransaction } from '../../storage';
 import {
@@ -101,6 +102,7 @@ export function syncNow(): Promise<void> {
         });
         if (!more) {
           await fetchCovers(batch.account);
+          await syncReadingActivity();
           const s = await loadSync();
           const conflicts = Object.values(s.records).filter(
             (r) => r.candidates.length > 1,
@@ -159,6 +161,12 @@ export function startSync() {
         .catch(() => {});
     }, 1500);
   };
+  const activityChanged = () => {
+    if (running) return;
+    clearTimeout(timer);
+    timer = setTimeout(run, 1500);
+  };
+  window.addEventListener('quire-statistics', activityChanged);
   window.addEventListener('quire-storage', changed);
   window.addEventListener('online', run);
   document.addEventListener('visibilitychange', foreground);
@@ -170,6 +178,7 @@ export function startSync() {
   return () => {
     clearTimeout(timer);
     clearInterval(interval);
+    window.removeEventListener('quire-statistics', activityChanged);
     window.removeEventListener('quire-storage', changed);
     window.removeEventListener('online', run);
     document.removeEventListener('visibilitychange', foreground);

@@ -37,7 +37,7 @@ Library filters cover reading status and local availability. Sort by last read, 
 
 Hosted URLs support refresh, browser history, and direct book links. Installed Quire connects directly to MangaBaka without a Quire server; the hosted WebUI uses server-side OAuth. Tracking is optional per book or explicitly applied to a series, with individual overrides preserved. See [standalone tracking](TRACKING.md) for account setup and limitations.
 
-Browser storage version 2 separates EPUB bytes from metadata. The first upgrade is transactional and preserves notes and files; reload all open Quire tabs if an older tab blocks it. Native SQLite storage is unchanged. Downloads are SHA-256 verified before caching; the reader validates the archive and sanitizes chapter content before display.
+Browser storage version 3 keeps EPUB bytes, metadata, and reading history separately. Upgrades are transactional and preserve notes and files; reload all open Quire tabs if an older tab blocks one. Native SQLite stores reading history in separate tables. Downloads are SHA-256 verified before caching; the reader validates the archive and sanitizes chapter content before display.
 
 Changes use incremental Conventional Commits. Run `npm test`, `npm run build`, and `npm run build:web` before shipping. A production deployment must use the matching server release and HTTPS; physical iOS testing remains separate from browser checks.
 
@@ -57,3 +57,13 @@ Automatic work runs while Quire is open and visible, online, and connected, proc
 Choose **Export EPUB** from a book’s action menu to save its original file. Server-only books download first; installed apps use the system save picker and browsers offer file sharing or a download. Exported EPUBs do not include Quire notes or reading progress; use a backup for those.
 
 Import keeps embedded series and volume metadata, falling back to explicit “Vol.” or “Volume” numbers in the title or filename. Numbered chapters are detected from the table of contents when opening a book without a volume number. Existing metadata edits are preserved. See [tracking](TRACKING.md) for automatic chapter progress.
+
+## Statistics
+
+**Settings > Statistics** shows current library counts and reading history for all time, this year, or this month. Library counts include books in the current library; chapter and volume history remains after removing books. A completed volume counts once, regardless of its volume number. Rereading a chapter does not add another distinct chapter to the same period.
+
+Time is an estimate of active reading: hidden pages and reader dialogs pause collection, and two minutes without interaction stops the clock. Overlapping activity from tabs or devices counts once. Reading speed uses timed, forward page turns and visible word counts; it appears after at least a minute of usable samples. Scrolling contributes reading time, but not speed samples. Numbered chapter detection depends on the EPUB table of contents.
+
+Earlier saved completion progress contributes only undated, all-time estimates. Quire cannot reconstruct earlier reading time or speed. New activity is checkpointed every 30 seconds and when leaving the reader; an abrupt app termination can lose the latest unsaved interval.
+
+History stays on the device without a connected server. When connected, Quire syncs it with the account alongside library data. Both backup types include history, including removed books. Repeated restores and sync retries preserve record identities so they do not inflate totals. Use the matching server release to sync statistics.

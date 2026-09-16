@@ -6,6 +6,7 @@ import {
   type FileEntry,
 } from '@zip.js/zip.js';
 import type { Book, Preferences } from '../../domain/models';
+import { validateActivity, type ReadingActivity } from '../statistics/model';
 import { validateBook, validatePreferences } from './validation';
 export interface BackupRecord {
   book: Book;
@@ -16,6 +17,7 @@ export interface Backup {
   kind: 'full' | 'data';
   preferences: Preferences;
   records: BackupRecord[];
+  activities?: ReadingActivity[];
 }
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 const MANIFEST_MAX = 32 * 1024 * 1024;
@@ -49,6 +51,7 @@ export async function createBackup(
   records: BackupRecord[],
   preferences: Preferences,
   kind: Backup['kind'],
+  activities: ReadingActivity[] = [],
 ): Promise<Uint8Array> {
   const files = kind === 'full' ? records.filter((r) => r.file) : [];
   const manifest = {
@@ -59,6 +62,7 @@ export async function createBackup(
     preferences,
     books: records.map((r) => r.book),
     files: files.map((r) => r.book.id),
+    activities: validateActivities(activities),
   };
   const data = new TextEncoder().encode(JSON.stringify(manifest));
   if (
@@ -168,8 +172,24 @@ export async function readBackup(bytes: Uint8Array): Promise<Backup> {
       kind: manifest.kind,
       preferences,
       records,
+      activities: validateActivities(manifest.activities ?? []),
     };
   } finally {
     await reader.close();
   }
+}
+
+function validateActivities(value: unknown): ReadingActivity[] {
+  if (!Array.isArray(value))
+    throw new Error('Invalid backup reading activity.');
+  const items = value.map(validateActivity);
+  const seen = new Map<string, string>();
+  for (const item of items) {
+    const encoded = JSON.stringify(item);
+    const old = seen.get(item.id);
+    if (old !== undefined && old !== encoded)
+      throw new Error('Conflicting reading activity identity.');
+    seen.set(item.id, encoded);
+  }
+  return [...new Map(items.map((a) => [a.id, a])).values()];
 }

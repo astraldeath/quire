@@ -6,6 +6,10 @@ import {
 } from '../src/features/navigation/routes';
 describe('WebUI navigation', () => {
   it('recognizes encoded series, reader, and nested routes', () => {
+    expect(parseWebRoute('/settings/statistics')).toEqual({
+      kind: 'settings',
+      tab: 'statistics',
+    });
     expect(parseWebRoute('/series/A%2FB%20%26%20C/tracking')).toMatchObject({
       kind: 'series-tracking',
       series: 'A/B & C',
