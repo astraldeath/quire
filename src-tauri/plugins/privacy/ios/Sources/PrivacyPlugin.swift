@@ -81,5 +81,3 @@ class PrivacyPlugin: Plugin {
 
 @_cdecl("init_plugin_privacy")
 func initPlugin() -> Plugin { PrivacyPlugin() }
-
-
