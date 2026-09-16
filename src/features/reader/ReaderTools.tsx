@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Bookmark,
   BookOpen,
@@ -19,8 +19,9 @@ import {
   wiktionaryUrl,
 } from './definitions';
 import { ReaderDialog } from './ReaderDialog';
+import { SelectionToolbar } from './SelectionToolbar';
 
-type Selection = { cfi: string; text: string; doc: Document };
+type Selection = { cfi: string; text: string; doc: Document; range: Range };
 interface Props {
   otherPanelOpen: boolean;
   onOpen(): void;
@@ -42,6 +43,8 @@ export function ReaderTools({
   navigate,
 }: Props) {
   const [selection, setSelection] = useState<Selection | null>(null);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const [panel, setPanel] = useState<
     'saved' | 'note' | 'define' | 'search' | null
   >(null);
@@ -103,8 +106,12 @@ export function ReaderTools({
     if (otherPanelOpen) setPanel(null);
   }, [otherPanelOpen]);
   useEffect(() => {
+    if (panel || otherPanelOpen) {
+      selectionRef.current?.doc.getSelection()?.removeAllRanges();
+      if (otherPanelOpen) setSelection(null);
+    }
     if (panel) onOpen();
-  }, [panel]);
+  }, [panel, otherPanelOpen]);
   const clearSelection = () => {
     selection?.doc.getSelection()?.removeAllRanges();
     setSelection(null);
@@ -125,7 +132,7 @@ export function ReaderTools({
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [selection]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const disposers: (() => void)[] = [];
     const installed = new WeakSet<Document>();
     const install = ({ doc, index }: { doc: Document; index: number }) => {
@@ -150,6 +157,7 @@ export function ReaderTools({
               cfi: view.getCFI(index, selected.getRangeAt(0)),
               text: selected.toString().trim(),
               doc,
+              range: selected.getRangeAt(0).cloneRange(),
             });
           } catch {
             setMessage('This selection could not be saved.');
@@ -160,6 +168,7 @@ export function ReaderTools({
       disposers.push(() => {
         clearTimeout(timer);
         doc.removeEventListener('selectionchange', changed);
+        doc.getSelection()?.removeAllRanges();
       });
     };
     const load = (event: Event) => install((event as CustomEvent).detail);
@@ -176,6 +185,7 @@ export function ReaderTools({
               .catch(() => setMessage('A highlight could not be restored.'));
       });
     const relocated = () => {
+      selectionRef.current?.doc.getSelection()?.removeAllRanges();
       setSelection(null);
     };
     view.addEventListener('load', load);
@@ -345,13 +355,8 @@ export function ReaderTools({
           </div>,
           toolbar,
         )}
-      {selection && !panel && (
-        <div
-          className="selection-tools"
-          role="toolbar"
-          aria-label="Selected text actions"
-          onPointerDown={(e) => e.preventDefault()}
-        >
+      {selection && !panel && !otherPanelOpen && (
+        <SelectionToolbar range={selection.range} doc={selection.doc}>
           <button
             title="Copy"
             aria-label="Copy selected text"
@@ -418,7 +423,7 @@ export function ReaderTools({
           >
             <X />
           </button>
-        </div>
+        </SelectionToolbar>
       )}
       {panel && (
         <ReaderDialog

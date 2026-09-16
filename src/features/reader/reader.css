@@ -496,11 +496,8 @@
   flex-shrink: 0;
 }
 .selection-tools {
-  position: absolute;
-  z-index: 10;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--reader-footer-space, 64px) + 12px);
+  position: fixed;
+  z-index: 35;
   display: flex;
   gap: 3px;
   padding: 6px;
