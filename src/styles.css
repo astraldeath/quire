@@ -497,6 +497,7 @@ button.icon {
   opacity: 0.85;
 }
 dialog {
+  overflow: hidden;
   background: var(--surface);
   color: var(--fg);
   border: 1px solid var(--line);
@@ -512,8 +513,20 @@ dialog::backdrop {
 }
 .modal-inner {
   padding: 22px;
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  min-height: 0;
+}
+.modal-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 2px;
 }
 .modal-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1029,6 +1042,12 @@ dialog:has(.settings-tabs) .modal-inner {
 dialog:has(.settings-tabs) .modal-header {
   flex-shrink: 0;
   margin-bottom: 16px;
+}
+dialog:has(.settings-tabs) .modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 .settings-tabs {
   display: flex;

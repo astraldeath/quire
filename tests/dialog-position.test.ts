@@ -40,3 +40,15 @@ it('keeps short dialogs centered without a keyboard and clamps a tiny viewport',
   expect(tiny.top).toBe(71);
   expect(tiny.maxHeight).toBe(97);
 });
+it('moves a short dialog up enough to keep its form usable above the keyboard', () => {
+  const safe = { top: 59, bottom: 0 };
+  const position = dialogPosition(
+    { top: 0, left: 0, width: 390, height: 410 },
+    400,
+    safe,
+    290,
+  );
+  expect(position.maxHeight).toBeGreaterThanOrEqual(240);
+  expect(position.top).toBeGreaterThanOrEqual(71);
+  expect(position.top + position.maxHeight).toBeLessThanOrEqual(398);
+});
