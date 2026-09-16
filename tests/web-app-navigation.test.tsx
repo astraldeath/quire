@@ -34,6 +34,7 @@ vi.mock('../src/features/navigation/routes', async () => ({
   hostedWeb: true,
 }));
 vi.mock('../src/storage', () => ({
+  devicePrivacyKey: () => 'privacy-navigation-test',
   listBooks: async () => books,
   loadPreferences: async () => defaults,
   loadSync: async () => ({ enabled: false }),
@@ -41,6 +42,23 @@ vi.mock('../src/storage', () => ({
   saveBookAnnotations: vi.fn(),
   listReadingActivity: async () => [],
   saveReadingActivity: vi.fn(async () => {}),
+}));
+vi.mock('../src/components/Modal', () => ({
+  Modal: ({
+    title,
+    children,
+    onClose,
+  }: {
+    title: string;
+    children: import('react').ReactNode;
+    onClose(): void;
+  }) => (
+    <section role="dialog">
+      <h2>{title}</h2>
+      {children}
+      <button onClick={onClose}>Cancel privacy</button>
+    </section>
+  ),
 }));
 vi.mock('../src/features/sync/engine', () => ({
   startSync: () => () => {},
@@ -61,6 +79,40 @@ vi.mock('../src/features/reader/Reader', () => ({
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+it('hides private books before grouping and refuses direct reader access without authentication', async () => {
+  localStorage.setItem(
+    'privacy-navigation-test',
+    JSON.stringify({
+      version: 1,
+      books: { [books[0].id]: 'hidden' },
+      credential: { salt: 'a'.repeat(32), hash: 'b'.repeat(64) },
+    }),
+  );
+  history.replaceState(null, '', '/library');
+  ensure.mockClear();
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    expect(host.textContent).not.toContain('Book One');
+    await act(async () => navigateWeb('/books/' + books[0].id + '/read'));
+    expect(host.querySelector('[data-reader]')).toBeNull();
+    expect(ensure).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('Unlock private books');
+    await act(async () =>
+      Array.from(host.querySelectorAll('button'))
+        .find((b) => b.textContent === 'Cancel privacy')!
+        .click(),
+    );
+    expect(location.pathname).toBe('/library');
+    expect(ensure).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    localStorage.removeItem('privacy-navigation-test');
+  }
+});
 it('opens a series directly, routes into its reader, and restores the series on browser Back', async () => {
   history.replaceState(null, '', '/series/A%2FB');
   const host = document.createElement('div');

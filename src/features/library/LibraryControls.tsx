@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
+import { EyeOff } from 'lucide-react';
 import { Segments, Switch, StepperControl } from '../../components/Controls';
 import type { Preferences } from '../../domain/models';
 export function LibraryControls({
@@ -20,7 +21,9 @@ export function LibraryControls({
   onSelect,
   collections = [],
   collection = 'all',
+  onHidden,
 }: {
+  onHidden?: () => void;
   collections?: { id: string; name: string }[];
   collection?: string;
   preferences: Preferences;
@@ -142,6 +145,17 @@ export function LibraryControls({
             )}
             {panel === 'View' && (
               <>
+                {onHidden && (
+                  <button
+                    onClick={() => {
+                      setPanel('');
+                      onHidden();
+                    }}
+                  >
+                    <EyeOff />
+                    Hidden books
+                  </button>
+                )}
                 <Segments
                   label="Layout"
                   value={preferences.view}

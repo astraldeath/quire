@@ -25,6 +25,7 @@ with zipfile.ZipFile(ipas[0]) as archive:
         raise SystemExit('Expected one application inside Payload')
     info = plistlib.loads(archive.read(plists[0]))
     assert info['CFBundleIdentifier'] == 'app.quire.reader', 'Unexpected bundle identifier'
+    assert info.get('NSFaceIDUsageDescription'), 'Face ID usage description missing'
     schemes = {scheme for entry in info.get('CFBundleURLTypes', []) for scheme in entry.get('CFBundleURLSchemes', [])}
     assert 'app.quire.reader' in schemes, 'Standalone tracking OAuth callback scheme is missing'
     assert info['CFBundleSupportedPlatforms'] == ['iPhoneOS'], 'Simulator apps cannot be installed on an iPhone'

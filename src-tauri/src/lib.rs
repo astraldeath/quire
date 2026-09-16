@@ -18,6 +18,7 @@ pub fn run() {
         }
     }));
     builder
+        .plugin(tauri_plugin_privacy::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|_app| {

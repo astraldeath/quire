@@ -1,4 +1,7 @@
 import { StorageSettings } from '../storage/StorageSettings';
+import { PrivacySettings } from '../privacy/PrivacySettings';
+import { usePrivacy } from '../privacy/Privacy';
+import { Shield } from 'lucide-react';
 import { useState } from 'react';
 import {
   Archive,
@@ -37,6 +40,7 @@ export function Settings({
   onClose(): void;
 }) {
   const [working, setWorking] = useState(false);
+  const privacy = usePrivacy();
   return (
     <Modal
       title="Settings"
@@ -147,14 +151,28 @@ export function Settings({
             id: 'backups',
             label: 'Backups',
             icon: Archive,
-            content: (
-              <BackupSettings
-                books={books}
-                preferences={p}
-                actions={backupActions}
-                onBusy={setWorking}
-              />
-            ),
+            content:
+              !privacy.unlocked &&
+              Object.values(privacy.state.books).some(
+                (mode) => mode !== 'normal',
+              ) ? (
+                <button onClick={() => void privacy.authenticate()}>
+                  Unlock to manage backups
+                </button>
+              ) : (
+                <BackupSettings
+                  books={books}
+                  preferences={p}
+                  actions={backupActions}
+                  onBusy={setWorking}
+                />
+              ),
+          },
+          {
+            id: 'privacy',
+            label: 'Privacy',
+            icon: Shield,
+            content: <PrivacySettings />,
           },
           {
             id: 'statistics',

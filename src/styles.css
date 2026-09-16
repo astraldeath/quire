@@ -1037,11 +1037,46 @@ dialog:has(.settings-tabs) .modal-header {
   min-height: 0;
   min-width: 0;
 }
+.privacy-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  background: #1e1e1e;
+  color: #fff;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+.privacy-cover .brand-wordmark {
+  width: 150px;
+}
+.privacy-check {
+  margin-left: auto;
+}
+.privacy-menu {
+  width: 100%;
+}
 .settings-tablist {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
   padding-bottom: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.settings-tablist::-webkit-scrollbar {
+  height: 4px;
+}
+.settings-tablist::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
 }
 .settings-tablist button {
   display: flex;

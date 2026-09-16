@@ -6,6 +6,10 @@ import type { ActionAnchor } from './components/ActionPopover';
 import { LibraryControls } from './features/library/LibraryControls';
 import { Modal } from './components/Modal';
 import { Wordmark } from './components/Wordmark';
+import { PrivacyProvider, usePrivacy } from './features/privacy/Privacy';
+import { PrivacyMenu } from './features/privacy/PrivacyMenu';
+import { visibleBook } from './features/privacy/model';
+import { LockKeyhole } from 'lucide-react';
 import {
   hostedWeb,
   useWebPath,
@@ -112,7 +116,7 @@ function Cover({ entry }: { entry: LibraryEntry }) {
     </div>
   );
 }
-export function App({
+function AppContent({
   accountActions,
   serverLibraries = [],
   onImport,
@@ -121,6 +125,9 @@ export function App({
   serverLibraries?: { id: string; name: string; bookIds: string[] }[];
   onImport?: (id: string, bytes: Uint8Array) => Promise<void>;
 } = {}) {
+  const privacy = usePrivacy();
+  const wasUnlocked = useRef(false);
+  const [hiddenBooks, setHiddenBooks] = useState(false);
   const webPath = useWebPath();
   const route = parseWebRoute(webPath);
   const scrollKey = ['library', 'reading', 'series'].includes(route.kind)
@@ -300,6 +307,7 @@ export function App({
     if (input.current) input.current.value = '';
   };
   const openBook = async (book: Book) => {
+    if (!privacy.access(book.id) && !(await privacy.authenticate())) return;
     if (hostedWeb) {
       navigateWeb('/books/' + book.id + '/read');
       return;
@@ -310,6 +318,7 @@ export function App({
     try {
       await queue.current;
       const bytes = await ensureBookFile(book.id);
+      if (!privacy.access(book.id)) return;
       refresh(await listBooks());
       if (!bytes)
         throw new Error(
@@ -344,8 +353,16 @@ export function App({
     setGroup(shelf.series ?? null);
     setActions(null);
     setSettings(current.kind === 'settings');
-    setDetailsId(current.kind === 'details' ? current.bookId! : null);
-    setBookTracking(current.kind === 'tracking' ? current.bookId! : null);
+    setDetailsId(
+      current.kind === 'details' && privacy.access(current.bookId!)
+        ? current.bookId!
+        : null,
+    );
+    setBookTracking(
+      current.kind === 'tracking' && privacy.access(current.bookId!)
+        ? current.bookId!
+        : null,
+    );
     setSeriesTracking(
       current.kind === 'series-tracking' ? current.series! : null,
     );
@@ -377,6 +394,19 @@ export function App({
     setError('');
     if (current.kind !== 'read') {
       setOpened(null);
+      if (
+        current.bookId &&
+        routeBookExists &&
+        !privacy.access(current.bookId)
+      ) {
+        void privacy.authenticate().then((ok) => {
+          if (location.pathname !== webPath.split('?')[0]) return;
+          if (!ok) navigateWeb('/library', true);
+          else if (current.kind === 'details') setDetailsId(current.bookId!);
+          else if (current.kind === 'tracking')
+            setBookTracking(current.bookId!);
+        });
+      }
       return;
     }
     setOpened(null);
@@ -384,9 +414,14 @@ export function App({
     let cancelled = false;
     setBusy('Opening book');
     void (async () => {
+      if (!privacy.access(current.bookId!) && !(await privacy.authenticate())) {
+        if (!cancelled) navigateWeb('/library', true);
+        return;
+      }
+      if (cancelled) return;
       await queue.current;
       const bytes = await ensureBookFile(current.bookId!);
-      if (cancelled) return;
+      if (cancelled || !privacy.access(current.bookId!)) return;
       if (!bytes) throw new Error('This book is unavailable.');
       const saved = await listBooks();
       if (cancelled) return;
@@ -408,12 +443,29 @@ export function App({
     };
   }, [webPath, loading, routeBookExists]);
   useEffect(() => {
+    const relocked = wasUnlocked.current && !privacy.unlocked;
+    wasUnlocked.current = privacy.unlocked;
+    if (!relocked) return;
+    setHiddenBooks(false);
+    setSelected([]);
+    setActions(null);
+    setDetailsId(null);
+    setBookTracking(null);
+    setSeriesTracking(null);
+    if (opened && !privacy.access(opened.book.id)) {
+      setOpened(null);
+      if (hostedWeb) navigateWeb('/library', true);
+    }
+  }, [privacy.unlocked]);
+  useEffect(() => {
     if (hostedWeb)
       document.title =
         (route.kind === 'read' ||
         route.kind === 'details' ||
         route.kind === 'tracking'
-          ? (books.find((b) => b.id === route.bookId)?.title ?? 'Book')
+          ? privacy.access(route.bookId!)
+            ? (books.find((b) => b.id === route.bookId)?.title ?? 'Book')
+            : 'Private book'
           : route.series ||
             (
               {
@@ -425,7 +477,7 @@ export function App({
                 'not-found': 'Page not found',
               } as Record<string, string>
             )[route.kind]) + ' · Quire';
-  }, [webPath, books]);
+  }, [webPath, books, privacy.unlocked]);
   useLayoutEffect(() => {
     if (hostedWeb && shelfElement.current)
       shelfElement.current.scrollTop = shelfScroll.current.get(scrollKey) ?? 0;
@@ -447,7 +499,8 @@ export function App({
       else closeWeb();
     } else setSettings(open);
   };
-  const goTracking = (book: Book, series?: string) => {
+  const goTracking = async (book: Book, series?: string) => {
+    if (!privacy.access(book.id) && !(await privacy.authenticate())) return;
     if (hostedWeb)
       navigateWeb(
         series
@@ -494,6 +547,11 @@ export function App({
   };
   const prepareBackup = (kind: Backup['kind']) =>
     enqueue(async () => {
+      if (
+        Object.keys(privacy.state.books).some((id) => !privacy.access(id)) &&
+        !(await privacy.authenticate())
+      )
+        throw new Error('Unlock private books to export a backup.');
       const saved = await listBooks();
       const records = [];
       for (const book of saved) {
@@ -547,14 +605,23 @@ export function App({
       preferencesRef.current = next;
       setPreferences(next);
     });
-  const showActions = (
+  const showActions = async (
     entry: LibraryEntry,
     initialRemove = false,
     anchor?: ActionAnchor,
   ) => {
     const members = entry.series
-      ? booksRef.current.filter((b) => b.series === entry.books[0].series)
+      ? booksRef.current.filter(
+          (b) =>
+            b.series === entry.books[0].series &&
+            visibleBook(privacy.state, b.id, hiddenBooks, privacy.unlocked),
+        )
       : entry.books;
+    if (
+      members.some((b) => !privacy.access(b.id)) &&
+      !(await privacy.authenticate())
+    )
+      return;
     setActions({ entry: { ...entry, books: members }, initialRemove, anchor });
   };
   const removeFromLibrary = (ids: string[]) =>
@@ -574,18 +641,25 @@ export function App({
         `${ids.length === 1 ? 'Book' : `${ids.length} books`} removed from library.`,
       );
     });
+  const shelfBooks = useMemo(
+    () =>
+      books.filter((b) =>
+        visibleBook(privacy.state, b.id, hiddenBooks, privacy.unlocked),
+      ),
+    [books, privacy.state, hiddenBooks, privacy.unlocked],
+  );
   const scopedBooks = useMemo(
     () =>
       libraryScope === 'all'
-        ? books
-        : books.filter((b) =>
+        ? shelfBooks
+        : shelfBooks.filter((b) =>
             libraryScope === 'personal'
               ? !serverLibraries.some((l) => l.bookIds.includes(b.id))
               : serverLibraries
                   .find((l) => l.id === libraryScope)
                   ?.bookIds.includes(b.id),
           ),
-    [books, libraryScope, serverLibraries],
+    [shelfBooks, libraryScope, serverLibraries],
   );
   const deferredQuery = useDeferredValue(query);
   const shelfPreferences = group
@@ -634,6 +708,11 @@ export function App({
     ids: string[],
     action: 'download' | 'finished' | 'unread' | 'remove-download',
   ) => {
+    if (
+      ids.some((id) => !privacy.access(id)) &&
+      !(await privacy.authenticate())
+    )
+      return;
     if (busy) return;
     setBusy(action === 'download' ? 'Downloading books…' : 'Updating books…');
     setError('');
@@ -671,8 +750,9 @@ export function App({
     }
   };
 
-  const details = books.find((b) => b.id === detailsId);
+  const details = books.find((b) => b.id === detailsId && privacy.access(b.id));
   const goLibrary = (read = false) => {
+    setHiddenBooks(false);
     if (hostedWeb) {
       navigateWeb(read ? '/reading' : '/library');
       return;
@@ -691,7 +771,7 @@ export function App({
         multiple
         onChange={(e) => void importFiles(Array.from(e.target.files ?? []))}
       />
-      {opened ? (
+      {opened && privacy.access(opened.book.id) ? (
         <Reader
           book={books.find((b) => b.id === opened.book.id) ?? opened.book}
           onAnnotations={saveAnnotations}
@@ -781,6 +861,19 @@ export function App({
               { '--cover-size': `${preferences.coverSize}px` } as CSSProperties
             }
           >
+            {hiddenBooks && (
+              <div className="button-row">
+                <strong>Hidden books</strong>
+                <button
+                  onClick={() => {
+                    setHiddenBooks(false);
+                    setGroup(null);
+                  }}
+                >
+                  Back to library
+                </button>
+              </div>
+            )}
             {reading &&
               recent &&
               !group &&
@@ -878,6 +971,16 @@ export function App({
                 </select>
               )}
               <LibraryControls
+                onHidden={() => {
+                  void privacy.authenticate().then((ok) => {
+                    if (ok) {
+                      goLibrary(false);
+                      setHiddenBooks(true);
+                      setGroup(null);
+                      setQuery('');
+                    }
+                  });
+                }}
                 collections={serverLibraries}
                 collection={libraryScope}
                 preferences={shelfPreferences}
@@ -934,6 +1037,7 @@ export function App({
                 aria-label="Selected books"
               >
                 <strong>{activeIds.length} selected</strong>
+                <PrivacyMenu ids={activeIds} onDone={() => setSelected([])} />
                 <button
                   onClick={() =>
                     setSelected(
@@ -969,7 +1073,15 @@ export function App({
                 <button
                   className="danger"
                   disabled={!activeIds.length || !!busy}
-                  onClick={() => setBulkRemove(true)}
+                  onClick={() => {
+                    void (async () => {
+                      if (
+                        activeIds.every((id) => privacy.access(id)) ||
+                        (await privacy.authenticate())
+                      )
+                        setBulkRemove(true);
+                    })();
+                  }}
                 >
                   <Trash2 />
                   Remove
@@ -1110,6 +1222,19 @@ export function App({
                                   : 'Not started'}
                         </span>
                         <div className="book-tail">
+                          {entry.books.some(
+                            (b) =>
+                              (privacy.state.books[b.id] ?? 'normal') !==
+                              'normal',
+                          ) && (
+                            <span
+                              className="icon"
+                              title="Private book"
+                              aria-label="Private book"
+                            >
+                              <LockKeyhole size={16} />
+                            </span>
+                          )}
                           {!group &&
                             !entry.series &&
                             book.volume !== null &&
@@ -1190,7 +1315,7 @@ export function App({
               ? (tab) => navigateWeb('/settings/' + tab, true)
               : undefined
           }
-          books={books}
+          books={privacy.unlocked ? books : shelfBooks}
           backupActions={{
             prepare: prepareBackup,
             restore: restoreBackup,
@@ -1201,27 +1326,34 @@ export function App({
           onClose={() => goSettings(false)}
         />
       )}
-      {seriesTracking && books.find((b) => b.series === seriesTracking) && (
-        <TrackingDialog
-          book={books.find((b) => b.series === seriesTracking)!}
-          series={seriesTracking}
-          onClose={() =>
-            hostedWeb
-              ? closeWeb('/series/' + encodeURIComponent(seriesTracking))
-              : setSeriesTracking(null)
-          }
-        />
-      )}
-      {bookTracking && books.find((b) => b.id === bookTracking) && (
-        <TrackingDialog
-          book={books.find((b) => b.id === bookTracking)!}
-          onClose={() =>
-            hostedWeb
-              ? closeWeb('/books/' + bookTracking)
-              : setBookTracking(null)
-          }
-        />
-      )}
+      {seriesTracking &&
+        shelfBooks.find(
+          (b) => b.series === seriesTracking && privacy.access(b.id),
+        ) && (
+          <TrackingDialog
+            book={shelfBooks.find(
+              (b) => b.series === seriesTracking && privacy.access(b.id),
+            )!}
+            series={seriesTracking}
+            onClose={() =>
+              hostedWeb
+                ? closeWeb('/series/' + encodeURIComponent(seriesTracking))
+                : setSeriesTracking(null)
+            }
+          />
+        )}
+      {bookTracking &&
+        privacy.access(bookTracking) &&
+        books.find((b) => b.id === bookTracking) && (
+          <TrackingDialog
+            book={books.find((b) => b.id === bookTracking)!}
+            onClose={() =>
+              hostedWeb
+                ? closeWeb('/books/' + bookTracking)
+                : setBookTracking(null)
+            }
+          />
+        )}
       {hostedWeb &&
         (route.kind === 'not-found' ||
           (!loading && route.bookId && !routeBookExists)) && (
@@ -1269,7 +1401,7 @@ export function App({
           </div>
         </Modal>
       )}
-      {actions && (
+      {actions && actions.entry.books.every((b) => privacy.access(b.id)) && (
         <BookActions
           onDownload={() =>
             batch(
@@ -1386,5 +1518,12 @@ export function App({
         />
       )}
     </>
+  );
+}
+export function App(props: Parameters<typeof AppContent>[0]) {
+  return (
+    <PrivacyProvider>
+      <AppContent {...props} />
+    </PrivacyProvider>
   );
 }

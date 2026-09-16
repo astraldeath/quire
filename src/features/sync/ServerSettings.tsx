@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { usePrivacy } from '../privacy/Privacy';
 import {
   Cloud,
   RefreshCw,
@@ -23,6 +24,7 @@ import {
 import { discover, serverOrigin } from './transport';
 import { isTauri } from '@tauri-apps/api/core';
 export function ServerSettings() {
+  const privacy = usePrivacy();
   const [state, setState] = useState<SyncState>(emptySync);
   const status = useSyncExternalStore(subscribe, snapshot);
   const [account, setAccount] = useState('');
@@ -259,38 +261,47 @@ export function ServerSettings() {
             Changes from different devices conflict. All versions stay saved
             until you choose.
           </p>
-          {conflicts.map((r) => (
-            <div className="sync-conflict" key={recordKey(r)}>
-              <strong>
-                {r.kind === 'position'
-                  ? 'Reading position'
-                  : r.kind === 'book'
-                    ? 'Book information'
-                    : 'Saved passage'}
-              </strong>
-              {r.candidates.map((c) => (
-                <button
-                  key={c.operationId}
-                  disabled={busy || status.busy}
-                  onClick={() => void perform(() => resolve(r, c))}
-                >
-                  <span>
-                    {c.deleted
-                      ? 'Keep deletion'
-                      : r.kind === 'position'
-                        ? `${c.value?.section || 'Reading position'} · ${Math.round(Number(c.value?.fraction) * 100)}%`
-                        : String(
-                            c.value?.note ||
-                              c.value?.text ||
-                              c.value?.title ||
-                              'Saved passage',
-                          )}
-                  </span>
-                  <small>Use this version</small>
-                </button>
-              ))}
-            </div>
-          ))}
+          {conflicts.map((r) =>
+            !privacy.access(r.bookId) ? (
+              <button
+                key={recordKey(r)}
+                onClick={() => void privacy.authenticate()}
+              >
+                Unlock private book to resolve conflict
+              </button>
+            ) : (
+              <div className="sync-conflict" key={recordKey(r)}>
+                <strong>
+                  {r.kind === 'position'
+                    ? 'Reading position'
+                    : r.kind === 'book'
+                      ? 'Book information'
+                      : 'Saved passage'}
+                </strong>
+                {r.candidates.map((c) => (
+                  <button
+                    key={c.operationId}
+                    disabled={busy || status.busy}
+                    onClick={() => void perform(() => resolve(r, c))}
+                  >
+                    <span>
+                      {c.deleted
+                        ? 'Keep deletion'
+                        : r.kind === 'position'
+                          ? `${c.value?.section || 'Reading position'} · ${Math.round(Number(c.value?.fraction) * 100)}%`
+                          : String(
+                              c.value?.note ||
+                                c.value?.text ||
+                                c.value?.title ||
+                                'Saved passage',
+                            )}
+                    </span>
+                    <small>Use this version</small>
+                  </button>
+                ))}
+              </div>
+            ),
+          )}
         </section>
       )}
     </div>
