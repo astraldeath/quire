@@ -13,11 +13,22 @@ export function dialogPosition(
   const minimum = insets.top + 12;
   const bottom = insets.bottom + 12;
   const available = Math.max(0, viewport.height - minimum - bottom);
+  // Keep an existing top anchor only while enough of the form remains usable.
+  // A 120px remainder can hide the focused field beneath the dialog's header.
+  const usableHeight = Math.min(
+    panelHeight,
+    320,
+    available,
+    Math.max(240, available * 0.75),
+  );
   const top =
     anchor === undefined
       ? minimum +
         Math.max(0, (available - Math.min(panelHeight, available)) / 2)
-      : Math.max(minimum, Math.min(anchor, viewport.height - bottom - 120));
+      : Math.max(
+          minimum,
+          Math.min(anchor, viewport.height - bottom - usableHeight),
+        );
   return {
     top: viewport.top + top,
     left: viewport.left + viewport.width / 2,

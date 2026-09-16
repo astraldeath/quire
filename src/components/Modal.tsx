@@ -12,6 +12,8 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
+    // Dismiss selection UI belonging to the page before opening a new surface.
+    document.getSelection()?.removeAllRanges();
     ref.current?.showModal();
     let resting = visualBox();
     let anchor: number | undefined;
@@ -47,6 +49,20 @@ export function Modal({
         maxWidth: `${Math.max(0, box.width - 32)}px`,
         maxHeight: `${position.maxHeight}px`,
       });
+      if (keyboard) {
+        const body = panel.querySelector<HTMLElement>('.modal-body');
+        const field = panel.querySelector<HTMLElement>(
+          'input:focus,textarea:focus,[contenteditable=true]:focus',
+        );
+        if (body && field && body.contains(field)) {
+          const bounds = body.getBoundingClientRect(),
+            input = field.getBoundingClientRect();
+          if (input.bottom > bounds.bottom - 12)
+            body.scrollTop += input.bottom - bounds.bottom + 12;
+          else if (input.top < bounds.top + 12)
+            body.scrollTop -= bounds.top + 12 - input.top;
+        }
+      }
     };
     const resize =
       typeof ResizeObserver === 'undefined'
@@ -58,7 +74,15 @@ export function Modal({
     vv?.addEventListener('resize', update);
     vv?.addEventListener('scroll', update);
     window.addEventListener('resize', update);
+    const panel = ref.current;
+    panel?.addEventListener('focusin', update);
     return () => {
+      panel?.removeEventListener('focusin', update);
+      if (panel?.contains(document.activeElement))
+        (document.activeElement as HTMLElement)?.blur();
+      const selected = document.getSelection();
+      if (selected?.anchorNode && panel?.contains(selected.anchorNode))
+        selected.removeAllRanges();
       resize?.disconnect();
       vv?.removeEventListener('resize', update);
       vv?.removeEventListener('scroll', update);
@@ -84,7 +108,7 @@ export function Modal({
             <X />
           </button>
         </header>
-        {children}
+        <div className="modal-body">{children}</div>
       </div>
     </dialog>
   );
