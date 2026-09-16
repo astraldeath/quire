@@ -1,6 +1,12 @@
 import { ZipReader, Uint8ArrayReader } from '@zip.js/zip.js';
 import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import type { Book } from './domain/models';
+import {
+  buildBookStructure,
+  inferSeriesVolume,
+  type BookStructure,
+  type ChapterLink,
+} from './domain/book-structure';
 
 const MB = 1024 * 1024;
 const CSP =
@@ -228,16 +234,21 @@ export async function openArchive(bytes: Uint8Array) {
       throw new Error('EPUB manifest contains a remote resource.');
     return localPath(decodeURIComponent(url.pathname.slice(1)));
   };
+  const manifest = Array.from(opf.getElementsByTagNameNS('*', 'item'));
+  const itemsById = new Map<string, Element>();
+  for (const item of manifest) {
+    // Match the previous find() behavior even for malformed duplicate IDs.
+    if (!itemsById.has(item.id)) itemsById.set(item.id, item);
+  }
   const types = new Map(
-    Array.from(opf.getElementsByTagNameNS('*', 'item')).map((item) => [
+    manifest.map((item) => [
       resolve(item.getAttribute('href') ?? ''),
       item.getAttribute('media-type') ?? '',
     ]),
   );
   for (const ref of Array.from(opf.getElementsByTagNameNS('*', 'itemref'))) {
-    const item = Array.from(opf.getElementsByTagNameNS('*', 'item')).find(
-      (x) => x.id === ref.getAttribute('idref'),
-    );
+    const id = ref.getAttribute('idref');
+    const item = id === null ? undefined : itemsById.get(id);
     if (!item || !files.has(resolve(item.getAttribute('href') ?? '')))
       throw new Error('EPUB is missing a required chapter.');
     if (
@@ -271,6 +282,83 @@ export async function openArchive(bytes: Uint8Array) {
       return new Blob([data.slice().buffer], { type });
     },
   };
+}
+
+/** Read only explicit chapter labels from the publication's navigation. */
+export function detectBookStructure(
+  archive: Awaited<ReturnType<typeof openArchive>>,
+): BookStructure {
+  const { opf, resolve, files } = archive;
+  const items = Array.from(opf.getElementsByTagNameNS('*', 'item'));
+  const spine = Array.from(opf.getElementsByTagNameNS('*', 'itemref')).map(
+    (ref) => {
+      // Keep section indices aligned with Foliate while excluding auxiliary
+      // documents that its normal next/previous navigation skips.
+      if (ref.getAttribute('linear') === 'no') return '';
+      const item = items.find((item) => item.id === ref.getAttribute('idref'));
+      return item ? resolve(item.getAttribute('href') ?? '') : '';
+    },
+  );
+  const navigation = items.find((item) =>
+    item.getAttribute('properties')?.split(/\s+/).includes('nav'),
+  );
+  const ncxId = opf
+    .getElementsByTagNameNS('*', 'spine')[0]
+    ?.getAttribute('toc');
+  const ncx =
+    items.find((item) => item.id === ncxId) ??
+    items.find(
+      (item) => item.getAttribute('media-type') === 'application/x-dtbncx+xml',
+    );
+  for (const item of [navigation, ncx]) {
+    if (!item) continue;
+    try {
+      const path = resolve(item.getAttribute('href') ?? '');
+      const data = files.get(path);
+      if (!data) continue;
+      const doc = xml(new TextDecoder().decode(data));
+      const links: ChapterLink[] = [];
+      const add = (label: string, href: string | null) => {
+        if (!href) return;
+        const url = new URL(href, `https://epub.invalid/${path}`);
+        if (url.origin !== 'https://epub.invalid') return;
+        const target = localPath(decodeURIComponent(url.pathname.slice(1)));
+        if (!files.has(target)) return;
+        links.push({ label: label.trim(), href: target + url.hash });
+      };
+      if (item === navigation) {
+        const toc = Array.from(doc.getElementsByTagNameNS('*', 'nav')).find(
+          (nav) =>
+            (
+              nav.getAttributeNS('http://www.idpf.org/2007/ops', 'type') ??
+              nav.getAttribute('epub:type') ??
+              ''
+            )
+              .split(/\s+/)
+              .includes('toc'),
+        );
+        for (const a of Array.from(toc?.getElementsByTagNameNS('*', 'a') ?? []))
+          add(a.textContent ?? '', a.getAttribute('href'));
+      } else {
+        for (const point of Array.from(
+          doc.getElementsByTagNameNS('*', 'navPoint'),
+        )) {
+          const label = Array.from(point.children).find(
+            (child) => child.localName === 'navLabel',
+          );
+          const content = Array.from(point.children).find(
+            (child) => child.localName === 'content',
+          );
+          add(label?.textContent ?? '', content?.getAttribute('src') ?? null);
+        }
+      }
+      const structure = buildBookStructure(links, spine);
+      if (structure.chapters.length) return structure;
+    } catch {
+      // Optional malformed navigation must not prevent opening a readable EPUB.
+    }
+  }
+  return { chapters: [] };
 }
 
 export async function importEpub(
@@ -307,6 +395,14 @@ export async function importEpub(
             m.getAttribute('property') === 'group-position',
         )?.textContent
       : '');
+  const title =
+    opf.getElementsByTagNameNS('*', 'title')[0]?.textContent?.trim() ||
+    file.name?.replace(/\.epub$/i, '') ||
+    'Untitled';
+  const inferred = inferSeriesVolume(title, file.name, {
+    series,
+    volume: index && Number.isFinite(Number(index)) ? Number(index) : null,
+  });
   let cover = '';
   const coverId = calibre('cover');
   const coverItem = Array.from(opf.getElementsByTagNameNS('*', 'item')).find(
@@ -338,16 +434,14 @@ export async function importEpub(
     bytes,
     book: {
       id,
-      title:
-        opf.getElementsByTagNameNS('*', 'title')[0]?.textContent?.trim() ||
-        file.name.replace(/\.epub$/i, ''),
+      title,
       author:
         Array.from(opf.getElementsByTagNameNS('*', 'creator'))
           .map((x) => x.textContent?.trim())
           .filter(Boolean)
           .join(', ') || 'Unknown author',
-      series,
-      volume: index && Number.isFinite(Number(index)) ? Number(index) : null,
+      series: inferred.series,
+      volume: inferred.volume,
       cover,
       addedAt: Date.now(),
       local: true,

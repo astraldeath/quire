@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { createBackup, readBackup } from '../src/features/backup/archive';
 import { mergeBook } from '../src/features/backup/merge';
 import { defaults, type Book } from '../src/domain/models';
+import { validateBook } from '../src/features/backup/validation';
 const bytes = new Uint8Array([1, 2, 3]);
 const book: Book = {
   id: '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
@@ -24,6 +25,29 @@ it('roundtrips full backup bytes and data-only metadata', async () => {
   );
   expect(data.records[0].file).toBeUndefined();
   expect(data.records[0].book.local).toBe(false);
+});
+it('preserves detected chapter progress in backups and rejects invalid chapter values', async () => {
+  const chapterBook = {
+    ...book,
+    position: {
+      cfi: 'epubcfi(/6/2)',
+      fraction: 0.5,
+      section: 'Chapter 5',
+      updatedAt: 1,
+      completedChapter: 4,
+    },
+  };
+  const data = await readBackup(
+    await createBackup([{ book: chapterBook }], defaults, 'data'),
+  );
+  expect(data.records[0].book.position?.completedChapter).toBe(4);
+  for (const completedChapter of [-1, 1.5, 100001])
+    expect(() =>
+      validateBook({
+        ...chapterBook,
+        position: { ...chapterBook.position, completedChapter },
+      }),
+    ).toThrow();
 });
 it('rejects bytes that do not match the book identity', async () => {
   await expect(

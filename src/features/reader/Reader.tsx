@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 import { EPUB, type TocItem } from 'foliate-js/epub.js';
 import { View } from 'foliate-js/view.js';
-import { openArchive } from '../../epub';
+import { detectBookStructure, openArchive } from '../../epub';
+import {
+  completedChapterAt,
+  inferSeriesVolume,
+  type BookStructure,
+} from '../../domain/book-structure';
 import {
   type Annotation,
   type Book,
@@ -186,6 +191,7 @@ export function Reader({
     let cancelled = false;
     let chapterLoaded = false;
     let epub: EPUB | undefined;
+    let structure: BookStructure = { chapters: [] };
     const view = new View();
     viewRef.current = view;
     setReady(false);
@@ -227,6 +233,7 @@ export function Reader({
           cfi: string;
           fraction: number;
           tocItem?: TocItem;
+          section?: { current: number };
         }>
       ).detail;
       if (!location.cfi) return;
@@ -234,15 +241,23 @@ export function Reader({
       setFraction(fraction);
       setChapter(location.tocItem?.label ?? '');
       setActiveHref(location.tocItem?.href ?? '');
+      const completedChapter = completedChapterAt(structure, {
+        spineIndex: location.section?.current ?? -1,
+        href: location.tocItem?.href,
+        atEnd: view.renderer.atEnd,
+      });
       current.current.onPosition({
         cfi: location.cfi,
         fraction,
         section: location.tocItem?.label ?? '',
+        ...(completedChapter !== null ? { completedChapter } : {}),
         updatedAt: Date.now(),
       });
     });
     void (async () => {
       const archive = await openArchive(bytes);
+      if (inferSeriesVolume(book.title, '', book).volume === null)
+        structure = detectBookStructure(archive);
       epub = await new EPUB(archive).init();
       if (cancelled) {
         epub.destroy();

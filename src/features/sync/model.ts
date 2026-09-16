@@ -76,11 +76,16 @@ function values(
     },
   });
   if (book.position) {
-    const { cfi, fraction, section } = book.position;
+    const { cfi, fraction, section, completedChapter } = book.position;
     result.set('position/default', {
       kind: 'position',
       recordId: 'default',
-      value: { cfi, fraction, section },
+      value: {
+        cfi,
+        fraction,
+        section,
+        ...(completedChapter !== undefined ? { completedChapter } : {}),
+      },
     });
   }
   for (const { id, kind, cfi, text, note, section } of book.annotations ?? [])
@@ -226,6 +231,9 @@ export function applyRecords(s: SyncState, books: Book[]): Book[] {
           cfi: String(c.value!.cfi),
           fraction: Number(c.value!.fraction),
           section: String(c.value!.section ?? ''),
+          ...(c.value!.completedChapter !== undefined
+            ? { completedChapter: Number(c.value!.completedChapter) }
+            : {}),
           updatedAt: c.createdAt,
         };
     } else if (book) {

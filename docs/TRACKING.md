@@ -10,7 +10,7 @@ Installed Quire on Windows and iOS connects directly to MangaBaka. You do not ne
 
 Each book can have its own match. A book may optionally use a series match, or you can track a whole series from its actions. Applying a series match keeps existing individual book overrides. Newly imported volumes can be included by saving the series tracker again.
 
-Starting a book can set its MangaBaka state to Reading. Finishing it can advance the configured volume number; completing the entire MangaBaka entry is a separate book-only option. Quire does not infer external chapter numbers from EPUB sections and never lowers recorded volume progress. Ratings, notes, and unrelated fields are left alone. New entries are private.
+Starting a book can set its MangaBaka state to Reading. Finishing it can advance the configured volume number; completing the entire MangaBaka entry is a separate book-only option. For books without a volume number, Quire detects explicit numbered chapters in the EPUB table of contents and can advance chapter progress as you pass their boundaries. Split chapter parts count as one chapter; front matter is ignored. The final chapter is counted at the end of the book, including trailing bonus material. Ambiguous or restarted numbering is left untracked. Quire never lowers recorded chapter or volume progress. Ratings, notes, and unrelated fields are left alone. New entries are private.
 
 ## Offline reading and accounts
 

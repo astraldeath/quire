@@ -182,3 +182,104 @@ describe('EPUB import boundary', () => {
     expect(book.volume).toBe(3);
   });
 });
+
+describe('EPUB structure detection', () => {
+  it('infers a volume from the explicit filename when embedded series metadata is absent', async () => {
+    const file = await fixture('', 'EPUB/chapter.xhtml', {}, false);
+    Object.defineProperty(file, 'name', {
+      value: 'That Time I Got Reincarnated as a Slime, Vol. 5.epub',
+    });
+    const { book } = await importEpub(file);
+    expect(book).toMatchObject({
+      series: 'That Time I Got Reincarnated as a Slime',
+      volume: 5,
+    });
+  });
+  it('maps NCX chapter parts to real spine positions without assigning a volume', async () => {
+    const { openArchive, detectBookStructure } = await import('../src/epub');
+    const file = await fixture(
+      '',
+      'EPUB/chapter.xhtml',
+      {
+        'EPUB/package.opf':
+          '<package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Destiny Unchain Online</dc:title></metadata><manifest><item id="toc" href="nav/toc.ncx" media-type="application/x-dtbncx+xml"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine toc="toc"><itemref idref="a"/><itemref idref="b"/><itemref idref="c"/></spine></package>',
+        'EPUB/nav/toc.ncx':
+          '<ncx><navMap><navPoint><navLabel><text>Prologue 1</text></navLabel><content src="../a.xhtml#intro"/></navPoint><navPoint><navLabel><text>Chapter 1 Part 1</text></navLabel><content src="../b.xhtml"/></navPoint><navPoint><navLabel><text>Chapter 1 Part 2</text></navLabel><content src="../c.xhtml"/></navPoint></navMap></ncx>',
+        'EPUB/a.xhtml': '<html><body>Prologue</body></html>',
+        'EPUB/b.xhtml': '<html><body>Part one</body></html>',
+        'EPUB/c.xhtml': '<html><body>Part two</body></html>',
+      },
+      false,
+    );
+    const { book, bytes } = await importEpub(file);
+    expect(book.volume).toBeNull();
+    const structure = detectBookStructure(await openArchive(bytes));
+    expect(structure.chapters).toEqual([
+      {
+        number: 1,
+        label: 'Chapter 1 Part 1',
+        hrefs: ['EPUB/b.xhtml', 'EPUB/c.xhtml'],
+        startSpineIndex: 1,
+        endSpineIndex: 2,
+      },
+    ]);
+  });
+  it('prefers EPUB3 navigation and excludes page-list navigation', async () => {
+    const { openArchive, detectBookStructure } = await import('../src/epub');
+    const file = await fixture(
+      '',
+      'EPUB/chapter.xhtml',
+      {
+        'EPUB/package.opf':
+          '<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="n" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>',
+        'EPUB/nav.xhtml':
+          '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="page-list"><a href="chapter.xhtml#p1">Chapter 99</a></nav><nav epub:type="toc"><ol><li><a href="chapter.xhtml#one">Chapter 1</a></li><li><a href="chapter.xhtml#two">Chapter 2</a></li></ol></nav></body></html>',
+      },
+      false,
+    );
+    const structure = detectBookStructure(
+      await openArchive(new Uint8Array(await file.arrayBuffer())),
+    );
+    expect(structure.chapters.map((c) => c.number)).toEqual([1, 2]);
+    expect(structure.chapters[1].hrefs).toEqual(['EPUB/chapter.xhtml#two']);
+  });
+});
+
+describe('readable EPUB spine boundaries', () => {
+  it('completes at the final linear chapter despite non-linear appendix entries', async () => {
+    const { openArchive, detectBookStructure } = await import('../src/epub');
+    const { completedChapterAt } = await import('../src/domain/book-structure');
+    const file = await fixture(
+      '',
+      'EPUB/chapter.xhtml',
+      {
+        'EPUB/package.opf':
+          '<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="n" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="a" href="appendix.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a" linear="no"/><itemref idref="c"/><itemref idref="a" linear="no"/></spine></package>',
+        'EPUB/nav.xhtml':
+          '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><a href="chapter.xhtml">Chapter 1</a><a href="appendix.xhtml">Chapter 999</a></nav></body></html>',
+        'EPUB/appendix.xhtml': '<html><body>Optional appendix</body></html>',
+      },
+      false,
+    );
+    const structure = detectBookStructure(
+      await openArchive(new Uint8Array(await file.arrayBuffer())),
+    );
+    expect(structure.chapters).toHaveLength(1);
+    expect(structure.chapters[0]).toMatchObject({
+      startSpineIndex: 1,
+      endSpineIndex: 1,
+    });
+    expect(completedChapterAt(structure, { spineIndex: 1, atEnd: true })).toBe(
+      1,
+    );
+  });
+  it('keeps validation tied to the first manifest item when malformed IDs are duplicated', async () => {
+    const file = await fixture('', 'EPUB/chapter.xhtml', {
+      'EPUB/package.opf':
+        '<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="c" href="missing.xhtml" media-type="application/xhtml+xml"/><item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>',
+    });
+    await expect(importEpub(file)).rejects.toThrow(
+      /missing a required chapter/,
+    );
+  });
+});

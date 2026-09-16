@@ -28,6 +28,7 @@ async function identity(state: LocalTracking) {
       ...l,
       auto: false,
       lastStep: 0,
+      lastChapter: 0,
       lastSync: 0,
       error: '',
       nextAttempt: 0,
@@ -73,12 +74,22 @@ async function updateProgress(state: LocalTracking) {
     if (!book || !link.auto || link.nextAttempt > now) continue;
     const fraction = book.position?.fraction ?? 0;
     const step = fraction >= 0.999 ? 2 : fraction > 0 ? 1 : 0;
-    if (step <= link.lastStep) continue;
+    const chapter =
+      link.volume === 0 ? (book.position?.completedChapter ?? 0) : 0;
+    if (step <= link.lastStep && chapter <= (link.lastChapter ?? 0)) continue;
     link.lastAttempt = now;
     try {
+      if (chapter > 10000)
+        throw new Error(
+          'The detected chapter exceeds MangaBaka’s tracking limit. Your reading progress remains saved.',
+        );
       const path = `/v1/my/library/${link.seriesId}`;
       const response = await provider(path, 'GET', undefined, state.accountId);
-      let remote: { state: string; progress_volume: number };
+      let remote: {
+        state: string;
+        progress_volume: number;
+        progress_chapter?: number;
+      };
       if (response.status === 404) {
         requireSuccess(
           await provider(
@@ -94,6 +105,9 @@ async function updateProgress(state: LocalTracking) {
         if (
           !data ||
           typeof data.state !== 'string' ||
+          (data.progress_chapter != null &&
+            (!Number.isFinite(data.progress_chapter) ||
+              data.progress_chapter < 0)) ||
           (data.progress_volume != null &&
             (!Number.isFinite(data.progress_volume) ||
               data.progress_volume < 0))
@@ -102,12 +116,14 @@ async function updateProgress(state: LocalTracking) {
         remote = {
           state: data.state,
           progress_volume: data.progress_volume ?? 0,
+          progress_chapter: data.progress_chapter ?? 0,
         };
       }
-      const patch = progressPatch(link, step, remote);
+      const patch = progressPatch(link, step, remote, chapter);
       if (Object.keys(patch).length)
         requireSuccess(await provider(path, 'PUT', patch, state.accountId));
-      link.lastStep = step;
+      link.lastStep = Math.max(link.lastStep, step);
+      link.lastChapter = Math.max(link.lastChapter ?? 0, chapter);
       link.lastSync = Math.floor(Date.now() / 1000);
       link.nextAttempt = 0;
       link.error = '';

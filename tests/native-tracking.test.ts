@@ -31,6 +31,21 @@ const link: TrackingLink = {
   nextAttempt: 0,
 };
 describe('standalone tracker policy', () => {
+  it('advances numbered chapters independently of reading status without lowering progress', () => {
+    const chapterLink = { ...link, volume: 0 };
+    const remote = {
+      state: 'reading',
+      progress_volume: 0,
+      progress_chapter: 3,
+    };
+    expect(progressPatch(chapterLink, 1, remote, 4)).toEqual({
+      progress_chapter: 4,
+    });
+    expect(progressPatch(chapterLink, 1, remote, 2)).toEqual({});
+    expect(progressPatch(link, 1, remote, 4)).toEqual({});
+    for (const invalid of [-1, 1.5, Infinity, 10001])
+      expect(progressPatch(chapterLink, 1, remote, invalid)).toEqual({});
+  });
   it('starts reading, advances a finished volume, and never lowers remote progress', () => {
     expect(
       progressPatch(link, 1, { state: 'plan_to_read', progress_volume: 0 }),
