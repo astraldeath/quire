@@ -248,8 +248,8 @@ export function App({
     setNotice('');
     let imported = 0;
     const errors: string[] = [];
-    for (const file of files) {
-      setBusy(`Importing ${file.name}`);
+    for (const [index, file] of files.entries()) {
+      setBusy(`Importing ${index + 1} of ${files.length}: ${file.name}`);
       try {
         const result = await importEpub(file);
         await enqueue(async () => {
@@ -259,8 +259,11 @@ export function App({
           );
           await putBook(book, result.bytes);
           replace(book);
-          if (onImport) await onImport(book.id, result.bytes);
         });
+        if (onImport) {
+          setBusy(`Uploading ${index + 1} of ${files.length}: ${file.name}`);
+          await onImport(result.book.id, result.bytes);
+        }
         imported++;
       } catch (e) {
         errors.push(
