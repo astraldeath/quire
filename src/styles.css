@@ -1100,16 +1100,18 @@ dialog:has(.settings-tabs) .modal-header {
 @media (max-width: 450px) {
   .settings-tablist {
     gap: 4px;
+    overflow-x: auto;
   }
   .settings-tablist button {
-    flex: 1;
+    flex: 1 0 44px;
+    min-height: 44px;
     padding: 8px;
   }
   .settings-tablist button:not([aria-selected='true']) span {
     display: none;
   }
   .settings-tablist button[aria-selected='true'] {
-    flex: 1.8;
+    flex: 0 0 auto;
   }
 }
 .backup-settings {
