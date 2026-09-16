@@ -42,9 +42,17 @@ export function validateBook(value: unknown): Book {
   };
   if (b.position !== undefined) {
     const p = obj(b.position);
+    if (
+      p.completedChapter !== undefined &&
+      !Number.isInteger(p.completedChapter)
+    )
+      fail();
     result.position = {
       cfi: str(p.cfi),
       fraction: num(p.fraction, 0, 1),
+      ...(p.completedChapter !== undefined
+        ? { completedChapter: num(p.completedChapter, 0, 100000) }
+        : {}),
       section: str(p.section),
       updatedAt: num(p.updatedAt),
     };

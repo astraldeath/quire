@@ -84,6 +84,30 @@ it('does not reapply an acknowledged completion', async () => {
   await nativeTrackingRequest('/v1/tracking/sync', {}, 'POST');
   expect(fixture.provider).not.toHaveBeenCalled();
 });
+it('sends later chapters after reading status was acknowledged and remembers them', async () => {
+  Object.assign(fixture.state.links[0], {
+    volume: 0,
+    lastStep: 1,
+    lastChapter: 3,
+  });
+  fixture.books = [
+    { id: 'book', position: { fraction: 0.5, completedChapter: 4 } },
+  ];
+  fixture.provider
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { state: 'reading', progress_volume: 0, progress_chapter: 3 },
+    })
+    .mockResolvedValueOnce({ status: 200, data: {} });
+  await nativeTrackingRequest('/v1/tracking/sync', {}, 'POST');
+  expect(fixture.provider).toHaveBeenLastCalledWith(
+    expect.objectContaining({ method: 'PUT', body: { progress_chapter: 4 } }),
+  );
+  expect(fixture.state.links[0].lastChapter).toBe(4);
+  fixture.provider.mockClear();
+  await nativeTrackingRequest('/v1/tracking/sync', {}, 'POST');
+  expect(fixture.provider).not.toHaveBeenCalled();
+});
 it('disables automatic links when a different MangaBaka account connects', async () => {
   fixture.who.accountId = 'other';
   await nativeTrackingRequest('/v1/tracking/sync', {}, 'POST');

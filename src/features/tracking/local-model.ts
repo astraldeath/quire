@@ -9,6 +9,7 @@ export type TrackingLink = {
   auto: boolean;
   completeEntry: boolean;
   lastStep: number;
+  lastChapter?: number;
   lastSync: number;
   error: string;
   nextAttempt: number;
@@ -75,9 +76,21 @@ export function applySeries(
 export function progressPatch(
   link: TrackingLink,
   step: number,
-  remote: { state: string; progress_volume: number },
-): { state?: string; progress_volume?: number } {
-  const patch: { state?: string; progress_volume?: number } = {};
+  remote: { state: string; progress_volume: number; progress_chapter?: number },
+  completedChapter = 0,
+): { state?: string; progress_volume?: number; progress_chapter?: number } {
+  const patch: {
+    state?: string;
+    progress_volume?: number;
+    progress_chapter?: number;
+  } = {};
+  if (
+    link.volume === 0 &&
+    Number.isInteger(completedChapter) &&
+    completedChapter > (remote.progress_chapter ?? 0) &&
+    completedChapter <= 10000
+  )
+    patch.progress_chapter = completedChapter;
   if (step === 1 && ['', 'considering', 'plan_to_read'].includes(remote.state))
     patch.state = 'reading';
   if (step === 2) {

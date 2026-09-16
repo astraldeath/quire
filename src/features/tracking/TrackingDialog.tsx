@@ -12,6 +12,7 @@ import {
 import { Modal } from '../../components/Modal';
 import { Switch } from '../../components/Controls';
 import type { Book } from '../../domain/models';
+import { inferSeriesVolume } from '../../domain/book-structure';
 import { isTauri } from '@tauri-apps/api/core';
 import {
   trackingSession,
@@ -74,6 +75,7 @@ export function TrackingDialog({
   onClose(): void;
 }) {
   const title = series || book.title;
+  const inferredVolume = inferSeriesVolume(book.title, '', book).volume ?? 0;
   const [account, setAccount] = useState<TrackingSession>(),
     [state, setState] = useState<Tracking>(),
     [busy, setBusy] = useState('Loading'),
@@ -87,9 +89,9 @@ export function TrackingDialog({
   const [scope, setScope] = useState<'book' | 'series'>(
       series ? 'series' : 'book',
     ),
-    [volume, setVolume] = useState(1),
+    [volume, setVolume] = useState(inferredVolume),
     [automatic, setAutomatic] = useState(false),
-    [complete, setComplete] = useState(true),
+    [complete, setComplete] = useState(inferredVolume > 0),
     [unlink, setUnlink] = useState(false);
   const seriesLinks =
     state?.links.filter(
@@ -177,9 +179,9 @@ export function TrackingDialog({
     setResults([]);
     setSearched(false);
     setScope(series || link?.seriesKey ? 'series' : 'book');
-    setVolume(link?.volume ?? 1);
+    setVolume(link?.volume ?? inferredVolume);
     setAutomatic(linkedAuto);
-    setComplete(link?.completeEntry ?? true);
+    setComplete(link?.completeEntry ?? inferredVolume > 0);
     setQuery(title);
   }
   async function search() {
@@ -199,8 +201,12 @@ export function TrackingDialog({
     setSelected(
       value === 'series' && seriesLink ? matchFor(seriesLink) : undefined,
     );
-    setComplete(value === 'book');
-    setVolume(value === 'series' ? (book.volume ?? 0) : 1);
+    const saved =
+      link && (link.seriesKey ? 'series' : 'book') === value ? link : undefined;
+    setVolume(saved?.volume ?? inferredVolume);
+    setComplete(
+      value === 'book' && (saved?.completeEntry ?? inferredVolume > 0),
+    );
     setResults([]);
     setSearched(false);
     setQuery(value === 'series' ? book.series : book.title);
@@ -622,7 +628,8 @@ export function TrackingDialog({
                             />
                           </label>
                           <p className="muted tracker-hint">
-                            Use 0 to leave volume progress unchanged.
+                            Use 0 to sync detected completed chapters and leave
+                            volume progress unchanged.
                           </p>
                           {scope === 'book' && (
                             <fieldset disabled={!!busy}>

@@ -9,6 +9,7 @@ export interface Annotation {
   updatedAt: number;
 }
 export interface Position {
+  completedChapter?: number;
   cfi: string;
   fraction: number;
   section: string;

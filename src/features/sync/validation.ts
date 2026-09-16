@@ -92,6 +92,10 @@ function validValue(kind: Kind, v: Value) {
     return false;
   if (kind === 'position')
     return (
+      (v.completedChapter === undefined ||
+        (Number.isInteger(v.completedChapter) &&
+          Number(v.completedChapter) >= 0 &&
+          Number(v.completedChapter) <= 100000)) &&
       typeof v.fraction === 'number' &&
       v.fraction >= 0 &&
       v.fraction <= 1 &&
