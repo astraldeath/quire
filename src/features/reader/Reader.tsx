@@ -28,6 +28,8 @@ import './reader.css';
 import { installReadingInteractions } from './interactions';
 import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ReadingSettings } from './ReadingSettings';
+import { countVisibleWords, ReadingCollector } from '../statistics/collector';
+import type { ReadingActivity } from '../statistics/model';
 
 interface Props {
   book: Book;
@@ -35,6 +37,7 @@ interface Props {
   preferences: ReaderPreferences;
   onPreferences(p: ReaderPreferences): void;
   onPosition(p: Position): void;
+  onActivity?(activity: ReadingActivity): void;
   onClose(): void;
   onAnnotations(items: Annotation[]): Promise<void>;
 }
@@ -121,6 +124,7 @@ export function Reader({
   preferences,
   onPreferences,
   onPosition,
+  onActivity,
   onClose,
   onAnnotations,
 }: Props) {
@@ -129,8 +133,8 @@ export function Reader({
   const footer = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View | null>(null);
-  const current = useRef({ preferences, onPosition });
-  current.current = { preferences, onPosition };
+  const current = useRef({ preferences, onPosition, onActivity });
+  current.current = { preferences, onPosition, onActivity };
   const [toc, setToc] = useState<TocItem[]>([]);
   const [panel, setPanel] = useState<'settings' | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
@@ -192,7 +196,74 @@ export function Reader({
     let chapterLoaded = false;
     let epub: EPUB | undefined;
     let structure: BookStructure = { chapters: [] };
+    let locationHref = '';
+    let forwardUntil = 0;
+    const collector = new ReadingCollector(
+      book.id,
+      inferSeriesVolume(book.title, '', book).volume,
+      Date.now(),
+      performance.now(),
+    );
+    const available = () =>
+      document.visibilityState !== 'hidden' &&
+      !document.querySelector('[role="dialog"], #reader-contents');
+    const syncAvailability = () =>
+      collector.setAvailable(available(), performance.now());
+    const flushActivity = () => {
+      for (const activity of collector.flush(performance.now()))
+        current.current.onActivity?.(activity);
+    };
+    const interaction = () => {
+      syncAvailability();
+      collector.interact(performance.now());
+    };
+    const observeInteractions = (target: Document | HTMLElement) => {
+      const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+      events.forEach((name) =>
+        target.addEventListener(name, interaction, {
+          capture: true,
+          passive: true,
+        }),
+      );
+      cleanups.push(() =>
+        events.forEach((name) =>
+          target.removeEventListener(name, interaction, true),
+        ),
+      );
+    };
+    observeInteractions(document);
+    syncAvailability();
+    const visibility = () => {
+      syncAvailability();
+      flushActivity();
+    };
+    const pagehide = () => {
+      collector.setAvailable(false, performance.now());
+      flushActivity();
+    };
+    document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('pagehide', pagehide);
+    window.addEventListener('pageshow', visibility);
+    const dialogObserver = new MutationObserver(syncAvailability);
+    dialogObserver.observe(document.body, { childList: true, subtree: true });
+    const activityTimer = window.setInterval(() => {
+      syncAvailability();
+      flushActivity();
+    }, 30000);
+    cleanups.push(() => {
+      window.clearInterval(activityTimer);
+      dialogObserver.disconnect();
+      document.removeEventListener('visibilitychange', visibility);
+      window.removeEventListener('pagehide', pagehide);
+      window.removeEventListener('pageshow', visibility);
+      flushActivity();
+    });
     const view = new View();
+    const next = view.next.bind(view);
+    view.next = () => {
+      forwardUntil = performance.now() + 2500;
+      return next();
+    };
     viewRef.current = view;
     setReady(false);
     setError('');
@@ -200,6 +271,7 @@ export function Reader({
     view.addEventListener('load', (event) => {
       chapterLoaded = true;
       const doc = (event as CustomEvent<{ doc: Document }>).detail.doc;
+      observeInteractions(doc);
       cleanups.push(
         installReadingInteractions(
           doc,
@@ -241,6 +313,7 @@ export function Reader({
       setFraction(fraction);
       setChapter(location.tocItem?.label ?? '');
       setActiveHref(location.tocItem?.href ?? '');
+      locationHref = location.tocItem?.href ?? '';
       const completedChapter = completedChapterAt(structure, {
         spineIndex: location.section?.current ?? -1,
         href: location.tocItem?.href,
@@ -256,8 +329,7 @@ export function Reader({
     });
     void (async () => {
       const archive = await openArchive(bytes);
-      if (inferSeriesVolume(book.title, '', book).volume === null)
-        structure = detectBookStructure(archive);
+      structure = detectBookStructure(archive);
       epub = await new EPUB(archive).init();
       if (cancelled) {
         epub.destroy();
@@ -266,8 +338,55 @@ export function Reader({
       host.current?.append(view);
       await view.open(epub);
       view.renderer.addEventListener('relocate', (event) => {
-        const reason = (event as CustomEvent<{ reason?: string }>).detail
-          .reason;
+        const detail = (
+          event as CustomEvent<{
+            reason?: string;
+            range?: Range;
+            index: number;
+            fraction?: number;
+            size?: number;
+          }>
+        ).detail;
+        const { reason } = detail;
+        syncAvailability();
+        if (
+          detail.range &&
+          Number.isFinite(detail.fraction) &&
+          // A turn across a spine boundary briefly exposes an empty trailing page.
+          !((detail.fraction ?? 0) >= 1 && !view.renderer.atEnd)
+        ) {
+          const chapter =
+            structure.chapters.find((item) =>
+              item.hrefs.includes(locationHref),
+            ) ??
+            structure.chapters.find(
+              (item) =>
+                item.startSpineIndex <= detail.index &&
+                item.endSpineIndex >= detail.index,
+            );
+          const words = countVisibleWords(detail.range.toString());
+          collector.relocate(
+            {
+              key: view.getCFI(detail.index, detail.range),
+              index: detail.index,
+              fraction: detail.fraction ?? 0,
+              size:
+                current.current.preferences.flow === 'paginated'
+                  ? (detail.size ?? 0)
+                  : 0,
+              words,
+              chapter: chapter?.number ?? null,
+              atEnd:
+                view.renderer.atEnd &&
+                (current.current.preferences.flow === 'paginated' ||
+                  view.renderer.viewSize - view.renderer.end <= 2),
+              reason,
+              forwardIntent: performance.now() < forwardUntil,
+            },
+            performance.now(),
+          );
+          forwardUntil = 0;
+        }
         if (reason === 'page' || reason === 'snap' || reason === 'scroll') {
           setChromeVisible(false);
           setPanel(null);

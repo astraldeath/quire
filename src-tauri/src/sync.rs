@@ -34,6 +34,8 @@ pub async fn sync_login(server:String,username:String,password:String,device:Str
 #[tauri::command]
 pub async fn sync_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/sync",Method::POST,Some(body),Some(token)).await}
 #[tauri::command]
+pub async fn statistics_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/statistics/sync",Method::POST,Some(body),Some(token)).await}
+#[tauri::command]
 pub async fn sync_logout(server:String,username:String,session:String)->Result<(),String>{
  let o=origin(&server)?;if !session.bytes().all(|c|c.is_ascii_hexdigit())||session.len()!=64{return Err("Invalid session.".into())}let entry=credential(&o,&username)?;
  let result=if let Ok(token)=entry.get_password(){request(&o,&format!("/v1/sessions/{session}"),Method::DELETE,None,Some(token)).await.map(|_|())}else{Ok(())};

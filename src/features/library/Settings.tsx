@@ -1,6 +1,13 @@
 import { StorageSettings } from '../storage/StorageSettings';
 import { useState } from 'react';
-import { Archive, Library, Palette, Cloud } from 'lucide-react';
+import {
+  Archive,
+  Library,
+  Palette,
+  Cloud,
+  ChartNoAxesCombined,
+} from 'lucide-react';
+import { Statistics } from '../statistics/Statistics';
 import { ServerSettings } from '../sync/ServerSettings';
 import { BackupSettings, type BackupActions } from '../backup/BackupSettings';
 import { defaults, type Book, type Preferences } from '../../domain/models';
@@ -148,6 +155,12 @@ export function Settings({
                 onBusy={setWorking}
               />
             ),
+          },
+          {
+            id: 'statistics',
+            label: 'Statistics',
+            icon: ChartNoAxesCombined,
+            content: <Statistics books={books} />,
           },
           ...(import.meta.env.VITE_HOSTED === 'true'
             ? []

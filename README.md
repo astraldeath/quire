@@ -10,6 +10,7 @@ An offline-first EPUB reader for Windows, iOS, and the browser. The installed re
 - Paginated and scrolling reading, configurable typography and themes.
 - Bookmarks, highlights, notes, in-book search, and online Wiktionary definitions.
 - Full-library or data-only backups with a preview before restoring.
+- Reading statistics with lifetime history, active-time estimates, and optional server sync.
 - MangaBaka book or series tracking directly from the installed app, with no Quire server required.
 - Optional server sync and shared libraries.
 

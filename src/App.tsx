@@ -23,6 +23,7 @@ import { startNativeTracking } from './features/tracking/native';
 import { BookActions } from './features/library/BookActions';
 import { createBackup, type Backup } from './features/backup/archive';
 import { mergeBook } from './features/backup/merge';
+import { preserveExistingProgress } from './features/statistics/history';
 import {
   useEffect,
   useLayoutEffect,
@@ -76,6 +77,8 @@ import {
   removeFile,
   loadPreferences,
   savePreferences,
+  listReadingActivity,
+  saveReadingActivity,
 } from './storage';
 import { importEpub } from './epub';
 import { Reader } from './features/reader/Reader';
@@ -191,10 +194,17 @@ export function App({
   }, []);
   useEffect(() => {
     void Promise.all([listBooks(), loadPreferences()])
-      .then(([savedBooks, savedPreferences]) => {
+      .then(async ([savedBooks, savedPreferences]) => {
         refresh(savedBooks);
         preferencesRef.current = savedPreferences;
         setPreferences(savedPreferences);
+        try {
+          await preserveExistingProgress(savedBooks);
+        } catch {
+          setError(
+            'Could not save earlier reading history. Reopen Quire to retry.',
+          );
+        }
       })
       .catch((e) => setError(`Could not load your library: ${String(e)}`))
       .finally(() => setLoading(false));
@@ -492,7 +502,13 @@ export function App({
           throw new Error(`The file for ${book.title} is unavailable.`);
         records.push({ book, file });
       }
-      return createBackup(records, preferencesRef.current, kind);
+      await preserveExistingProgress(saved);
+      return createBackup(
+        records,
+        preferencesRef.current,
+        kind,
+        await listReadingActivity(),
+      );
     });
   const restoreBackup = (backup: Backup, settings: boolean) =>
     enqueue(async () => {
@@ -504,7 +520,8 @@ export function App({
         ),
         file,
       }));
-      await restoreBooks(records);
+      await restoreBooks(records, backup.activities ?? []);
+      await preserveExistingProgress(records.map((r) => r.book));
       refresh(await listBooks());
       if (settings) {
         const next = {
@@ -683,6 +700,13 @@ export function App({
             changePreferences({ ...preferencesRef.current, reader })
           }
           onPosition={savePosition}
+          onActivity={(activity) => {
+            void saveReadingActivity([activity]).catch(() =>
+              setError(
+                'Could not save reading history. Free up device storage and try again.',
+              ),
+            );
+          }}
           onClose={() => (hostedWeb ? closeWeb() : setOpened(null))}
         />
       ) : (

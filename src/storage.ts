@@ -8,6 +8,10 @@ import {
   type Book,
   type Preferences,
 } from './domain/models';
+import {
+  validateActivity,
+  type ReadingActivity,
+} from './features/statistics/model';
 import { emptySync, queueChanges, type SyncState } from './features/sync/model';
 interface Record {
   id: string;
@@ -15,6 +19,17 @@ interface Record {
   file?: Uint8Array;
 }
 interface LibraryDB extends DBSchema {
+  activity: {
+    key: string;
+    value: ReadingActivity;
+    indexes: { bookId: string };
+  };
+  activityAck: {
+    key: string;
+    value: { account: string; id: string };
+    indexes: { account: string };
+  };
+  activityCursor: { key: string; value: number };
   books: { key: string; value: Record };
   preferences: { key: string; value: Preferences | SyncState };
   files: { key: string; value: Uint8Array };
@@ -36,11 +51,19 @@ const browser = (): Promise<IDBPDatabase<LibraryDB>> =>
       blocked = true;
       reject(new Error(message));
     }, 15000);
-    void openDB<LibraryDB>(browserName, 2, {
+    void openDB<LibraryDB>(browserName, 3, {
       async upgrade(db, oldVersion, _newVersion, tx) {
         if (oldVersion < 1) {
           db.createObjectStore('books', { keyPath: 'id' });
           db.createObjectStore('preferences');
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore('activity', { keyPath: 'id' }).createIndex(
+            'bookId',
+            'bookId',
+          );
+          db.createObjectStore('activityAck').createIndex('account', 'account');
+          db.createObjectStore('activityCursor');
         }
         if (oldVersion < 2) {
           const files = db.createObjectStore('files');
@@ -147,8 +170,11 @@ async function commit(
   sync: SyncState,
   writes: Write[] = [],
   deleted: string[] = [],
+  activities: ReadingActivity[] = [],
 ) {
+  const history = uniqueActivity(activities);
   if (isTauri()) {
+    if (history.length) await activitySQL();
     await (
       await sql()
     ).execute('INSERT INTO sync_commits (payload) VALUES ($1)', [
@@ -159,11 +185,12 @@ async function commit(
           file: w.file ? encode(w.file) : undefined,
         })),
         deleted,
+        activities: history,
       }),
     ]);
   } else {
     const tx = (await idb()).transaction(
-      ['books', 'files', 'preferences'],
+      ['books', 'files', 'preferences', 'activity'],
       'readwrite',
     );
     try {
@@ -187,6 +214,15 @@ async function commit(
           },
         });
       }
+      for (const item of history) {
+        const old = await tx.objectStore('activity').get(item.id);
+        if (
+          old &&
+          JSON.stringify(canonicalActivity(old)) !== JSON.stringify(item)
+        )
+          throw new Error('Conflicting reading activity identity.');
+        if (!old) await tx.objectStore('activity').put(item);
+      }
       await tx.objectStore('preferences').put(sync, 'sync');
       await tx.done;
     } catch (e) {
@@ -199,17 +235,23 @@ async function commit(
       throw e;
     }
   }
-  if (typeof window !== 'undefined')
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('quire-storage'));
+    if (history.length) window.dispatchEvent(new Event('quire-statistics'));
+  }
 }
 /** The library edit and its sync outbox are one SQLite statement/IDB transaction. */
 async function edit(
-  fn: (books: Book[]) => { writes: Write[]; deleted?: string[] },
+  fn: (books: Book[]) => {
+    writes: Write[];
+    deleted?: string[];
+    activities?: ReadingActivity[];
+  },
 ) {
   return serial(async () => {
     const books = await listBooks(),
       sync = await loadSync();
-    const { writes, deleted = [] } = fn(books);
+    const { writes, deleted = [], activities = [] } = fn(books);
     for (const w of writes)
       queueChanges(
         sync,
@@ -222,7 +264,7 @@ async function edit(
         books.find((b) => b.id === id),
         undefined,
       );
-    await commit(sync, writes, deleted);
+    await commit(sync, writes, deleted, activities);
   });
 }
 export const saveBook = (book: Book) =>
@@ -259,8 +301,12 @@ export const removeFileWhen = (
   });
 export const deleteBooks = (ids: string[]) =>
   edit(() => ({ writes: [], deleted: ids }));
-export const restoreBooks = (records: { book: Book; file?: Uint8Array }[]) =>
+export const restoreBooks = (
+  records: { book: Book; file?: Uint8Array }[],
+  activities: ReadingActivity[] = [],
+) =>
   edit((books) => ({
+    activities,
     writes: records.map(({ book, file }) => ({
       book,
       fileMode:
@@ -346,6 +392,27 @@ export function syncTransaction<T>(
 /** Update reading status atomically without overwriting concurrent metadata or annotations. */
 export const markBooksRead = (ids: string[], finished: boolean) =>
   edit((books) => ({
+    activities: finished
+      ? books
+          .filter(
+            (b) => ids.includes(b.id) && b.volume !== null && b.volume > 0,
+          )
+          .map((book) => {
+            const now = Date.now();
+            return {
+              id: crypto.randomUUID(),
+              bookId: book.id,
+              startedAt: now,
+              endedAt: now,
+              activeMs: 0,
+              words: 0,
+              sampledMs: 0,
+              chapters: [],
+              volume: book.volume,
+              finished: true,
+            };
+          })
+      : [],
     writes: books
       .filter((b) => ids.includes(b.id))
       .map((book) => {
@@ -361,3 +428,200 @@ export const markBooksRead = (ids: string[], finished: boolean) =>
         return { book: next, fileMode: 'keep' as const };
       }),
   }));
+
+// Statistics are independent of books: removing a book never removes its history.
+let activitySchema: Promise<void> | undefined;
+async function activitySQL() {
+  const db = await sql();
+  await (activitySchema ??= (async () => {
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS reading_activity (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, payload TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS reading_activity_book ON reading_activity(book_id)',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS reading_activity_ack (account TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY(account,id))',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS reading_activity_cursor (account TEXT PRIMARY KEY, cursor INTEGER NOT NULL)',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS reading_activity_commits (payload TEXT NOT NULL)',
+    );
+    await db.execute(`CREATE TRIGGER IF NOT EXISTS reading_activity_commit AFTER INSERT ON reading_activity_commits BEGIN
+      SELECT CASE WHEN EXISTS (
+        SELECT 1 FROM json_each(NEW.payload, '$.items') j
+        JOIN reading_activity a ON a.id = json_extract(j.value, '$.id')
+        WHERE a.payload != j.value
+      ) THEN RAISE(ABORT, 'Conflicting reading activity identity') END;
+      INSERT OR IGNORE INTO reading_activity(id, book_id, payload)
+        SELECT json_extract(value, '$.id'), json_extract(value, '$.bookId'), value FROM json_each(NEW.payload, '$.items');
+      INSERT OR IGNORE INTO reading_activity_ack(account, id)
+        SELECT json_extract(NEW.payload, '$.account'), value FROM json_each(NEW.payload, '$.ack');
+      INSERT INTO reading_activity_cursor(account, cursor)
+        SELECT json_extract(NEW.payload, '$.account'), json_extract(NEW.payload, '$.cursor')
+        WHERE json_extract(NEW.payload, '$.account') IS NOT NULL
+        ON CONFLICT(account) DO UPDATE SET cursor = MAX(cursor, excluded.cursor);
+      DELETE FROM reading_activity_commits WHERE rowid = NEW.rowid;
+    END`);
+    await db.execute(`CREATE TRIGGER IF NOT EXISTS reading_activity_book_commit BEFORE INSERT ON sync_commits
+      WHEN json_array_length(NEW.payload, '$.activities') > 0 BEGIN
+      INSERT INTO reading_activity_commits(payload) VALUES (
+        json_object('items', json_extract(NEW.payload, '$.activities'), 'account', NULL, 'cursor', 0, 'ack', json('[]'))
+      );
+    END`);
+  })().catch((error) => {
+    activitySchema = undefined;
+    throw error;
+  }));
+  return db;
+}
+function canonicalActivity(value: ReadingActivity): ReadingActivity {
+  const a = validateActivity(value);
+  return {
+    id: a.id,
+    bookId: a.bookId,
+    startedAt: a.startedAt,
+    endedAt: a.endedAt,
+    activeMs: a.activeMs,
+    words: a.words,
+    sampledMs: a.sampledMs,
+    chapters: [...a.chapters].sort((x, y) => x - y),
+    volume: a.volume,
+    finished: a.finished,
+    ...(a.baseline ? { baseline: true } : {}),
+    ...(a.chapterThrough === undefined
+      ? {}
+      : { chapterThrough: a.chapterThrough }),
+  };
+}
+function uniqueActivity(items: ReadingActivity[]) {
+  const result = new Map<string, ReadingActivity>();
+  for (const value of items) {
+    const item = canonicalActivity(value),
+      old = result.get(item.id);
+    if (old && JSON.stringify(old) !== JSON.stringify(item))
+      throw new Error('Conflicting reading activity identity.');
+    result.set(item.id, item);
+  }
+  return [...result.values()];
+}
+export async function listReadingActivity(): Promise<ReadingActivity[]> {
+  if (isTauri())
+    return (
+      await (
+        await activitySQL()
+      ).select<{ payload: string }[]>('SELECT payload FROM reading_activity')
+    ).map((r) => validateActivity(JSON.parse(r.payload)));
+  return (await (await idb()).getAll('activity')).map(validateActivity);
+}
+export async function readReadingActivitySync(
+  account: string,
+): Promise<{ cursor: number; pending: ReadingActivity[] }> {
+  if (isTauri()) {
+    const db = await activitySQL();
+    const cursors = await db.select<{ cursor: number }[]>(
+      'SELECT cursor FROM reading_activity_cursor WHERE account = $1',
+      [account],
+    );
+    const rows = await db.select<{ payload: string }[]>(
+      'SELECT a.payload FROM reading_activity a WHERE NOT EXISTS (SELECT 1 FROM reading_activity_ack k WHERE k.account = $1 AND k.id = a.id) LIMIT 100',
+      [account],
+    );
+    return {
+      cursor: cursors[0]?.cursor ?? 0,
+      pending: rows.map((r) => validateActivity(JSON.parse(r.payload))),
+    };
+  }
+  const tx = (await idb()).transaction([
+    'activity',
+    'activityAck',
+    'activityCursor',
+  ]);
+  const [items, acknowledged, cursor] = await Promise.all([
+    tx.objectStore('activity').getAllKeys(),
+    tx.objectStore('activityAck').index('account').getAllKeys(account),
+    tx.objectStore('activityCursor').get(account),
+  ]);
+  const ids = new Set(
+    acknowledged.map((a) => (JSON.parse(a) as [string, string])[1]),
+  );
+  return {
+    cursor: cursor ?? 0,
+    pending: await Promise.all(
+      items
+        .filter((id) => !ids.has(id))
+        .slice(0, 100)
+        .map(async (id) => (await tx.objectStore('activity').get(id))!),
+    ),
+  };
+}
+export function commitReadingActivitySync(
+  items: ReadingActivity[],
+  sync?: { account: string; cursor: number; acknowledged: string[] },
+): Promise<void> {
+  return serial(async () => {
+    const validated = uniqueActivity(items);
+    if (isTauri()) {
+      await (
+        await activitySQL()
+      ).execute('INSERT INTO reading_activity_commits(payload) VALUES ($1)', [
+        JSON.stringify({
+          items: validated,
+          account: sync?.account ?? null,
+          cursor: sync?.cursor ?? 0,
+          ack: sync
+            ? [...sync.acknowledged, ...validated.map((a) => a.id)]
+            : [],
+        }),
+      ]);
+    } else {
+      const tx = (await idb()).transaction(
+        ['activity', 'activityAck', 'activityCursor'],
+        'readwrite',
+      );
+      try {
+        for (const item of validated) {
+          const old = await tx.objectStore('activity').get(item.id);
+          if (
+            old &&
+            JSON.stringify(canonicalActivity(old)) !== JSON.stringify(item)
+          )
+            throw new Error('Conflicting reading activity identity.');
+          if (!old) await tx.objectStore('activity').put(item);
+        }
+        if (sync) {
+          for (const id of new Set([
+            ...sync.acknowledged,
+            ...validated.map((a) => a.id),
+          ]))
+            await tx
+              .objectStore('activityAck')
+              .put(
+                { account: sync.account, id },
+                JSON.stringify([sync.account, id]),
+              );
+          const previous =
+            (await tx.objectStore('activityCursor').get(sync.account)) ?? 0;
+          await tx
+            .objectStore('activityCursor')
+            .put(Math.max(previous, sync.cursor), sync.account);
+        }
+        await tx.done;
+      } catch (e) {
+        try {
+          tx.abort();
+        } catch {
+          /* already aborted */
+        }
+        await tx.done.catch(() => {});
+        throw e;
+      }
+    }
+    if (typeof window !== 'undefined' && validated.length)
+      window.dispatchEvent(new Event('quire-statistics'));
+  });
+}
+export const saveReadingActivity = (items: ReadingActivity[]) =>
+  commitReadingActivitySync(items);

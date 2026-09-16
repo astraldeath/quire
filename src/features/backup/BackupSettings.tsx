@@ -74,7 +74,7 @@ export function BackupSettings({
               <p className="muted">
                 {kind === 'full'
                   ? 'Downloaded books, reading data for all books, and settings.'
-                  : 'Progress, notes, highlights, covers, and settings. Book files are not included.'}
+                  : 'Progress, reading history, notes, highlights, covers, and settings. Book files are not included.'}
               </p>
               {prepared ? (
                 <div className="backup-ready">

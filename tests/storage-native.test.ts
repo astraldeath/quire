@@ -276,3 +276,118 @@ it('native transactions co-commit local edits, outbox and remote cursor', async 
     'From server',
   );
 });
+
+it('native statistics batch and cursor are atomic and survive book removal', async () => {
+  const s = await import('../src/storage');
+  const a = {
+    id: crypto.randomUUID(),
+    bookId: 'b'.repeat(64),
+    startedAt: 1000,
+    endedAt: 61000,
+    activeMs: 50000,
+    sampledMs: 40000,
+    words: 100,
+    chapters: [1],
+    volume: 1,
+    finished: false,
+  };
+  await s.saveReadingActivity([a, a]);
+  await s.deleteBooks([a.bookId]);
+  expect(await s.listReadingActivity()).toEqual([a]);
+  const b = { ...a, id: crypto.randomUUID() };
+  await expect(
+    s.commitReadingActivitySync([b, { ...a, words: 102 }], {
+      account: 'native',
+      cursor: 5,
+      acknowledged: [a.id],
+    }),
+  ).rejects.toThrow();
+  expect(await s.listReadingActivity()).toEqual([a]);
+  expect((await s.readReadingActivitySync('native')).cursor).toBe(0);
+  await s.commitReadingActivitySync([b], {
+    account: 'native',
+    cursor: 5,
+    acknowledged: [a.id],
+  });
+  expect(await s.readReadingActivitySync('native')).toEqual({
+    cursor: 5,
+    pending: [],
+  });
+  expect((await s.readReadingActivitySync('another')).pending).toHaveLength(2);
+});
+
+it('manual completion survives unread and deletion without invented time', async () => {
+  const s = await import('../src/storage');
+  const book = {
+    id: 'd'.repeat(64),
+    title: 'Manual completion',
+    author: '',
+    series: '',
+    volume: 2,
+    cover: '',
+    addedAt: 1,
+    local: false,
+  };
+  await s.saveBook(book);
+  const before = Date.now();
+  await s.markBooksRead([book.id], true);
+  expect(
+    (await s.listBooks()).find((b) => b.id === book.id)?.position?.fraction,
+  ).toBe(1);
+  await s.markBooksRead([book.id], false);
+  await s.deleteBooks([book.id]);
+  const records = (await s.listReadingActivity()).filter(
+    (a) => a.bookId === book.id,
+  );
+  expect(records).toHaveLength(1);
+  expect(records[0]).toMatchObject({
+    finished: true,
+    volume: 2,
+    activeMs: 0,
+    words: 0,
+    sampledMs: 0,
+    chapters: [],
+  });
+  expect(records[0].startedAt).toBeGreaterThanOrEqual(before);
+  expect(records[0].endedAt).toBe(records[0].startedAt);
+});
+it('backup activity conflict rolls back restored metadata and files', async () => {
+  const s = await import('../src/storage');
+  const book = {
+    id: 'e'.repeat(64),
+    title: 'Existing',
+    author: '',
+    series: '',
+    volume: 2,
+    cover: '',
+    addedAt: 1,
+    local: false,
+  };
+  const a = {
+    id: crypto.randomUUID(),
+    bookId: book.id,
+    startedAt: 1,
+    endedAt: 1,
+    activeMs: 0,
+    words: 0,
+    sampledMs: 0,
+    chapters: [],
+    volume: 2,
+    finished: true,
+  };
+  await s.saveBook(book);
+  await s.saveReadingActivity([a]);
+  await expect(
+    s.restoreBooks(
+      [{ book: { ...book, title: 'Restored' }, file: new Uint8Array([9]) }],
+      [{ ...a, finished: false }],
+    ),
+  ).rejects.toThrow();
+  expect((await s.listBooks()).find((b) => b.id === book.id)?.title).toBe(
+    'Existing',
+  );
+  expect(await s.getFile(book.id)).toBeUndefined();
+  expect(
+    (await s.listReadingActivity()).find((r) => r.id === a.id)?.finished,
+  ).toBe(true);
+});
