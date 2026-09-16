@@ -57,7 +57,7 @@ function requireSuccess(response: Response) {
       response.status === 401 || response.status === 403
         ? 'Reconnect MangaBaka to resume tracking.'
         : response.status === 429
-          ? 'MangaBaka is busy. Your progress will retry later.'
+          ? 'MangaBaka is busy. Quire will retry later.'
           : 'MangaBaka is unavailable. Your progress remains saved.',
     );
   return response.data;

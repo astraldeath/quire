@@ -35,11 +35,7 @@ export function BackupSettings({
     try {
       await work();
     } catch (e) {
-      setMessage(
-        e instanceof Error
-          ? e.message
-          : 'The backup operation failed. Please try again.',
-      );
+      setMessage(e instanceof Error ? e.message : 'Backup failed. Try again.');
     } finally {
       setBusy('');
       onBusy(false);
@@ -77,15 +73,9 @@ export function BackupSettings({
               />
               <p className="muted">
                 {kind === 'full'
-                  ? 'Books, reading progress, notes, highlights, and settings.'
+                  ? 'Downloaded books, reading data for all books, and settings.'
                   : 'Progress, notes, highlights, covers, and settings. Book files are not included.'}
               </p>
-              {books.some((b) => !b.local) && kind === 'full' && (
-                <p className="backup-hint muted">
-                  Only books downloaded to this device are included. Saved
-                  reading data is kept for every book.
-                </p>
-              )}
               {prepared ? (
                 <div className="backup-ready">
                   <p>
@@ -129,12 +119,7 @@ export function BackupSettings({
               )}
             </div>
             <div className="backup-restore">
-              <div className="backup-section-heading">
-                <h3>Restore from a file</h3>
-                <p className="muted">
-                  Review a backup before adding it to your library.
-                </p>
-              </div>
+              <h3>Restore from a file</h3>
               <button
                 className="backup-secondary"
                 onClick={() => input.current?.click()}

@@ -71,7 +71,7 @@ export function ReaderTools({
         if (active)
           setDefinitionError(
             controller.signal.aborted
-              ? 'Wiktionary took too long to respond. Please try again.'
+              ? 'Wiktionary timed out. Try again.'
               : error instanceof Error
                 ? error.message
                 : 'Could not load this definition.',
@@ -201,7 +201,7 @@ export function ReaderTools({
       await current.current.onSave(next);
       return true;
     } catch {
-      setMessage('Could not save changes. Please try again.');
+      setMessage('Could not save changes. Try again.');
       return false;
     } finally {
       setBusy(false);
@@ -455,15 +455,10 @@ export function ReaderTools({
                 onClick={() => void bookmark()}
               >
                 <Bookmark fill={marked ? 'currentColor' : 'none'} />
-                {marked
-                  ? 'Remove bookmark from this page'
-                  : 'Bookmark this page'}
+                {marked ? 'Remove bookmark' : 'Bookmark this page'}
               </button>
               {!items.length && (
-                <p>
-                  No saved passages yet. Bookmark a page or select text to
-                  highlight it.
-                </p>
+                <p>No bookmarks or highlights. Select text to highlight it.</p>
               )}
               {items.map((item) => (
                 <article key={item.id}>

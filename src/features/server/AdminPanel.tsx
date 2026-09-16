@@ -92,7 +92,6 @@ export function AdminPanel({
         <header>
           <div>
             <h1>Administration</h1>
-            <p className="muted">Manage access to your Quire server.</p>
           </div>
           <button
             className="icon"
@@ -165,10 +164,6 @@ export function AdminPanel({
         ) : tab === 'accounts' ? (
           <>
             <h2>Accounts</h2>
-            <p className="muted">
-              Invite people to join. Their reading history and notes stay
-              private.
-            </p>
             <div className="admin-rows">
               {users.map((u) => (
                 <article key={u.id}>
@@ -238,7 +233,7 @@ export function AdminPanel({
           <>
             <h2>Invite someone</h2>
             <p className="muted">
-              Invites can be used once and expire after seven days.
+              Invites are single-use and expire after seven days.
             </p>
             <fieldset className="admin-access">
               <legend>Shared library access</legend>
@@ -288,7 +283,7 @@ export function AdminPanel({
             </button>
             {link && (
               <label>
-                Copy this invitation link
+                Invitation link
                 <input
                   readOnly
                   value={link}

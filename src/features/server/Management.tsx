@@ -93,7 +93,7 @@ export function Management({
       {notice && <p role="status">{notice}</p>}
       {scanning && (
         <p role="status" className="scan-progress">
-          <RefreshCw /> Scanning EPUBs… The current library stays available.
+          <RefreshCw /> Scanning EPUBs…
         </p>
       )}
       {tab === 'settings' && (
@@ -166,20 +166,13 @@ export function Management({
               </strong>
             </article>
           </div>
-          <h2>Backups</h2>
-          <p className="muted">
-            Use the Backups tab to download a complete server archive and view
-            restore instructions. Personal reader backups remain available in
-            Settings.
-          </p>
         </>
       )}
       {tab === 'libraries' && (
         <>
           <h2>Shared libraries</h2>
           <p className="muted">
-            Grant access to a collection. Each member keeps their own notes and
-            reading progress.
+            Members have separate notes and reading progress.
           </p>
           <form
             className="admin-create"
@@ -308,8 +301,7 @@ export function Management({
         <>
           <h2>Watched folders</h2>
           <p className="muted">
-            Use a folder path on the server. Quire reads EPUBs without changing
-            the originals.
+            Server folders only. Original EPUBs are not changed.
           </p>
           <form
             className="admin-create"
@@ -333,7 +325,7 @@ export function Management({
                   result.scanError
                     ? 'Folder added, but the first scan failed: ' +
                         result.scanError
-                    : 'Folder added and scanned. Books are ready in the library.',
+                    : 'Folder added and scanned.',
                 );
               });
             }}

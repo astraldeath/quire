@@ -182,7 +182,7 @@ fn callback_code(raw: &str, pending: &Pending, time: u64) -> Result<String, Stri
         return Err("Unexpected MangaBaka sign-in issuer.".into());
     }
     if values.contains_key("error") {
-        return Err("MangaBaka sign-in was declined. Connect again to retry.".into());
+        return Err("MangaBaka sign-in was declined. Connect again.".into());
     }
     values
         .remove("code")
@@ -288,7 +288,7 @@ async fn complete_callback(raw: &str) -> Result<(), String> {
     .await?;
     if status != 200 {
         return Err(format!(
-            "MangaBaka account verification failed (HTTP {status}). Connect again to retry."
+            "MangaBaka account verification failed (HTTP {status}). Connect again."
         ));
     }
     let (account_id, name) = userinfo_identity(&profile)?;

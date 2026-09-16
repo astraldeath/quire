@@ -1,5 +1,7 @@
 # Product UI conventions
 
+- Write direct, concise UI copy. Do not add slogans, feature introductions, or help that repeats a heading, label, or visible action. Keep non-obvious consequences, recovery steps, required attribution, and accessibility labels. Put operator and implementation details in documentation rather than everyday reader screens.
+
 - Use the Backups settings tab as the reference for new settings: grouped sections, clear headings, concise help, one obvious primary action, and a separate secondary or destructive action. Avoid a loose column of status text and bare action links.
 - Use existing shared settings tabs and modal components. Keep focus outlines and selected borders fully inside scrollable content; use subtle, thin scrollbars.
 - Keep buttons compact and consistent while retaining accessible touch targets. Use Lucide icons and meaningful action labels.

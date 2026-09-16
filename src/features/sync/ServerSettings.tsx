@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Search,
   LoaderCircle,
-  CloudDownload,
   BookOpen,
 } from 'lucide-react';
 import { loadSync } from '../../storage';
@@ -81,14 +80,9 @@ export function ServerSettings() {
   );
   return (
     <div className="settings-body server-settings">
-      <div>
-        <h3>
-          <Cloud aria-hidden="true" /> Your server
-        </h3>
-        <p className="muted">
-          Keep your library, reading progress, and saved passages in sync.
-        </p>
-      </div>
+      <h3>
+        <Cloud aria-hidden="true" /> Your server
+      </h3>
       {state.enabled && state.account ? (
         <>
           <section className="server-card">
@@ -136,16 +130,12 @@ export function ServerSettings() {
             </button>
           </section>
           <section className="server-library-info">
-            <h3>Your library, on every device</h3>
-            <div>
-              <CloudDownload aria-hidden="true" />
-              <p>Covers and book details sync automatically.</p>
-            </div>
+            <h3>Downloads</h3>
             <div>
               <BookOpen aria-hidden="true" />
               <p>
-                Open a book to download it. Downloaded books stay available
-                offline.
+                Books download when opened and stay available offline. Covers
+                and book details sync automatically.
               </p>
             </div>
           </section>
@@ -200,9 +190,6 @@ export function ServerSettings() {
               <ChevronDown aria-hidden="true" />
             </summary>
             <div className="server-advanced-content">
-              <p className="settings-note">
-                Use a custom address or port for your server.
-              </p>
               <label>
                 Server URL
                 <input
@@ -238,7 +225,7 @@ export function ServerSettings() {
               </label>
               <p className="settings-note">
                 Signing in syncs this device’s library and reading data with
-                this account. EPUB uploads are controlled in Library settings.
+                this account. Manage EPUB uploads in Library settings.
                 Appearance settings stay on this device.
               </p>
             </>
@@ -269,7 +256,7 @@ export function ServerSettings() {
         <section>
           <h3>Choose which version to keep</h3>
           <p className="muted">
-            These changes were made on different devices. All versions are saved
+            Changes from different devices conflict. All versions stay saved
             until you choose.
           </p>
           {conflicts.map((r) => (

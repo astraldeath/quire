@@ -517,7 +517,7 @@ export function App({
           setPreferences(next);
         } catch {
           throw new Error(
-            'Books and saved passages were restored, but settings could not be saved. You can retry the restore.',
+            'Books and saved passages were restored. Settings could not be saved; retry the restore.',
           );
         }
       }
@@ -964,8 +964,8 @@ export function App({
                   {query || status !== 'all' || availability !== 'all'
                     ? 'No books found'
                     : reading
-                      ? 'Your next chapter starts here'
-                      : 'A place for your books'}
+                      ? 'No books in progress'
+                      : 'No books yet'}
                 </h2>
                 <p>
                   {query || status !== 'all' || availability !== 'all'
@@ -974,7 +974,7 @@ export function App({
                       ? 'Open a book from your library to start reading.'
                       : onImport
                         ? 'Upload an EPUB to your personal server library.'
-                        : 'Add an EPUB to start your library. Your books and progress stay on this device.'}
+                        : 'Add an EPUB to start reading.'}
                 </p>
                 <button
                   className="primary"
@@ -1206,11 +1206,9 @@ export function App({
                 ? 'Page not found'
                 : 'Book unavailable'}
             </h2>
-            <p>
-              {route.kind === 'not-found'
-                ? 'This address does not match a Quire page.'
-                : 'This book is not in your library, or is still syncing.'}
-            </p>
+            {route.kind !== 'not-found' && (
+              <p>This book is not in your library, or is still syncing.</p>
+            )}
             <button onClick={() => navigateWeb('/library')}>
               Back to library
             </button>
@@ -1222,9 +1220,8 @@ export function App({
           onClose={() => setBulkRemove(false)}
         >
           <p>
-            Remove the selected books, their downloaded files, progress, notes,
-            and highlights from your Quire library? Original EPUB files and
-            exported backups are kept.
+            This deletes their downloads, progress, bookmarks, highlights, and
+            notes from Quire. Original EPUB files and exported backups are kept.
           </p>
           <div className="button-row">
             <button onClick={() => setBulkRemove(false)}>Cancel</button>
