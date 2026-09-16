@@ -1,4 +1,5 @@
 import { BookStorageActions } from '../storage/BookStorageActions';
+import { PrivacyMenu } from '../privacy/PrivacyMenu';
 import { ExportBookAction } from './ExportBookAction';
 import {
   ActionPopover,
@@ -15,6 +16,7 @@ import {
   FolderOpen,
   Download,
   Check,
+  Shield,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import type { LibraryEntry } from '../../domain/library';
@@ -46,6 +48,7 @@ export function BookActions({
   onDelete(): Promise<void>;
 }) {
   const [tracking, setTracking] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [confirm, setConfirm] = useState<'library' | 'download' | null>(
     initialRemove ? 'library' : null,
   );
@@ -74,6 +77,17 @@ export function BookActions({
         series={entry.series ? entry.title : undefined}
         onClose={onClose}
       />
+    );
+  if (privacyOpen)
+    return (
+      <ActionPopover anchor={anchor} title="Privacy" onClose={onClose}>
+        <PrivacyMenu
+          initialOpen
+          ids={entry.books.map((b) => b.id)}
+          onBack={() => setPrivacyOpen(false)}
+          onDone={onClose}
+        />
+      </ActionPopover>
     );
   const Container = confirm ? Modal : ActionPopover;
   return (
@@ -178,6 +192,10 @@ export function BookActions({
               </>
             )}
             <BookStorageActions books={entry.books} onClose={onClose} />
+            <button onClick={() => setPrivacyOpen(true)}>
+              <Shield />
+              Privacy
+            </button>
             {!entry.series && (
               <ExportBookAction book={entry.books[0]} onClose={onClose} />
             )}

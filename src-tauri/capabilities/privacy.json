@@ -1,0 +1,7 @@
+{
+  "identifier": "privacy",
+  "description": "Local biometric authentication and the app-switcher privacy cover.",
+  "windows": ["main"],
+  "platforms": ["iOS"],
+  "permissions": ["privacy:default"]
+}

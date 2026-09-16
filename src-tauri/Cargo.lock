@@ -3208,6 +3208,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-haptics",
  "tauri-plugin-opener",
+ "tauri-plugin-privacy",
  "tauri-plugin-single-instance",
  "tauri-plugin-sql",
  "tokio",
@@ -4700,6 +4701,15 @@ dependencies = [
  "url",
  "windows",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-privacy"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

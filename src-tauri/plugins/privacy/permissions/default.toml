@@ -1,0 +1,3 @@
+[default]
+description = "Device privacy authentication and app-switcher cover."
+permissions = ["allow-configure", "allow-available", "allow-authenticate"]

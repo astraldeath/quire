@@ -35,6 +35,7 @@ interface LibraryDB extends DBSchema {
   files: { key: string; value: Uint8Array };
 }
 let browserName = 'quire-library';
+export const devicePrivacyKey = () => 'quire-privacy:' + browserName;
 export function useBrowserAccount(id: string) {
   if (browserPromise)
     throw new Error(
