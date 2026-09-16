@@ -32,6 +32,8 @@ jobs:
         run: npm test
       - name: Generate Xcode project
         run: npx tauri ios init --ci
+      - name: Install Quire app icons
+        run: python3 scripts/ios-icons.py
       - name: Build unsigned physical-device IPA
         run: npx tauri ios build --ci --target aarch64 --no-sign
       - name: Check unsigned package
