@@ -222,3 +222,35 @@ it('shows API definitions as themed text with source attribution', async () => {
   expect(document.body.textContent).toContain('CC BY-SA 4.0');
   await act(async () => ctx.root.unmount());
 });
+it('clears native selection when the reader is left', async () => {
+  vi.useFakeTimers();
+  const ctx = await setup();
+  const range = document.createRange();
+  range.selectNodeContents(ctx.text);
+  document.getSelection()!.removeAllRanges();
+  document.getSelection()!.addRange(range);
+  await act(async () => {
+    document.dispatchEvent(new Event('selectionchange'));
+    vi.advanceTimersByTime(200);
+  });
+  await act(async () => ctx.root.unmount());
+  expect(document.getSelection()!.isCollapsed).toBe(true);
+});
+it('clears native selection before opening a note while retaining the passage', async () => {
+  vi.useFakeTimers();
+  const ctx = await setup();
+  const range = document.createRange();
+  range.selectNodeContents(ctx.text);
+  document.getSelection()!.removeAllRanges();
+  document.getSelection()!.addRange(range);
+  await act(async () => {
+    document.dispatchEvent(new Event('selectionchange'));
+    vi.advanceTimersByTime(200);
+  });
+  await click('Add note');
+  expect(document.getSelection()!.isCollapsed).toBe(true);
+  expect(document.querySelector('blockquote')!.textContent).toBe(
+    'A passage worth remembering',
+  );
+  await act(async () => ctx.root.unmount());
+});
