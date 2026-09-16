@@ -15,6 +15,7 @@ import { View } from 'foliate-js/view.js';
 import { detectBookStructure, openArchive } from '../../epub';
 import {
   completedChapterAt,
+  chapterHrefAtRange,
   inferSeriesVolume,
   type BookStructure,
 } from '../../domain/book-structure';
@@ -306,6 +307,7 @@ export function Reader({
           fraction: number;
           tocItem?: TocItem;
           section?: { current: number };
+          range?: Range;
         }>
       ).detail;
       if (!location.cfi) return;
@@ -313,10 +315,17 @@ export function Reader({
       setFraction(fraction);
       setChapter(location.tocItem?.label ?? '');
       setActiveHref(location.tocItem?.href ?? '');
-      locationHref = location.tocItem?.href ?? '';
+      locationHref =
+        chapterHrefAtRange(
+          structure,
+          location.section?.current ?? -1,
+          location.range,
+        ) ??
+        location.tocItem?.href ??
+        '';
       const completedChapter = completedChapterAt(structure, {
         spineIndex: location.section?.current ?? -1,
-        href: location.tocItem?.href,
+        href: locationHref,
         atEnd: view.renderer.atEnd,
       });
       current.current.onPosition({

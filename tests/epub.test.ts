@@ -184,6 +184,69 @@ describe('EPUB import boundary', () => {
 });
 
 describe('EPUB structure detection', () => {
+  it.each([false, true])(
+    'combines TOC numbering and heading fallback; conflict=%s',
+    async (conflict) => {
+      const { openArchive, detectBookStructure } = await import('../src/epub');
+      const file = await fixture(
+        '',
+        'EPUB/chapter.xhtml',
+        {
+          'EPUB/package.opf':
+            '<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="n" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/></spine></package>',
+          'EPUB/nav.xhtml':
+            '<html xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><a href="a.xhtml">Chapter 1</a><a href="b.xhtml">Departure</a></nav></body></html>',
+          'EPUB/a.xhtml': `<html><body><h1>Chapter ${conflict ? 5 : 1}</h1></body></html>`,
+          'EPUB/b.xhtml': '<html><body><h1>Ch. 2 Departure</h1></body></html>',
+        },
+        false,
+      );
+      expect(
+        detectBookStructure(
+          await openArchive(new Uint8Array(await file.arrayBuffer())),
+        ).chapters.map((c) => c.number),
+      ).toEqual(conflict ? [] : [1, 2]);
+    },
+  );
+  it('uses in-book headings when TOC labels omit chapter numbers', async () => {
+    const { openArchive, detectBookStructure } = await import('../src/epub');
+    const file = await fixture(
+      '',
+      'EPUB/chapter.xhtml',
+      {
+        'EPUB/package.opf':
+          '<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="n" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/></spine></package>',
+        'EPUB/nav.xhtml':
+          '<html xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><a href="a.xhtml">Arrival</a><a href="b.xhtml">Departure</a></nav></body></html>',
+        'EPUB/a.xhtml':
+          '<html><body><h1>001 Arrival</h1><p>Story</p></body></html>',
+        'EPUB/b.xhtml':
+          '<html><body><h1>0002 Departure</h1><p>Story</p></body></html>',
+      },
+      false,
+    );
+    const structure = detectBookStructure(
+      await openArchive(new Uint8Array(await file.arrayBuffer())),
+    );
+    expect(structure.chapters.map((c) => c.number)).toEqual([1, 2]);
+  });
+  it('detects semantic chapter headings without navigation and ignores front matter', async () => {
+    const { openArchive, detectBookStructure } = await import('../src/epub');
+    const file = await fixture(
+      '',
+      'EPUB/chapter.xhtml',
+      {
+        'EPUB/chapter.xhtml':
+          '<html xmlns:epub="http://www.idpf.org/2007/ops"><body><section epub:type="frontmatter"><h1>Chapter 99</h1></section><section epub:type="chapter" id="one"><h2>01 Arrival</h2></section><section epub:type="chapter" id="two"><h2>02 Departure</h2></section></body></html>',
+      },
+      false,
+    );
+    const structure = detectBookStructure(
+      await openArchive(new Uint8Array(await file.arrayBuffer())),
+    );
+    expect(structure.chapters.map((c) => c.number)).toEqual([1, 2]);
+    expect(structure.chapters[1].hrefs).toContain('EPUB/chapter.xhtml#two');
+  });
   it('infers a volume from the explicit filename when embedded series metadata is absent', async () => {
     const file = await fixture('', 'EPUB/chapter.xhtml', {}, false);
     Object.defineProperty(file, 'name', {
