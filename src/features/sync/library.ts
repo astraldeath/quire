@@ -8,6 +8,7 @@ import {
 
 import { download, files, metadata } from './transport';
 import type { Account } from './model';
+import { readPolicy, writePolicy, touchBook } from '../storage/policy';
 
 /** Covers are immutable derivatives of the EPUB hash, cached independently of its file. */
 export async function fetchCovers(account: Account) {
@@ -36,9 +37,19 @@ export async function fetchCovers(account: Account) {
 
 const downloads = new Map<string, Promise<Uint8Array>>();
 export function ensureBookFile(id: string): Promise<Uint8Array> {
+  touchBook(id);
   const existing = downloads.get(id);
   if (existing) return existing;
   const task = (async () => {
+    try {
+      const account = (await loadSync()).account;
+      if (account)
+        writePolicy(account, {
+          accessed: { ...readPolicy(account).accessed, [id]: Date.now() },
+        });
+    } catch {
+      /* Storage-policy persistence must not prevent reading. */
+    }
     const local = await getFile(id);
     if (local) return local;
     const state = await loadSync();

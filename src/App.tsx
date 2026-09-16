@@ -1,3 +1,7 @@
+import {
+  startStorageManagement,
+  protectOpenBook,
+} from './features/storage/manager';
 import type { ActionAnchor } from './components/ActionPopover';
 import { LibraryControls } from './features/library/LibraryControls';
 import { Modal } from './components/Modal';
@@ -152,6 +156,7 @@ export function App({
     book: Book;
     bytes: Uint8Array;
   } | null>(null);
+  protectOpenBook(opened?.book.id ?? null);
   const input = useRef<HTMLInputElement>(null);
   const shelfElement = useRef<HTMLElement>(null);
   const shelfScroll = useRef(new Map<string, number>());
@@ -176,9 +181,11 @@ export function App({
     window.addEventListener('quire-synced', update);
     const stop = startSync();
     const stopTracking = startNativeTracking();
+    const stopStorage = startStorageManagement();
     return () => {
       stop();
       stopTracking();
+      stopStorage();
       window.removeEventListener('quire-synced', update);
     };
   }, []);

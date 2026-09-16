@@ -40,3 +40,14 @@ Hosted URLs support refresh, browser history, and direct book links. Installed Q
 Browser storage version 2 separates EPUB bytes from metadata. The first upgrade is transactional and preserves notes and files; reload all open Quire tabs if an older tab blocks it. Native SQLite storage is unchanged. Downloads are SHA-256 verified before caching; the reader validates the archive and sanitizes chapter content before display.
 
 Changes use incremental Conventional Commits. Run `npm test`, `npm run build`, and `npm run build:web` before shipping. A production deployment must use the matching server release and HTTPS; physical iOS testing remains separate from browser checks.
+
+
+## Uploads and device storage
+
+Book and series action menus include **Upload to server** for downloaded books. Existing server copies are skipped. **Keep downloaded** excludes a book (or every current volume in a series) from automatic offloading; it does not download missing volumes.
+
+Under **Settings → Library → Storage**, auto-upload and automatic offloading are both off by default. Auto-upload sends existing and newly imported local EPUBs to the connected account’s personal library. Preferences are specific to this device/browser and server account, and are not included in exported backups.
+
+Offloading supports finished-only filtering, a minimum number of days since opening, and an optional download-size threshold in MB. When the threshold is enabled, only eligible books are removed until usage is below it; protected, recently used, and unverified books may keep usage above the target. The open book and pinned downloads are always protected. Notes, progress, covers, and metadata remain local.
+
+Automatic work runs while Quire is open and visible, online, and connected, processing one upload and one offload per pass (once per minute). Failed files rotate through retries. Before offloading, Quire downloads and hashes the server copy to verify it is available and matches the book, so verification uses network data. Opening an offloaded book downloads it again. No background work runs after the app closes.

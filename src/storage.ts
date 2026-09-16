@@ -246,6 +246,17 @@ export const removeFile = (id: string) =>
       .filter((b) => b.id === id)
       .map((book) => ({ book, fileMode: 'remove' as const })),
   }));
+/** Check offloading safeguards inside the same serialized edit as file removal. */
+export const removeFileWhen = (
+  id: string,
+  allow: (book: Book, sync: SyncState) => boolean | Promise<boolean>,
+) =>
+  serial(async () => {
+    const sync = await loadSync();
+    const book = (await listBooks()).find((b) => b.id === id);
+    if (book && (await allow(book, sync)))
+      await commit(sync, [{ book, fileMode: 'remove' }]);
+  });
 export const deleteBooks = (ids: string[]) =>
   edit(() => ({ writes: [], deleted: ids }));
 export const restoreBooks = (records: { book: Book; file?: Uint8Array }[]) =>

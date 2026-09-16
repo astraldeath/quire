@@ -1,3 +1,4 @@
+import { StorageSettings } from '../storage/StorageSettings';
 import { useState } from 'react';
 import { Archive, Library, Palette, Cloud } from 'lucide-react';
 import { ServerSettings } from '../sync/ServerSettings';
@@ -139,6 +140,7 @@ export function Settings({
                 >
                   Reset library settings
                 </button>
+                <StorageSettings />
               </div>
             ),
           },
