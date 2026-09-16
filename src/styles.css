@@ -2707,3 +2707,18 @@ a.book-open {
 .series-volumes .book-under {
   min-height: 30px;
 }
+
+.storage-settings {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+.storage-settings p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.storage-rules {
+  display: grid;
+  gap: 12px;
+}

@@ -44,6 +44,11 @@ export function ActionPopover({
       .querySelectorAll('button')
       .forEach((button) => button.setAttribute('role', 'menuitem'));
     update();
+    const resize =
+      typeof ResizeObserver === 'undefined'
+        ? undefined
+        : new ResizeObserver(update);
+    resize?.observe(panel);
     panel
       .querySelector<HTMLButtonElement>('button:not(:disabled)')
       ?.focus({ preventScroll: true });
@@ -58,6 +63,7 @@ export function ActionPopover({
     window.addEventListener('resize', update);
     window.visualViewport?.addEventListener('resize', update);
     return () => {
+      resize?.disconnect();
       document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('scroll', scroll, true);
       window.removeEventListener('resize', update);
