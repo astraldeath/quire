@@ -9,7 +9,7 @@ fn origin(value:&str)->Result<String,String>{
  Ok(u.origin().ascii_serialization())
 }
 fn credential(origin:&str,user:&str)->Result<keyring::Entry,String>{
- if !cfg!(any(target_os="windows",target_os="ios",target_os="macos")){return Err("Secure sync credentials are not supported on this platform yet.".into())}
+ if !cfg!(any(target_os="windows",target_os="ios",target_os="macos")){return Err("Secure sync credentials are not supported on this platform.".into())}
  keyring::Entry::new("app.quire.reader.sync",&format!("{}@{}",user,origin)).map_err(|_|"Credential storage is unavailable.".into())
 }
 async fn request(origin:&str,path:&str,method:Method,body:Option<Value>,token:Option<String>)->Result<Value,String>{
@@ -51,14 +51,14 @@ pub async fn sync_upload(request:tauri::ipc::Request<'_>)->Result<(),String>{
  let bytes=match request.body(){tauri::ipc::InvokeBody::Raw(bytes) if bytes.len()<=128*1024*1024=>bytes.clone(),_=>return Err("Invalid or oversized EPUB.".into())};
  let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to upload books.")?;
  let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_|"Connection unavailable.")?;
- let response=client.put(format!("{o}/v1/books/{id}/file")).bearer_auth(token).header("Content-Type","application/epub+zip").body(bytes).send().await.map_err(|_|"Upload interrupted. You can retry.")?;
+ let response=client.put(format!("{o}/v1/books/{id}/file")).bearer_auth(token).header("Content-Type","application/epub+zip").body(bytes).send().await.map_err(|_|"Upload interrupted. Try again.")?;
  if !response.status().is_success(){return Err("Upload failed. Check your session and file size, then retry.".into())}Ok(())
 }
 #[tauri::command]
 pub async fn sync_download(server:String,username:String,book:String)->Result<tauri::ipc::Response,String>{
  let o=origin(&server)?;check_book_id(&book)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to download books.")?;
  let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_|"Connection unavailable.")?;
- let mut response=client.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_|"Download interrupted. You can retry.")?;if !response.status().is_success(){return Err("The server EPUB is unavailable.".into())}
+ let mut response=client.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_|"Download interrupted. Try again.")?;if !response.status().is_success(){return Err("The server EPUB is unavailable.".into())}
  let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Download interrupted.")?{if bytes.len()+chunk.len()>128*1024*1024{return Err("EPUB is too large.".into())}bytes.extend_from_slice(&chunk)}Ok(tauri::ipc::Response::new(bytes))
 }
 

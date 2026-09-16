@@ -208,8 +208,8 @@ export function BookDetails({
           {confirm && (
             <div className="removal">
               <p>
-                Remove the EPUB from this device? Your book details and reading
-                position will stay in the library.
+                Remove the downloaded EPUB? Book details, progress, bookmarks,
+                highlights, and notes stay in your library.
               </p>
               <div className="button-row">
                 <button

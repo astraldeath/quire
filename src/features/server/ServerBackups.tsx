@@ -11,7 +11,7 @@ export function ServerBackups({ account }: { account: Account }) {
     setBusy(true);
     setSaved(false);
     setError('');
-    setProgress('Preparing a consistent snapshot…');
+    setProgress('Preparing backup…');
     try {
       const blob = await downloadServerBackup(account, (bytes, total) =>
         setProgress(
@@ -37,10 +37,6 @@ export function ServerBackups({ account }: { account: Account }) {
   return (
     <div className="server-backups">
       <h2>Server backups</h2>
-      <p className="muted">
-        Keep a complete copy of your server, ready to restore on this machine or
-        another.
-      </p>
       <section className="backup-card">
         <h3>
           <Download /> Download backup
@@ -76,15 +72,11 @@ export function ServerBackups({ account }: { account: Account }) {
           <ArchiveRestore /> Restore a server
         </h3>
         <p>
-          Restore into a new directory, then start Quire with that directory.
-          Your current server data is never overwritten.
+          Restore to a new directory. Current server data is not overwritten.
         </p>
         <ol>
           <li>Copy the archive to the server machine.</li>
-          <li>
-            Run the restore command below. Quire validates every file before
-            finishing.
-          </li>
+          <li>Run the restore command below.</li>
           <li>
             Stop your current server and start it with{' '}
             <code>-data ./restored-data</code>.
@@ -105,7 +97,7 @@ export function ServerBackups({ account }: { account: Account }) {
       </section>
       <details className="backup-card">
         <summary>
-          <Terminal /> Large libraries and command-line backups
+          <Terminal /> Command-line backups
         </summary>
         <p>
           Browser downloads support up to 512 MB. For larger libraries, stop the

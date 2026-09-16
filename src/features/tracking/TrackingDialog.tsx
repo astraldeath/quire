@@ -628,8 +628,8 @@ export function TrackingDialog({
                             />
                           </label>
                           <p className="muted tracker-hint">
-                            Use 0 to sync detected completed chapters and leave
-                            volume progress unchanged.
+                            Set to 0 to sync completed chapters without changing
+                            volume progress.
                           </p>
                           {scope === 'book' && (
                             <fieldset disabled={!!busy}>

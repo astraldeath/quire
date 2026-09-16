@@ -95,7 +95,7 @@ export async function lookupDefinition(
     );
   }
   if (!response.ok)
-    throw new Error('Wiktionary is unavailable. Please try again later.');
+    throw new Error('Wiktionary is unavailable. Try again later.');
   const data = await response.json();
   if (data.error && data.error.code !== 'missingtitle')
     throw new Error(

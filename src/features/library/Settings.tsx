@@ -76,11 +76,7 @@ export function Settings({
                     />
                   </>
                 )}
-                {p.theme === 'contrast' ? (
-                  <p className="settings-note">
-                    Your accent color is restored when you switch themes.
-                  </p>
-                ) : (
+                {p.theme !== 'contrast' && (
                   <ColorControl
                     label="Accent color"
                     value={p.accent}
@@ -124,10 +120,6 @@ export function Settings({
                   checked={p.groupSeries}
                   onChange={(groupSeries) => onChange({ ...p, groupSeries })}
                 />
-                <p className="muted">
-                  Reading themes and typography are available inside each book.
-                  Preferences are saved on this device.
-                </p>
                 <button
                   className="text-action"
                   onClick={() =>

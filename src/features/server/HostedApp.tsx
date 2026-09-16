@@ -107,7 +107,7 @@ export function HostedApp() {
     const callback = new URLSearchParams(location.search).get('tracking_oauth');
     if (callback) {
       history.replaceState(null, '', location.pathname);
-      setTrackingResult('Connecting MangaBaka...');
+      setTrackingResult('Connecting MangaBaka…');
       try {
         await accountRequest(
           account,
@@ -116,13 +116,13 @@ export function HostedApp() {
           'POST',
         );
         setTrackingResult(
-          'MangaBaka is connected. Open Tracking in book details to enable automatic updates.',
+          'MangaBaka connected. Enable automatic updates in a book’s Tracking menu.',
         );
       } catch (e) {
         setTrackingResult(
           e instanceof Error
             ? e.message
-            : 'MangaBaka could not be connected. Please try again.',
+            : 'Could not connect MangaBaka. Try again.',
         );
       }
     }
@@ -200,7 +200,7 @@ export function HostedApp() {
                           navigateWeb('/account');
                         }}
                       >
-                        {session.user.username}
+                        Account settings
                       </button>
                       {session.user.admin && (
                         <button
@@ -243,21 +243,10 @@ export function HostedApp() {
           quire<span>.</span>
         </h1>
         <h2>
-          {setup
-            ? 'Welcome to your server'
-            : invite
-              ? 'Join Quire'
-              : 'Welcome back'}
+          {setup ? 'Create admin account' : invite ? 'Join Quire' : 'Sign in'}
         </h2>
-        <p className="muted">
-          {setup
-            ? 'Create the administrator account to get started.'
-            : invite
-              ? 'Choose your account details to accept your invitation.'
-              : 'Sign in to your library. Your books and reading progress will be ready here.'}
-        </p>
         {setup === undefined ? (
-          <p>{error || 'Connecting...'}</p>
+          <p>{error || 'Connecting…'}</p>
         ) : (
           <form
             onSubmit={(e) => {
@@ -310,7 +299,9 @@ export function HostedApp() {
             {error && <p role="alert">{error}</p>}
             <button className="primary" disabled={busy}>
               {busy
-                ? 'Please wait...'
+                ? setup || invite
+                  ? 'Creating account…'
+                  : 'Signing in…'
                 : setup
                   ? 'Create admin account'
                   : invite

@@ -43,8 +43,7 @@ export function StorageSettings() {
       <h3>Storage</h3>
       {!account || !policy ? (
         <p className="muted">
-          Connect to a server to upload books and manage downloads
-          automatically.
+          Connect to a server to use automatic uploads and offloading.
         </p>
       ) : (
         <>
@@ -54,8 +53,8 @@ export function StorageSettings() {
             onChange={(autoUpload) => change({ autoUpload })}
           />
           <p className="muted">
-            Upload existing and newly imported EPUBs to your personal library on{' '}
-            {account.origin}. Runs while Quire is open.
+            Uploads existing and new EPUBs to your personal library on{' '}
+            {account.origin} while Quire is open.
           </p>
           <Switch
             label="Automatically offload downloads"
@@ -95,9 +94,9 @@ export function StorageSettings() {
                 />
               )}
               <p className="muted">
-                Only verified server copies are offloaded. Books marked “Keep
-                downloaded” and the open book stay on this device. Notes and
-                progress stay; opening an offloaded book downloads it again.
+                Removes downloads only after verifying the server copy. Keeps
+                notes, progress, the open book, and books marked “Keep
+                downloaded”. Offloaded books download again when opened.
               </p>
             </div>
           )}

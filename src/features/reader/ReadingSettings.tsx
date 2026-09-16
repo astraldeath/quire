@@ -118,8 +118,7 @@ export function ReadingSettings({
               )}
               {preferences.flow === 'continuous' && (
                 <p className="settings-note">
-                  Continue scrolling at a chapter boundary to move to the next
-                  or previous chapter.
+                  Scroll past a chapter’s end to load the next one.
                 </p>
               )}
             </div>

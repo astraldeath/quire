@@ -61,7 +61,7 @@ export function BookActions({
       setError(
         e instanceof Error
           ? e.message
-          : 'Could not remove the book. Please try again.',
+          : 'Could not update the book. Try again.',
       );
     } finally {
       setBusy(false);
@@ -81,7 +81,9 @@ export function BookActions({
       anchor={anchor}
       title={
         confirm
-          ? 'Confirm removal'
+          ? confirm === 'download'
+            ? 'Remove download?'
+            : 'Remove from library?'
           : entry.series
             ? 'Series actions'
             : 'Book actions'
@@ -101,8 +103,8 @@ export function BookActions({
           <>
             <p>
               {confirm === 'download'
-                ? 'Remove this EPUB from Quire? Your book details, progress, notes, and highlights will stay in the library.'
-                : `Remove ${entry.series ? `all ${entry.books.length} books in this series` : 'this book'} from your library? This deletes ${entry.series ? 'their' : 'its'} downloaded files, progress, bookmarks, highlights, and notes from Quire on this device.`}
+                ? 'Book details, progress, bookmarks, highlights, and notes stay in your library.'
+                : `This deletes ${entry.series ? `all ${entry.books.length} books in this series and their` : 'this book and its'} downloads, progress, bookmarks, highlights, and notes from Quire on this device.`}
             </p>
             {confirm === 'library' && (
               <p className="muted">
