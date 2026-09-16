@@ -4,6 +4,9 @@ import plistlib
 import shutil
 import sys
 import zipfile
+import json
+import subprocess
+import tempfile
 
 root = Path(__file__).resolve().parents[1]
 build = root / 'src-tauri' / 'gen' / 'apple' / 'build'
@@ -32,5 +35,12 @@ with zipfile.ZipFile(ipas[0]) as archive:
     assert not any(n.endswith('embedded.mobileprovision') or '/_CodeSignature/' in n for n in names), 'Signing files found in unsigned build'
     executable = plists[0].removesuffix('Info.plist') + info['CFBundleExecutable']
     assert executable in names, 'Application executable missing'
+    assets = plists[0].removesuffix('Info.plist') + 'Assets.car'
+    assert assets in names, 'Application asset catalog missing'
+    with tempfile.TemporaryDirectory() as directory:
+        catalog = Path(directory) / 'Assets.car'
+        catalog.write_bytes(archive.read(assets))
+        asset_info = json.loads(subprocess.check_output(['xcrun', 'assetutil', '--info', str(catalog)]))
+        assert any(item.get('Name') == 'QuirePrivacyWordmark' for item in asset_info), 'Privacy wordmark missing from IPA'
     assert archive.testzip() is None, 'Invalid IPA archive'
 print(f'Validated unsigned device package: {ipas[0].name}')

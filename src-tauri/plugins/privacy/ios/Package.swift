@@ -28,6 +28,6 @@ let package = Package(
                 .byName(name: "Tauri")
             ],
             path: "Sources",
-            resources: [.process("Resources")])
+            exclude: ["Resources"])
     ]
 )

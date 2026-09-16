@@ -19,7 +19,20 @@ def install_icons(source, catalog):
     print(f'Installed {len(names)} Quire app icons')
 
 
+def install_privacy_wordmark(source, catalog):
+    imageset = catalog / 'QuirePrivacyWordmark.imageset'
+    imageset.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, imageset / 'wordmark.png')
+    (imageset / 'Contents.json').write_text(json.dumps({
+        'images': [{'filename': 'wordmark.png', 'idiom': 'universal'}],
+        'info': {'author': 'xcode', 'version': 1},
+    }) + '\n')
+
+
 if __name__ == '__main__':
     root = Path(__file__).resolve().parents[1]
     install_icons(root / 'src-tauri/icons/ios',
                   root / 'src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset')
+    install_privacy_wordmark(
+        root / 'src-tauri/plugins/privacy/ios/Sources/Resources/wordmark.png',
+        root / 'src-tauri/gen/apple/Assets.xcassets')
