@@ -1,4 +1,5 @@
 import { BookStorageActions } from '../storage/BookStorageActions';
+import { ExportBookAction } from './ExportBookAction';
 import {
   ActionPopover,
   type ActionAnchor,
@@ -175,6 +176,9 @@ export function BookActions({
               </>
             )}
             <BookStorageActions books={entry.books} onClose={onClose} />
+            {!entry.series && (
+              <ExportBookAction book={entry.books[0]} onClose={onClose} />
+            )}
             <TrackingButton
               bookId={entry.books[0].id}
               series={entry.series ? entry.title : undefined}
