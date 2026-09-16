@@ -55,6 +55,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
   const [covered, setCovered] = useState(false);
   const pending = useRef<((value: boolean) => void)[]>([]);
   const epoch = useRef(0);
+  const nativeLifecycle = useRef(false);
   function finish(ok: boolean) {
     if (!ok) epoch.current++;
     if (ok) {
@@ -130,11 +131,16 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const background = () =>
       flushSync(() => {
-        setCovered(stateRef.current.shield);
+        // The native overlay already covers iOS, including WebView dialogs.
+        // A second showModal() here steals focus and moves the keyboard on resume.
+        setCovered(!nativeLifecycle.current && stateRef.current.shield);
         if (stateRef.current.autoLock) lock();
       });
     const foreground = () => flushSync(() => setCovered(false));
     const visibility = () => {
+      // Face ID and other system UI can hide the WebView without backgrounding
+      // the app. Only the native background notification should lock on iOS.
+      if (nativeLifecycle.current) return;
       const hidden = document.visibilityState === 'hidden';
       setCovered(hidden && stateRef.current.shield);
       if (hidden && stateRef.current.autoLock) lock();
@@ -152,7 +158,11 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     if (isTauri())
       void invoke('plugin:privacy|configure', {
         shield: stateRef.current.shield,
-      }).catch(() => {});
+      })
+        .then(() => {
+          nativeLifecycle.current = true;
+        })
+        .catch(() => {});
     return () => {
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('storage', changed);

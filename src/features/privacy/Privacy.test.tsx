@@ -28,8 +28,44 @@ function Harness() {
   return <p>{privacy.access('book') ? 'Readable' : 'Locked'}</p>;
 }
 afterEach(() => {
+  vi.restoreAllMocks();
   localStorage.removeItem('privacy-provider-test');
   vi.clearAllMocks();
+});
+it('keeps native authentication open across transient WebView visibility changes', async () => {
+  const test = await fixture();
+  try {
+    await act(async () => {
+      void privacy.authenticate();
+    });
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    await act(async () =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    expect(test.host.querySelector('[role="dialog"]')).not.toBeNull();
+    await act(async () =>
+      Array.from(test.host.querySelectorAll('button'))
+        .find((b) => b.textContent === 'Use biometrics')!
+        .click(),
+    );
+    expect(privacy.access('book')).toBe(true);
+    await act(async () => window.dispatchEvent(new Event('quire-background')));
+    expect(privacy.access('book')).toBe(false);
+  } finally {
+    await test.close();
+  }
+});
+it('uses the native cover without opening a second WebView dialog on resume', async () => {
+  const test = await fixture();
+  try {
+    await act(async () => privacy.update({ shield: true }));
+    await act(async () => window.dispatchEvent(new Event('quire-background')));
+    expect(test.host.querySelector('dialog')).toBeNull();
+    await act(async () => window.dispatchEvent(new Event('quire-foreground')));
+    expect(test.host.textContent).toBe('Locked');
+  } finally {
+    await test.close();
+  }
 });
 async function fixture() {
   localStorage.setItem(

@@ -30,9 +30,11 @@ jobs:
           xcodebuild -version
       - name: Verify frontend
         run: npm test
+      - name: Verify iOS asset installation
+        run: python3 scripts/test-ios-assets.py
       - name: Generate Xcode project
         run: npx tauri ios init --ci
-      - name: Install Quire app icons
+      - name: Install Quire app icons and privacy wordmark
         run: python3 scripts/ios-icons.py
       - name: Build unsigned physical-device IPA
         run: npx tauri ios build --ci --target aarch64 --no-sign
