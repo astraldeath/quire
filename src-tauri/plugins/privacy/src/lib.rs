@@ -1,55 +1,65 @@
 #[cfg(target_os = "ios")]
-use tauri::{plugin::PluginHandle, Manager, State};
+use tauri::{plugin::PluginHandle, Manager};
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Runtime,
+    AppHandle, Runtime,
 };
 #[cfg(target_os = "ios")]
 tauri::ios_plugin_binding!(init_plugin_privacy);
 #[cfg(target_os = "ios")]
 struct Privacy<R: Runtime>(PluginHandle<R>);
 
-#[cfg(target_os = "ios")]
-#[tauri::command]
-async fn configure<R: Runtime>(state: State<'_, Privacy<R>>, shield: bool) -> Result<(), String> {
-    state
-        .0
-        .run_mobile_plugin::<serde_json::Value>("configure", serde_json::json!({"shield": shield}))
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+fn native_call<R: Runtime>(
+    app: &AppHandle<R>,
+    command: &str,
+    payload: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[cfg(target_os = "ios")]
+    {
+        app.state::<Privacy<R>>()
+            .0
+            .run_mobile_plugin(command, payload)
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = (app, command, payload);
+        Err("Native privacy controls are only available on iOS.".into())
+    }
 }
-#[cfg(target_os = "ios")]
+
+// AppHandle ties the command's runtime to the Invoke runtime. State<T> alone
+// cannot infer R. Keep registration platform-independent so desktop CI checks it.
 #[tauri::command]
-async fn available<R: Runtime>(state: State<'_, Privacy<R>>) -> Result<bool, String> {
-    let value = state
-        .0
-        .run_mobile_plugin::<serde_json::Value>("available", serde_json::json!({}))
-        .map_err(|e| e.to_string())?;
+async fn configure<R: Runtime>(app: AppHandle<R>, shield: bool) -> Result<(), String> {
+    native_call(&app, "configure", serde_json::json!({"shield": shield})).map(|_| ())
+}
+#[tauri::command]
+async fn available<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
+    let value = native_call(&app, "available", serde_json::json!({}))?;
     Ok(value
         .get("available")
         .and_then(|v| v.as_bool())
         .unwrap_or(false))
 }
-#[cfg(target_os = "ios")]
 #[tauri::command]
-async fn authenticate<R: Runtime>(state: State<'_, Privacy<R>>) -> Result<bool, String> {
-    let value = state
-        .0
-        .run_mobile_plugin::<serde_json::Value>("authenticate", serde_json::json!({}))
-        .map_err(|e| e.to_string())?;
+async fn authenticate<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
+    let value = native_call(&app, "authenticate", serde_json::json!({}))?;
     Ok(value
         .get("authenticated")
         .and_then(|v| v.as_bool())
         .unwrap_or(false))
 }
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    let builder = Builder::new("privacy");
+    let builder = Builder::new("privacy").invoke_handler(tauri::generate_handler![
+        configure,
+        available,
+        authenticate
+    ]);
     #[cfg(target_os = "ios")]
-    let builder = builder
-        .invoke_handler(tauri::generate_handler![configure, available, authenticate])
-        .setup(|app, api| {
-            app.manage(Privacy(api.register_ios_plugin(init_plugin_privacy)?));
-            Ok(())
-        });
+    let builder = builder.setup(|app, api| {
+        app.manage(Privacy(api.register_ios_plugin(init_plugin_privacy)?));
+        Ok(())
+    });
     builder.build()
 }
