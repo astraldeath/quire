@@ -10,7 +10,7 @@
   --muted: #646c77;
   --line: #dedfe2;
   --hover: #e9ebee;
-  --accent: #849bb7;
+  --accent: #728eae;
   font-size: 14px;
   background: var(--bg);
   color: var(--fg);
@@ -144,14 +144,19 @@ button.icon {
   z-index: 5;
 }
 .wordmark {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -1.2px;
+  display: inline-flex;
+  align-items: center;
   padding: 6px 0;
   line-height: 1;
 }
-.wordmark span {
-  color: var(--accent);
+.brand-wordmark {
+  display: block;
+  width: 82px;
+  height: auto;
+  overflow: visible;
+}
+.hosted-card .brand-wordmark {
+  width: 150px;
 }
 .wordmark:hover {
   background: none;

@@ -5,6 +5,7 @@ import {
 import type { ActionAnchor } from './components/ActionPopover';
 import { LibraryControls } from './features/library/LibraryControls';
 import { Modal } from './components/Modal';
+import { Wordmark } from './components/Wordmark';
 import {
   hostedWeb,
   useWebPath,
@@ -717,7 +718,7 @@ export function App({
               aria-label="Quire library"
               onClick={() => goLibrary()}
             >
-              quire<span>.</span>
+              <Wordmark />
             </button>
             <nav className="sections" aria-label="Library sections">
               <button

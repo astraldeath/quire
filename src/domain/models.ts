@@ -59,7 +59,7 @@ export const defaults: Preferences = {
   theme: 'system',
   background: '#171819',
   foreground: '#e7e5df',
-  accent: '#849bb7',
+  accent: '#728EAE',
   view: 'grid',
   sort: 'recent',
   groupSeries: true,
