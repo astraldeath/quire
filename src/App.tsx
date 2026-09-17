@@ -861,19 +861,6 @@ function AppContent({
               { '--cover-size': `${preferences.coverSize}px` } as CSSProperties
             }
           >
-            {hiddenBooks && (
-              <div className="button-row">
-                <strong>Hidden books</strong>
-                <button
-                  onClick={() => {
-                    setHiddenBooks(false);
-                    setGroup(null);
-                  }}
-                >
-                  Back to library
-                </button>
-              </div>
-            )}
             {reading &&
               recent &&
               !group &&
@@ -895,17 +882,31 @@ function AppContent({
               )}
             <div className="shelf-toolbar">
               <div className="shelf-label">
-                {group && (
+                {(group || hiddenBooks) && (
                   <button
                     className="icon"
-                    aria-label="Back to all books"
-                    onClick={() => goGroup(null)}
+                    aria-label={
+                      group
+                        ? hiddenBooks
+                          ? 'Back to hidden books'
+                          : 'Back to all books'
+                        : 'Back to library'
+                    }
+                    onClick={() => {
+                      if (group) goGroup(null);
+                      else setHiddenBooks(false);
+                    }}
                   >
                     <ArrowLeft />
                   </button>
                 )}
                 <h1>
-                  {group ?? (reading ? 'Currently reading' : 'All books')}
+                  {group ??
+                    (hiddenBooks
+                      ? 'Hidden books'
+                      : reading
+                        ? 'Currently reading'
+                        : 'All books')}
                 </h1>
                 <span className="muted">
                   {entries.reduce((n, e) => n + e.books.length, 0)}
@@ -971,16 +972,20 @@ function AppContent({
                 </select>
               )}
               <LibraryControls
-                onHidden={() => {
-                  void privacy.authenticate().then((ok) => {
-                    if (ok) {
-                      goLibrary(false);
-                      setHiddenBooks(true);
-                      setGroup(null);
-                      setQuery('');
-                    }
-                  });
-                }}
+                onHidden={
+                  hiddenBooks
+                    ? undefined
+                    : () => {
+                        void privacy.authenticate().then((ok) => {
+                          if (ok) {
+                            goLibrary(false);
+                            setHiddenBooks(true);
+                            setGroup(null);
+                            setQuery('');
+                          }
+                        });
+                      }
+                }
                 collections={serverLibraries}
                 collection={libraryScope}
                 preferences={shelfPreferences}
@@ -1100,18 +1105,22 @@ function AppContent({
                 <h2>
                   {query || status !== 'all' || availability !== 'all'
                     ? 'No books found'
-                    : reading
-                      ? 'No books in progress'
-                      : 'No books yet'}
+                    : hiddenBooks
+                      ? 'No hidden books'
+                      : reading
+                        ? 'No books in progress'
+                        : 'No books yet'}
                 </h2>
                 <p>
                   {query || status !== 'all' || availability !== 'all'
                     ? 'Try another search or adjust your filters.'
-                    : reading
-                      ? 'Open a book from your library to start reading.'
-                      : onImport
-                        ? 'Upload an EPUB to your personal server library.'
-                        : 'Add an EPUB to start reading.'}
+                    : hiddenBooks
+                      ? 'Books you hide will appear here.'
+                      : reading
+                        ? 'Open a book from your library to start reading.'
+                        : onImport
+                          ? 'Upload an EPUB to your personal server library.'
+                          : 'Add an EPUB to start reading.'}
                 </p>
                 <button
                   className="primary"
@@ -1123,18 +1132,22 @@ function AppContent({
                             changeFilter('status', 'all');
                             changeFilter('availability', 'all');
                           }
-                        : reading
-                          ? () => goLibrary()
-                          : () => input.current?.click()
+                        : hiddenBooks
+                          ? () => setHiddenBooks(false)
+                          : reading
+                            ? () => goLibrary()
+                            : () => input.current?.click()
                   }
                 >
                   {query
                     ? 'Clear search'
                     : status !== 'all' || availability !== 'all'
                       ? 'Clear filters'
-                      : reading
-                        ? 'Browse library'
-                        : 'Add books'}
+                      : hiddenBooks
+                        ? 'Back to library'
+                        : reading
+                          ? 'Browse library'
+                          : 'Add books'}
                 </button>
               </div>
             ) : (

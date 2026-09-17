@@ -181,6 +181,8 @@ it('offers tracking directly in a non-modal menu and supports dismissal and keyb
     const menu = document.querySelector('[role="menu"]')!;
     expect(menu).toBeTruthy();
     expect(document.querySelector('dialog')).toBeNull();
+    expect(menu.textContent).toContain('Files and downloads');
+    expect(menu.textContent).not.toContain('Export EPUB');
     const buttons = [...menu.querySelectorAll('button')];
     expect(document.activeElement).toBe(buttons[0]);
     await act(async () =>
@@ -206,6 +208,22 @@ it('offers tracking directly in a non-modal menu and supports dismissal and keyb
       document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })),
     );
     expect(close).toHaveBeenCalledTimes(2);
+    await act(async () =>
+      buttons.find((b) => b.textContent === 'Files and downloads')!.click(),
+    );
+    expect(
+      document.querySelector('[role="menu"]')?.getAttribute('aria-label'),
+    ).toBe('Files and downloads');
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+      'Export EPUB',
+    );
+    await act(async () =>
+      document.querySelector<HTMLButtonElement>('.submenu-back')!.click(),
+    );
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+      'Book details',
+    );
+    expect(document.querySelector('dialog')).toBeNull();
   } finally {
     await act(async () => root.unmount());
   }

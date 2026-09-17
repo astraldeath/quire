@@ -17,6 +17,8 @@ import {
   Download,
   Check,
   Shield,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import type { LibraryEntry } from '../../domain/library';
@@ -47,6 +49,7 @@ export function BookActions({
   onRemoveDownload(): Promise<void>;
   onDelete(): Promise<void>;
 }) {
+  const [submenu, setSubmenu] = useState<'status' | 'files' | null>(null);
   const [tracking, setTracking] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [confirm, setConfirm] = useState<'library' | 'download' | null>(
@@ -87,6 +90,76 @@ export function BookActions({
           onBack={() => setPrivacyOpen(false)}
           onDone={onClose}
         />
+      </ActionPopover>
+    );
+  if (submenu && !confirm)
+    return (
+      <ActionPopover
+        key={submenu}
+        anchor={anchor}
+        title={submenu === 'files' ? 'Files and downloads' : 'Reading status'}
+        onClose={onClose}
+      >
+        <div className="book-action-list">
+          <button className="submenu-back" onClick={() => setSubmenu(null)}>
+            <ArrowLeft />
+            {submenu === 'files' ? 'Files and downloads' : 'Reading status'}
+          </button>
+          <div className="menu-divider" role="separator" />
+          {submenu === 'status' ? (
+            <>
+              {onMark && (
+                <>
+                  {entry.books.some(
+                    (b) => (b.position?.fraction ?? 0) < 0.999,
+                  ) && (
+                    <button
+                      disabled={busy}
+                      onClick={() => void run(() => onMark(true))}
+                    >
+                      <Check />
+                      Mark finished
+                    </button>
+                  )}
+                  {entry.books.some((b) => !!b.position) && (
+                    <button
+                      disabled={busy}
+                      onClick={() => void run(() => onMark(false))}
+                    >
+                      <BookOpen />
+                      Mark unread
+                    </button>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {onDownload && entry.books.some((b) => !b.local) && (
+                <button disabled={busy} onClick={() => void run(onDownload)}>
+                  <Download />
+                  Download{' '}
+                  {entry.series ? `${entry.books.length} books` : 'book'}
+                </button>
+              )}
+              <BookStorageActions books={entry.books} onClose={onClose} />
+              {!entry.series && (
+                <ExportBookAction book={entry.books[0]} onClose={onClose} />
+              )}
+              {entry.books.some((b) => b.local) && (
+                <button onClick={() => setConfirm('download')}>
+                  <HardDriveDownload />
+                  Remove download
+                </button>
+              )}
+            </>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       </ActionPopover>
     );
   const Container = confirm ? Modal : ActionPopover;
@@ -161,44 +234,6 @@ export function BookActions({
                 Continue reading
               </button>
             )}
-            {onDownload && entry.books.some((b) => !b.local) && (
-              <button disabled={busy} onClick={() => void run(onDownload)}>
-                <Download />
-                Download {entry.series ? `${entry.books.length} books` : 'book'}
-              </button>
-            )}
-            {onMark && (
-              <>
-                {entry.books.some(
-                  (b) => (b.position?.fraction ?? 0) < 0.999,
-                ) && (
-                  <button
-                    disabled={busy}
-                    onClick={() => void run(() => onMark(true))}
-                  >
-                    <Check />
-                    Mark finished
-                  </button>
-                )}
-                {entry.books.some((b) => !!b.position) && (
-                  <button
-                    disabled={busy}
-                    onClick={() => void run(() => onMark(false))}
-                  >
-                    <BookOpen />
-                    Mark unread
-                  </button>
-                )}
-              </>
-            )}
-            <BookStorageActions books={entry.books} onClose={onClose} />
-            <button onClick={() => setPrivacyOpen(true)}>
-              <Shield />
-              Privacy
-            </button>
-            {!entry.series && (
-              <ExportBookAction book={entry.books[0]} onClose={onClose} />
-            )}
             <TrackingButton
               bookId={entry.books[0].id}
               series={entry.series ? entry.title : undefined}
@@ -210,12 +245,24 @@ export function BookActions({
                 Book details
               </button>
             )}
-            {entry.books.some((b) => b.local) && (
-              <button onClick={() => setConfirm('download')}>
-                <HardDriveDownload />
-                Remove download
+            {onMark && (
+              <button onClick={() => setSubmenu('status')}>
+                <Check />
+                Reading status
+                <ChevronRight className="menu-chevron" />
               </button>
             )}
+            <button onClick={() => setSubmenu('files')}>
+              <FolderOpen />
+              Files and downloads
+              <ChevronRight className="menu-chevron" />
+            </button>
+            <button onClick={() => setPrivacyOpen(true)}>
+              <Shield />
+              Privacy
+              <ChevronRight className="menu-chevron" />
+            </button>
+            <div className="menu-divider" role="separator" />
             <button className="danger" onClick={() => setConfirm('library')}>
               <Trash2 />
               Remove from library

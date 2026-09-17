@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { flushSync } from 'react-dom';
+import { ScanFace, LockKeyhole } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Wordmark } from '../../components/Wordmark';
 import { devicePrivacyKey } from '../../storage';
@@ -207,7 +208,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
           onClose={() => finish(false)}
         >
           <form
-            className="settings-body"
+            className="privacy-form"
             onSubmit={(event) => {
               event.preventDefault();
               void submit();
@@ -250,6 +251,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
               </p>
             )}
             <button className="primary" disabled={busy}>
+              <LockKeyhole size={18} />
               {busy
                 ? 'Checking…'
                 : state.credential
@@ -259,9 +261,11 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
             {state.credential && state.biometrics && isTauri() && (
               <button
                 type="button"
+                className="privacy-biometric"
                 disabled={busy}
                 onClick={() => void submit(true)}
               >
+                <ScanFace size={18} />
                 Use biometrics
               </button>
             )}

@@ -311,7 +311,16 @@ export function TrackingDialog({
         {state && !editing && (
           <>
             <section className="tracker-card">
-              <h3>MangaBaka</h3>
+              <div className="tracker-card-heading">
+                <h3>MangaBaka</h3>
+                {link && (
+                  <span className="tracker-auto-status">
+                    {state.connected && linkedAuto
+                      ? 'Auto-track on'
+                      : 'Auto-track off'}
+                  </span>
+                )}
+              </div>
               {link ? (
                 <>
                   <a
@@ -320,26 +329,24 @@ export function TrackingDialog({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    {link.title}
+                    <span>{link.title}</span>
                     <ExternalLink size={16} />
                   </a>
-                  <p className="muted">
-                    {series
-                      ? `${seriesLinks.length} ${seriesLinks.length === 1 ? 'book' : 'books'} linked`
-                      : link.seriesKey
-                        ? 'Using series match'
-                        : 'Book match'}{' '}
-                    ·{' '}
-                    {state.connected && linkedAuto
-                      ? 'Auto-track on'
-                      : 'Auto-track off'}
-                  </p>
+                  {(series || link.seriesKey) && (
+                    <p className="muted tracker-scope-label">
+                      {series
+                        ? `${seriesLinks.length} ${seriesLinks.length === 1 ? 'book' : 'books'} linked`
+                        : link.seriesKey
+                          ? 'Using series match'
+                          : 'Book match'}
+                    </p>
+                  )}
                   {link.error && (
                     <p role="alert" className="error">
                       {link.error}
                     </p>
                   )}
-                  <div className="tracker-actions">
+                  <div className="tracker-actions tracker-primary-actions">
                     <button disabled={!!busy} onClick={edit}>
                       <Link2 />
                       Edit tracker
@@ -364,9 +371,14 @@ export function TrackingDialog({
                         Update now
                       </button>
                     )}
-                    <button disabled={!!busy} onClick={() => setUnlink(true)}>
+                    <button
+                      className="icon"
+                      title="Unlink tracker"
+                      aria-label="Unlink tracker"
+                      disabled={!!busy}
+                      onClick={() => setUnlink(true)}
+                    >
                       <Unlink />
-                      Unlink
                     </button>
                   </div>
                   {unlink && (
@@ -400,7 +412,9 @@ export function TrackingDialog({
             {state.connected ? (
               <details className="tracker-account">
                 <summary>
-                  Connected as {state.name}
+                  <span>
+                    Account <strong>{state.name}</strong>
+                  </span>
                   <ChevronDown size={16} />
                 </summary>
                 <div className="tracker-actions">

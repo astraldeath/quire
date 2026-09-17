@@ -15,6 +15,8 @@ export function Modal({
     // Dismiss selection UI belonging to the page before opening a new surface.
     document.getSelection()?.removeAllRanges();
     ref.current?.showModal();
+    if (document.activeElement?.getAttribute('aria-label') === 'Close dialog')
+      ref.current?.focus({ preventScroll: true });
     let resting = visualBox();
     let anchor: number | undefined;
     const update = () => {
@@ -92,6 +94,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      tabIndex={-1}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
