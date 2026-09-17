@@ -5,6 +5,7 @@ import {
   Grid2X2,
   CheckSquare,
   X,
+  ChevronRight,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { EyeOff } from 'lucide-react';
@@ -147,6 +148,7 @@ export function LibraryControls({
               <>
                 {onHidden && (
                   <button
+                    className="library-destination"
                     onClick={() => {
                       setPanel('');
                       onHidden();
@@ -154,6 +156,7 @@ export function LibraryControls({
                   >
                     <EyeOff />
                     Hidden books
+                    <ChevronRight className="menu-chevron" />
                   </button>
                 )}
                 <Segments

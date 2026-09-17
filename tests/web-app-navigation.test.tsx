@@ -217,3 +217,70 @@ it('selects the exact number of books in a grouped series', async () => {
     history.replaceState(null, '', '/');
   }
 });
+it('shows one hidden-library heading and returns to the regular shelf', async () => {
+  const { credential } = await import('../src/features/privacy/model');
+  localStorage.setItem(
+    'privacy-navigation-test',
+    JSON.stringify({
+      version: 1,
+      books: { [books[0].id]: 'hidden' },
+      credential: await credential('123456'),
+    }),
+  );
+  history.replaceState(null, '', '/library');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Library view options"]',
+        )!
+        .click(),
+    );
+    await act(async () =>
+      [...host.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Hidden books')!
+        .click(),
+    );
+    const input = host.querySelector<HTMLInputElement>(
+      'input[type="password"]',
+    )!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(input, '123456');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      host
+        .querySelector('form')!
+        .dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    });
+    expect([...host.querySelectorAll('h1')].map((h) => h.textContent)).toEqual([
+      'Hidden books',
+    ]);
+    expect(host.querySelector('.shelf-label > span')?.textContent).toBe('1');
+    expect(host.textContent).toContain('Book One');
+    expect(host.textContent).not.toContain('Book Two');
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[aria-label="Back to library"]')!
+        .click(),
+    );
+    expect(host.querySelector('h1')?.textContent).toBe('All books');
+    expect(host.textContent).not.toContain('Book One');
+    expect(host.textContent).toContain('Book Two');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    localStorage.removeItem('privacy-navigation-test');
+    history.replaceState(null, '', '/');
+  }
+});
