@@ -1,4 +1,5 @@
 import { syncReadingActivity } from '../statistics/sync';
+import { syncPrivacy, privacyChanged } from '../privacy/sync';
 import { fetchCovers } from './library';
 import { loadSync, syncTransaction } from '../../storage';
 import {
@@ -76,6 +77,7 @@ export function syncNow(): Promise<void> {
     }
     report('Syncing', true);
     try {
+      await syncPrivacy();
       for (let i = 0; i < 100; i++) {
         const batch = await syncTransaction((s) => ({
           result: {
@@ -167,6 +169,7 @@ export function startSync() {
     timer = setTimeout(run, 1500);
   };
   window.addEventListener('quire-statistics', activityChanged);
+  window.addEventListener(privacyChanged, activityChanged);
   window.addEventListener('quire-storage', changed);
   window.addEventListener('online', run);
   document.addEventListener('visibilitychange', foreground);
@@ -179,6 +182,7 @@ export function startSync() {
     clearTimeout(timer);
     clearInterval(interval);
     window.removeEventListener('quire-statistics', activityChanged);
+    window.removeEventListener(privacyChanged, activityChanged);
     window.removeEventListener('quire-storage', changed);
     window.removeEventListener('online', run);
     document.removeEventListener('visibilitychange', foreground);

@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { PrivacyProvider, usePrivacy } from './Privacy';
 import { emptyPrivacy } from './model';
+import { privacyReceived } from './sync';
+import { restorePrivacy } from './shared';
 const { native } = vi.hoisted(() => ({ native: vi.fn(async () => true) }));
 vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => true,
@@ -31,6 +33,74 @@ afterEach(() => {
   vi.restoreAllMocks();
   localStorage.removeItem('privacy-provider-test');
   vi.clearAllMocks();
+});
+it('relocks an unlocked library immediately when remote protection changes', async () => {
+  const test = await fixture();
+  try {
+    await act(async () => {
+      void privacy.authenticate();
+    });
+    await act(async () =>
+      Array.from(test.host.querySelectorAll('button'))
+        .find((b) => b.textContent === 'Use biometrics')!
+        .click(),
+    );
+    expect(privacy.unlocked).toBe(true);
+    localStorage.setItem(
+      'privacy-provider-test',
+      JSON.stringify({
+        ...privacy.state,
+        biometrics: false,
+        credential: { salt: 'c'.repeat(32), hash: 'd'.repeat(64) },
+      }),
+    );
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent(privacyReceived, { detail: { changed: true } }),
+      ),
+    );
+    expect(privacy.unlocked).toBe(false);
+    expect(privacy.state.biometrics).toBe(false);
+    expect(privacy.state.credential?.salt).toBe('c'.repeat(32));
+  } finally {
+    await test.close();
+  }
+});
+it('merges backup protection against the latest persisted state and retains sync acknowledgements', async () => {
+  const test = await fixture();
+  try {
+    const first = 'a'.repeat(64),
+      second = 'b'.repeat(64);
+    const latest = {
+      ...privacy.state,
+      books: { [first]: 'hidden' },
+      sync: {
+        account: 'account',
+        revision: 4,
+        baseline: {
+          credential: privacy.state.credential,
+          books: { [first]: 'hidden' },
+        },
+      },
+    };
+    localStorage.setItem('privacy-provider-test', JSON.stringify(latest));
+    await act(async () =>
+      privacy.update((current) => {
+        const merged = restorePrivacy(current, {
+          credential: current.credential!,
+          books: { [second]: 'locked' },
+        });
+        return { credential: merged.credential!, books: merged.books };
+      }),
+    );
+    expect(privacy.current().books).toEqual({
+      [first]: 'hidden',
+      [second]: 'locked',
+    });
+    expect(privacy.state.sync?.revision).toBe(4);
+  } finally {
+    await test.close();
+  }
 });
 it('keeps native authentication open across transient WebView visibility changes', async () => {
   const test = await fixture();

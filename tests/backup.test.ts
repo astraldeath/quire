@@ -14,6 +14,22 @@ const book: Book = {
   addedAt: 1,
   local: true,
 };
+it('roundtrips private library restrictions without device authentication or sync metadata', async () => {
+  const privacy = {
+    credential: { salt: 'a'.repeat(32), hash: 'b'.repeat(64) },
+    books: { [book.id]: 'hidden' as const },
+  };
+  const backup = await readBackup(
+    await createBackup([{ book }], defaults, 'data', [], privacy),
+  );
+  expect(backup.privacy).toEqual(privacy);
+  await expect(
+    createBackup([{ book }], defaults, 'data', [], {
+      credential: null,
+      books: privacy.books,
+    }),
+  ).rejects.toThrow('private library');
+});
 it('roundtrips full backup bytes and data-only metadata', async () => {
   const full = await readBackup(
     await createBackup([{ book, file: bytes }], defaults, 'full'),

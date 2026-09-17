@@ -8,6 +8,7 @@ import {
 import type { Book, Preferences } from '../../domain/models';
 import { validateActivity, type ReadingActivity } from '../statistics/model';
 import { validateBook, validatePreferences } from './validation';
+import { validatePrivacy, type SharedPrivacy } from '../privacy/shared';
 export interface BackupRecord {
   book: Book;
   file?: Uint8Array;
@@ -18,6 +19,7 @@ export interface Backup {
   preferences: Preferences;
   records: BackupRecord[];
   activities?: ReadingActivity[];
+  privacy?: SharedPrivacy;
 }
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 const MANIFEST_MAX = 32 * 1024 * 1024;
@@ -52,6 +54,7 @@ export async function createBackup(
   preferences: Preferences,
   kind: Backup['kind'],
   activities: ReadingActivity[] = [],
+  privacy?: SharedPrivacy,
 ): Promise<Uint8Array> {
   const files = kind === 'full' ? records.filter((r) => r.file) : [];
   const manifest = {
@@ -63,6 +66,7 @@ export async function createBackup(
     books: records.map((r) => r.book),
     files: files.map((r) => r.book.id),
     activities: validateActivities(activities),
+    ...(privacy ? { privacy: validatePrivacy(privacy) } : {}),
   };
   const data = new TextEncoder().encode(JSON.stringify(manifest));
   if (
@@ -173,6 +177,9 @@ export async function readBackup(bytes: Uint8Array): Promise<Backup> {
       preferences,
       records,
       activities: validateActivities(manifest.activities ?? []),
+      ...(manifest.privacy !== undefined
+        ? { privacy: validatePrivacy(manifest.privacy) }
+        : {}),
     };
   } finally {
     await reader.close();

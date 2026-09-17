@@ -12,6 +12,8 @@ import { ScanFace, LockKeyhole } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Wordmark } from '../../components/Wordmark';
 import { devicePrivacyKey } from '../../storage';
+import { privacyChanged, privacyReceived } from './sync';
+import { samePrivacy } from './shared';
 import {
   canAccess,
   credential,
@@ -24,10 +26,15 @@ import {
 
 interface Privacy {
   state: PrivacyState;
+  current(): PrivacyState;
   unlocked: boolean;
   access(id: string): boolean;
   authenticate(force?: boolean): Promise<boolean>;
-  update(patch: Partial<PrivacyState>): void;
+  update(
+    patch:
+      | Partial<PrivacyState>
+      | ((current: PrivacyState) => Partial<PrivacyState>),
+  ): void;
   protect(ids: string[], mode: BookPrivacy): Promise<boolean>;
   lock(): void;
 }
@@ -75,11 +82,26 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     setUnlocked(false);
     finish(false);
   }
-  function update(patch: Partial<PrivacyState>) {
-    const next = { ...stateRef.current, ...patch };
+  function update(
+    change:
+      | Partial<PrivacyState>
+      | ((current: PrivacyState) => Partial<PrivacyState>),
+  ) {
+    const current = readPrivacy(key);
+    const patch = typeof change === 'function' ? change(current) : change;
+    if (
+      'credential' in patch &&
+      current.credential &&
+      !samePrivacy(current.credential, patch.credential) &&
+      !unlockedRef.current
+    )
+      throw new Error('Unlock private books before changing the passcode.');
+    const next = { ...current, ...patch };
     localStorage.setItem(key, JSON.stringify(next));
     stateRef.current = next;
     setState(next);
+    if ('credential' in patch || 'books' in patch)
+      window.dispatchEvent(new Event(privacyChanged));
     if (isTauri())
       void invoke('plugin:privacy|configure', { shield: next.shield }).catch(
         () => {},
@@ -130,6 +152,14 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     }
   }
   useEffect(() => {
+    const received = (event: Event) => {
+      flushSync(() => {
+        const next = readPrivacy(key);
+        if ((event as CustomEvent<{ changed: boolean }>).detail.changed) lock();
+        stateRef.current = next;
+        setState(next);
+      });
+    };
     const background = () =>
       flushSync(() => {
         // The native overlay already covers iOS, including WebView dialogs.
@@ -154,6 +184,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     };
     document.addEventListener('visibilitychange', visibility);
     window.addEventListener('storage', changed);
+    window.addEventListener(privacyReceived, received);
     window.addEventListener('quire-background', background);
     window.addEventListener('quire-foreground', foreground);
     if (isTauri())
@@ -167,6 +198,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     return () => {
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('storage', changed);
+      window.removeEventListener(privacyReceived, received);
       window.removeEventListener('quire-background', background);
       window.removeEventListener('quire-foreground', foreground);
       pending.current.splice(0).forEach((resolve) => resolve(false));
@@ -182,13 +214,14 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     <Context.Provider
       value={{
         state,
+        current: () => readPrivacy(key),
         unlocked,
         access: (id) => canAccess(stateRef.current, id, unlockedRef.current),
         authenticate,
         update,
         lock,
         protect: async (ids, mode) => {
-          if (!(await authenticate(true))) return false;
+          if (!(await authenticate(true)) || !unlockedRef.current) return false;
           const books = { ...stateRef.current.books };
           ids.forEach((id) => {
             if (mode === 'normal') delete books[id];

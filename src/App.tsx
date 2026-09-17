@@ -7,6 +7,11 @@ import { LibraryControls } from './features/library/LibraryControls';
 import { Modal } from './components/Modal';
 import { Wordmark } from './components/Wordmark';
 import { PrivacyProvider, usePrivacy } from './features/privacy/Privacy';
+import {
+  restorePrivacy,
+  samePrivacy,
+  sharedPrivacy,
+} from './features/privacy/shared';
 import { PrivacyMenu } from './features/privacy/PrivacyMenu';
 import { visibleBook } from './features/privacy/model';
 import { LockKeyhole } from 'lucide-react';
@@ -562,15 +567,36 @@ function AppContent({
         records.push({ book, file });
       }
       await preserveExistingProgress(saved);
-      return createBackup(
+      const activities = await listReadingActivity();
+      const protection = sharedPrivacy(privacy.current());
+      const backup = await createBackup(
         records,
         preferencesRef.current,
         kind,
-        await listReadingActivity(),
+        activities,
+        protection,
       );
+      if (
+        !samePrivacy(protection, sharedPrivacy(privacy.current())) ||
+        Object.keys(protection.books).some((id) => !privacy.access(id))
+      )
+        throw new Error(
+          'Private library settings changed. Unlock private books and create the backup again.',
+        );
+      return backup;
     });
   const restoreBackup = (backup: Backup, settings: boolean) =>
     enqueue(async () => {
+      if (backup.privacy) {
+        privacy.update((current) => {
+          const protection = restorePrivacy(current, backup.privacy!);
+          return {
+            credential: protection.credential ?? undefined,
+            books: protection.books,
+          };
+        });
+        privacy.lock();
+      }
       const current = await listBooks();
       const records = backup.records.map(({ book, file }) => ({
         book: mergeBook(
