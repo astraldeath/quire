@@ -240,14 +240,39 @@
 .reader-contents ol ol {
   padding-left: 12px;
 }
-.reader-contents li > button {
-  width: 100%;
+.reader-contents .contents-row {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+.reader-contents .contents-title {
+  flex: 1;
+  min-width: 0;
   justify-content: flex-start;
   text-align: left;
   font-size: 12px;
   line-height: 1.5;
-  padding: 6px 9px;
+  padding: 6px;
   min-height: 32px;
+  overflow-wrap: anywhere;
+}
+.reader-contents .contents-toggle,
+.reader-contents .contents-toggle-space {
+  flex: 0 0 28px;
+  width: 28px;
+}
+.reader-contents .contents-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  min-width: 0;
+  align-self: flex-start;
+  min-height: 32px;
+}
+.reader-contents .contents-toggle svg {
+  width: 15px;
+  height: 15px;
 }
 .reader-contents button[aria-current='location'] {
   background: color-mix(in srgb, currentColor 10%, transparent);
@@ -359,9 +384,14 @@
   .reader-toolbar > button,
   .reader-panel-heading > button,
   .reader-footer > button,
-  .reader-contents li > button {
+  .reader-contents .contents-row > button {
     min-width: 44px;
     min-height: 44px;
+  }
+  .reader-contents .contents-toggle,
+  .reader-contents .contents-toggle-space {
+    flex-basis: 44px;
+    width: 44px;
   }
   .reader-panel {
     top: calc(68px + env(safe-area-inset-top));

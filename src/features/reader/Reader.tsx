@@ -1,5 +1,6 @@
 import { ReaderDialog } from './ReaderDialog';
 import { ReaderTools } from './ReaderTools';
+import { Contents } from './Contents';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -90,33 +91,6 @@ export function applyReaderPreferences(view: View, p: ReaderPreferences) {
         : 'Georgia, Charter, serif';
   view.renderer.setStyles(
     `${readerThemeCss(c.foreground, c.background)} html { --theme-bg-color: ${c.background}; color: ${c.foreground} !important; background: ${c.background} !important; color-scheme: ${c.dark ? 'dark' : 'light'}; } body { margin: 0 !important; padding: 0 !important; color: ${c.foreground} !important; background: transparent !important; font-size: ${clamp(p.size, 12, 36)}px !important; line-height: ${clamp(p.lineHeight, 1.2, 2.4)} !important; ${p.font !== 'publisher' ? `font-family: ${font} !important;` : ''} } ${!p.publisherStyles ? `p, li, div { font-size: inherit !important; line-height: inherit !important; font-family: inherit !important; color: inherit !important; }` : ''} a { color: inherit; } img, svg { max-width: 100%; }`,
-  );
-}
-function Contents({
-  items,
-  go,
-  active,
-}: {
-  items: TocItem[];
-  active: string;
-  go(href: string): void;
-}) {
-  return (
-    <ol>
-      {items.map((item, index) => (
-        <li key={`${item.href}-${index}`}>
-          <button
-            aria-current={active === item.href ? 'location' : undefined}
-            onClick={() => go(item.href)}
-          >
-            {item.label || 'Untitled section'}
-          </button>
-          {item.subitems?.length ? (
-            <Contents items={item.subitems} go={go} active={active} />
-          ) : null}
-        </li>
-      ))}
-    </ol>
   );
 }
 export function Reader({
