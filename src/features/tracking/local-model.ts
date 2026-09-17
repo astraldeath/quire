@@ -14,6 +14,7 @@ export type TrackingLink = {
   error: string;
   nextAttempt: number;
   lastAttempt?: number;
+  private?: boolean;
 };
 export type LocalTracking = { accountId: string; links: TrackingLink[] };
 export type SeriesMatch = {
@@ -21,6 +22,7 @@ export type SeriesMatch = {
   seriesId: number;
   title: string;
   auto: boolean;
+  private?: boolean;
 };
 export function newLink(
   value: Pick<
@@ -32,7 +34,7 @@ export function newLink(
     | 'volume'
     | 'auto'
     | 'completeEntry'
-  >,
+  > & { private?: boolean },
 ): TrackingLink {
   if (
     !value.bookId ||
@@ -45,6 +47,7 @@ export function newLink(
     throw new Error('Choose a valid match and volume.');
   return {
     ...value,
+    private: value.private ?? true,
     title: value.title.slice(0, 500),
     lastStep: 0,
     lastSync: 0,
@@ -64,6 +67,7 @@ export function applySeries(
     if (index >= 0 && !result[index].seriesKey) continue;
     const next = newLink({
       ...match,
+      private: match.private ?? (index >= 0 ? result[index].private : true),
       bookId: book.id,
       volume: book.volume ?? 0,
       completeEntry: false,
@@ -96,7 +100,10 @@ export function progressPatch(
   if (step === 2) {
     if (link.volume > remote.progress_volume)
       patch.progress_volume = link.volume;
-    if (link.completeEntry && remote.state !== 'completed')
+    if (
+      link.completeEntry &&
+      !['completed', 'paused', 'dropped'].includes(remote.state)
+    )
       patch.state = 'completed';
   }
   return patch;

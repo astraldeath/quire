@@ -11,6 +11,7 @@ import {
   type TrackingLink,
 } from './local-model';
 import { readTracking, writeTracking } from './local-store';
+import { parseEntry, validateEntryPatch, type TrackerEntry } from './entry';
 
 type Identity = { connected: boolean; name: string; accountId: string };
 type Response = { status: number; data: any };
@@ -95,7 +96,7 @@ async function updateProgress(state: LocalTracking) {
           await provider(
             path,
             'POST',
-            { state: 'reading', is_private: true },
+            { state: 'reading', is_private: link.private ?? true },
             state.accountId,
           ),
         );
@@ -172,6 +173,92 @@ export async function nativeTrackingRequest(
       await writeTracking(state);
       return null;
     }
+    const entryRoute = path.match(/^\/v1\/tracking\/entries\/([1-9]\d{0,9})$/);
+    if (entryRoute) {
+      const seriesId = Number(entryRoute[1]);
+      const who = await identity(state);
+      if (!who.connected)
+        throw new Error('Connect MangaBaka to manage tracking.');
+      const books = await listBooks();
+      if (
+        !state.links.some(
+          (l) =>
+            l.seriesId === seriesId && books.some((b) => b.id === l.bookId),
+        )
+      )
+        throw new Error('This tracker is no longer linked.');
+      if (method !== 'GET' && body?.expectedAccountId !== who.accountId)
+        throw new Error(
+          'MangaBaka account changed. Reload the tracker and try again.',
+        );
+      if (!['GET', 'POST', 'PUT'].includes(method))
+        throw new Error('Unsupported tracking action.');
+      const changes: Partial<TrackerEntry> =
+        method === 'PUT' ? validateEntryPatch(body?.changes) : {};
+      if (method === 'POST' && typeof body?.is_private !== 'boolean')
+        throw new Error('Choose tracking privacy.');
+      const endpoint = `/v1/my/library/${seriesId}`;
+      const response = await provider(
+        endpoint,
+        'GET',
+        undefined,
+        who.accountId,
+      );
+      let entry: TrackerEntry | null =
+        response.status === 404 ? null : parseEntry(requireSuccess(response));
+      if (method === 'POST') {
+        const patch = { is_private: body.is_private as boolean };
+        requireSuccess(
+          await provider(
+            endpoint,
+            entry ? 'PUT' : 'POST',
+            entry ? patch : { state: 'plan_to_read', ...patch },
+            who.accountId,
+          ),
+        );
+      } else if (method === 'PUT') {
+        if (!entry)
+          throw new Error(
+            'This MangaBaka entry was removed. Add it again before editing.',
+          );
+        requireSuccess(await provider(endpoint, 'PUT', changes, who.accountId));
+      }
+      if (method !== 'GET') {
+        // Acknowledge the reading position already present when the user edited progress.
+        // Future reading still advances; the next background pass must not undo this edit.
+        for (const link of state.links.filter((l) => l.seriesId === seriesId)) {
+          if (method === 'POST' || 'is_private' in changes)
+            link.private =
+              method === 'POST' ? body.is_private : changes.is_private;
+          if (
+            method === 'PUT' &&
+            ['state', 'progress_chapter', 'progress_volume'].some(
+              (k) => k in changes,
+            )
+          ) {
+            const book = books.find((b) => b.id === link.bookId);
+            const fraction = book?.position?.fraction ?? 0;
+            link.lastStep = Math.max(
+              link.lastStep,
+              fraction >= 0.999 ? 2 : fraction > 0 ? 1 : 0,
+            );
+            link.lastChapter = Math.max(
+              link.lastChapter ?? 0,
+              link.volume === 0 ? (book?.position?.completedChapter ?? 0) : 0,
+            );
+            link.nextAttempt = 0;
+            link.error = '';
+          }
+        }
+        await writeTracking(state);
+        entry = parseEntry(
+          requireSuccess(
+            await provider(endpoint, 'GET', undefined, who.accountId),
+          ),
+        );
+      }
+      return { entry, accountId: who.accountId };
+    }
     if (path === '/v1/tracking/series') {
       if (method === 'DELETE')
         state.links = state.links.filter((l) => l.seriesKey !== body.seriesKey);
@@ -207,6 +294,10 @@ export async function nativeTrackingRequest(
           volume: value.volume,
           auto: !!value.auto && who.connected,
           completeEntry: !value.seriesKey && !!value.completeEntry,
+          private:
+            value.private ??
+            state.links.find((l) => l.bookId === bookId)?.private ??
+            true,
         });
         state.links = [...state.links.filter((l) => l.bookId !== bookId), link];
       } else throw new Error('Unsupported tracking action.');

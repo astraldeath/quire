@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import type { LocalTracking } from '../src/features/tracking/local-model';
 import { newLink } from '../src/features/tracking/local-model';
 import { nativeTrackingRequest } from '../src/features/tracking/native';
+import { emptyEntry } from '../src/features/tracking/entry';
 
 const fixture = vi.hoisted(() => ({
   state: {} as LocalTracking,
@@ -181,4 +182,110 @@ it('creates missing entries privately and skips books removed from the library',
     }),
   );
   expect(fixture.state.links[0].lastStep).toBe(1);
+});
+
+it('edits only requested fields and acknowledges all books sharing the entry', async () => {
+  fixture.state.links.push({
+    ...fixture.state.links[0],
+    bookId: 'second',
+    volume: 0,
+  });
+  fixture.books.push({
+    id: 'second',
+    position: { fraction: 0.5, completedChapter: 12 },
+  });
+  const original = {
+    ...emptyEntry(),
+    state: 'reading',
+    progress_chapter: 12,
+    rating: 80,
+  };
+  const changes = {
+    state: 'paused',
+    progress_chapter: 4,
+    start_date: null,
+    is_private: false,
+  };
+  fixture.provider
+    .mockResolvedValueOnce({ status: 200, data: original })
+    .mockResolvedValueOnce({ status: 200, data: {} })
+    .mockResolvedValueOnce({ status: 200, data: { ...original, ...changes } });
+  const result = await nativeTrackingRequest(
+    '/v1/tracking/entries/1',
+    { expectedAccountId: 'reader', changes },
+    'PUT',
+  );
+  expect(result.entry).toMatchObject({ ...changes, rating: 80 });
+  expect(fixture.provider.mock.calls[1][0]).toMatchObject({
+    method: 'PUT',
+    body: changes,
+    expectedAccountId: 'reader',
+  });
+  expect(fixture.state.links[0]).toMatchObject({ lastStep: 2, private: false });
+  expect(fixture.state.links[1]).toMatchObject({
+    lastStep: 1,
+    lastChapter: 12,
+    private: false,
+  });
+  fixture.provider.mockClear();
+  await nativeTrackingRequest('/v1/tracking/sync', {}, 'POST');
+  expect(fixture.provider).not.toHaveBeenCalled();
+});
+
+it('creates a missing entry with the explicit privacy choice, even before reading', async () => {
+  fixture.books = [{ id: 'book' }];
+  fixture.provider
+    .mockResolvedValueOnce({ status: 404, data: null })
+    .mockResolvedValueOnce({ status: 200, data: {} })
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { ...emptyEntry(), is_private: false },
+    });
+  await nativeTrackingRequest(
+    '/v1/tracking/entries/1',
+    { expectedAccountId: 'reader', is_private: false },
+    'POST',
+  );
+  expect(fixture.provider.mock.calls[1][0]).toMatchObject({
+    method: 'POST',
+    body: { state: 'plan_to_read', is_private: false },
+  });
+  expect(fixture.state.links[0].private).toBe(false);
+});
+
+it('rejects stale account edits and invalid fields before contacting MangaBaka', async () => {
+  await expect(
+    nativeTrackingRequest(
+      '/v1/tracking/entries/1',
+      { expectedAccountId: 'someone-else', changes: { rating: 80 } },
+      'PUT',
+    ),
+  ).rejects.toThrow('account changed');
+  await expect(
+    nativeTrackingRequest(
+      '/v1/tracking/entries/1',
+      { expectedAccountId: 'reader', changes: { state: null } },
+      'PUT',
+    ),
+  ).rejects.toThrow('status');
+  await expect(
+    nativeTrackingRequest(
+      '/v1/tracking/entries/1',
+      { expectedAccountId: 'reader', changes: { note: 'overwrite' } },
+      'PUT',
+    ),
+  ).rejects.toThrow('changes');
+  expect(fixture.provider).not.toHaveBeenCalled();
+});
+
+it('does not recreate a remotely removed entry while editing', async () => {
+  fixture.provider.mockResolvedValue({ status: 404, data: null });
+  await expect(
+    nativeTrackingRequest(
+      '/v1/tracking/entries/1',
+      { expectedAccountId: 'reader', changes: { rating: 80 } },
+      'PUT',
+    ),
+  ).rejects.toThrow('removed');
+  expect(fixture.provider).toHaveBeenCalledTimes(1);
 });
