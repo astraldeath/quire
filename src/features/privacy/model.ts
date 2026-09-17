@@ -1,3 +1,4 @@
+import { validatePrivacy, type PrivacySyncState } from './shared';
 export type BookPrivacy = 'normal' | 'locked' | 'hidden';
 export interface Credential {
   salt: string;
@@ -12,6 +13,7 @@ export interface PrivacyState {
   shield: boolean;
   failures: number;
   retryAt: number;
+  sync?: PrivacySyncState;
 }
 export const emptyPrivacy = (): PrivacyState => ({
   version: 1,
@@ -85,5 +87,14 @@ export function readPrivacy(key: string): PrivacyState {
     throw new Error(
       'Privacy settings could not be read. Restore this device’s app data before continuing.',
     );
+  if (data.sync) {
+    if (
+      typeof data.sync.account !== 'string' ||
+      !Number.isSafeInteger(data.sync.revision) ||
+      data.sync.revision < 0
+    )
+      throw new Error('Invalid private library sync state.');
+    validatePrivacy(data.sync.baseline);
+  }
   return { ...emptyPrivacy(), ...data };
 }

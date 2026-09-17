@@ -16,7 +16,7 @@ async fn request(origin:&str,path:&str,method:Method,body:Option<Value>,token:Op
  let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(30)).build().map_err(|_|"Could not initialize secure connection.")?;
  let mut req=client.request(method,format!("{}{}",origin,path));if let Some(body)=body {if body.to_string().len()>2*1024*1024{return Err("Sync request is too large.".into())}req=req.json(&body)};if let Some(token)=token{req=req.bearer_auth(token)}
  let mut response=req.send().await.map_err(|_|"Server unavailable. Your local changes are saved.".to_string())?;
- if !response.status().is_success(){return Err(match response.status().as_u16(){401=>"Sign in again; this session expired or was revoked.",409=>"Sync conflict requires attention. Your local changes are saved.",429=>"Server is busy. Try again shortly.",_=>"The server could not complete this request."}.into())}
+ if !response.status().is_success(){if response.status().as_u16()==404 && path=="/v1/privacy/sync" {return Err("Update Quire Server to sync private library settings.".into())}return Err(match response.status().as_u16(){401=>"Sign in again; this session expired or was revoked.",409=>"Sync conflict requires attention. Your local changes are saved.",429=>"Server is busy. Try again shortly.",_=>"The server could not complete this request."}.into())}
  if response.status().as_u16()==204{return Ok(Value::Null)}
  let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Server response was interrupted.")?{if bytes.len()+chunk.len()>64*1024*1024{return Err("Server response is too large.".into())}bytes.extend_from_slice(&chunk)}
  serde_json::from_slice(&bytes).map_err(|_|"Invalid server response.".into())
@@ -35,6 +35,8 @@ pub async fn sync_login(server:String,username:String,password:String,device:Str
 pub async fn sync_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/sync",Method::POST,Some(body),Some(token)).await}
 #[tauri::command]
 pub async fn statistics_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/statistics/sync",Method::POST,Some(body),Some(token)).await}
+#[tauri::command]
+pub async fn privacy_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/privacy/sync",Method::POST,Some(body),Some(token)).await}
 #[tauri::command]
 pub async fn sync_logout(server:String,username:String,session:String)->Result<(),String>{
  let o=origin(&server)?;if !session.bytes().all(|c|c.is_ascii_hexdigit())||session.len()!=64{return Err("Invalid session.".into())}let entry=credential(&o,&username)?;

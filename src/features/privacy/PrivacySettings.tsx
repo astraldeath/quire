@@ -30,7 +30,8 @@ export function PrivacySettings() {
       <section className="backup-settings">
         <h3>Private books</h3>
         <p className="muted">
-          Applies to this device. Book files and backups are not encrypted.
+          Passcode and book privacy sync with your server account. Files and
+          backups are not encrypted.
         </p>
         <button
           onClick={() =>

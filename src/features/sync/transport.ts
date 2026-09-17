@@ -93,13 +93,15 @@ async function web(
   }
   if (!response.ok)
     throw new Error(
-      response.status === 401
-        ? 'Sign in again; this session expired or was revoked.'
-        : response.status === 409
-          ? 'Sync conflict requires attention. Local changes are saved.'
-          : response.status === 429
-            ? 'Server is busy. Try again shortly.'
-            : 'The server could not complete this request.',
+      response.status === 404 && path === '/v1/privacy/sync'
+        ? 'Update Quire Server to sync private library settings.'
+        : response.status === 401
+          ? 'Sign in again; this session expired or was revoked.'
+          : response.status === 409
+            ? 'Sync conflict requires attention. Local changes are saved.'
+            : response.status === 429
+              ? 'Server is busy. Try again shortly.'
+              : 'The server could not complete this request.',
     );
   if (response.status === 204) return null;
   const reader = response.body?.getReader();
@@ -210,6 +212,15 @@ export async function statsCall(a: Account, body: unknown): Promise<unknown> {
       body,
     });
   return web(a.origin, '/v1/statistics/sync', body, webToken(a));
+}
+export async function privacyCall(a: Account, body: unknown): Promise<unknown> {
+  if (isTauri())
+    return invoke('privacy_call', {
+      server: a.origin,
+      username: a.username,
+      body,
+    });
+  return web(a.origin, '/v1/privacy/sync', body, webToken(a));
 }
 export interface ServerFile {
   bookId: string;
