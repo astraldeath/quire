@@ -1267,11 +1267,11 @@ function AppContent({
                               'normal',
                           ) && (
                             <span
-                              className="icon"
+                              className="book-privacy-badge"
                               title="Private book"
                               aria-label="Private book"
                             >
-                              <LockKeyhole size={16} />
+                              <LockKeyhole size={16} aria-hidden="true" />
                             </span>
                           )}
                           {!group &&

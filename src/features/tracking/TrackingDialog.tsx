@@ -22,6 +22,7 @@ import {
 } from './client';
 
 import { syncNow } from '../sync/engine';
+import { TrackerEntryPanel } from './TrackerEntryPanel';
 
 type Match = {
   id: number;
@@ -44,6 +45,7 @@ type Link = {
   lastStep: number;
   lastSync: number;
   error: string;
+  private?: boolean;
 };
 type Tracking = {
   error?: string;
@@ -93,6 +95,8 @@ export function TrackingDialog({
     [automatic, setAutomatic] = useState(false),
     [complete, setComplete] = useState(inferredVolume > 0),
     [unlink, setUnlink] = useState(false);
+  const [privateEntry, setPrivateEntry] = useState(true);
+  const [entryRefresh, setEntryRefresh] = useState(0);
   const seriesLinks =
     state?.links.filter(
       (l) => l.seriesKey === (series || book.series) && l.seriesKey !== '',
@@ -111,7 +115,10 @@ export function TrackingDialog({
     }
   }, [state?.accountId]);
   async function refresh(a = account) {
-    if (a) setState(await trackingRequest(a, '/v1/tracking'));
+    if (a) {
+      setState(await trackingRequest(a, '/v1/tracking'));
+      setEntryRefresh((n) => n + 1);
+    }
   }
   useEffect(() => {
     let alive = true;
@@ -175,6 +182,7 @@ export function TrackingDialog({
   function edit() {
     setEditing(true);
     setEditAccountId(state?.accountId ?? '');
+    setPrivateEntry(link?.private ?? true);
     setSelected(link ? matchFor(link) : undefined);
     setResults([]);
     setSearched(false);
@@ -231,6 +239,9 @@ export function TrackingDialog({
             seriesId: selected.id,
             title: selected.title,
             auto: automatic && !!state?.connected,
+            ...(!link || link.seriesId !== selected.id
+              ? { private: privateEntry }
+              : {}),
             ...(account.kind === 'native'
               ? { expectedAccountId: editAccountId }
               : {}),
@@ -248,12 +259,22 @@ export function TrackingDialog({
             seriesKey: scope === 'series' ? book.series : '',
             volume,
             auto: automatic && !!state?.connected,
+            ...(!link || link.seriesId !== selected.id
+              ? { private: privateEntry }
+              : {}),
             ...(account.kind === 'native'
               ? { expectedAccountId: editAccountId }
               : {}),
             completeEntry: scope === 'book' && complete,
           },
           'PUT',
+        );
+      if (state?.connected && (!link || link.seriesId !== selected.id))
+        await trackingRequest(
+          account,
+          `/v1/tracking/entries/${selected.id}`,
+          { expectedAccountId: editAccountId, is_private: privateEntry },
+          'POST',
         );
       setEditing(false);
       await refresh();
@@ -346,10 +367,18 @@ export function TrackingDialog({
                       {link.error}
                     </p>
                   )}
+                  {state.connected && account && (
+                    <TrackerEntryPanel
+                      key={`${link.seriesId}:${state.accountId}`}
+                      account={account}
+                      seriesId={link.seriesId}
+                      refreshKey={entryRefresh}
+                    />
+                  )}
                   <div className="tracker-actions tracker-primary-actions">
                     <button disabled={!!busy} onClick={edit}>
                       <Link2 />
-                      Edit tracker
+                      Match & auto-track
                     </button>
                     {state.connected && linkedAuto && (
                       <button
@@ -602,6 +631,15 @@ export function TrackingDialog({
                       onChange={setAutomatic}
                     />
                   </fieldset>
+                  {(!link || selected.id !== link.seriesId) && (
+                    <fieldset disabled={!!busy}>
+                      <Switch
+                        label="Track privately on MangaBaka"
+                        checked={privateEntry}
+                        onChange={setPrivateEntry}
+                      />
+                    </fieldset>
+                  )}
                   {!state.connected && (
                     <div className="tracker-connect-row">
                       <span className="muted">Connect to enable syncing</span>

@@ -91,10 +91,15 @@ it.each([
           />,
         ),
       );
-      await click(saved ? 'Edit tracker' : 'Add tracker');
+      await click(saved ? 'Match & auto-track' : 'Add tracker');
       if (!saved) {
         await click('Search');
         await click('Matched novel');
+        expect(
+          host.querySelector<HTMLInputElement>(
+            'input[aria-label="Track privately on MangaBaka"]',
+          )?.checked,
+        ).toBe(true);
       }
       expect(
         host.querySelector<HTMLInputElement>('input[type="number"]')?.value,
