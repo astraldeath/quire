@@ -49,8 +49,13 @@
   place-items: center;
 }
 .desktop-titlebar > button svg {
+  display: block;
   width: 14px;
   height: 14px;
+}
+.desktop-titlebar > .desktop-titlebar-close svg {
+  width: 20px;
+  height: 20px;
 }
 .desktop-titlebar > button:focus-visible {
   outline-offset: -3px;
