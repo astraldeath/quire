@@ -143,6 +143,10 @@ jobs:
           key: gradle-v1-${{ runner.os }}-${{ runner.arch }}-jdk17-android36-${{ hashFiles('package-lock.json', 'src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/gradle-wrapper.properties') }}-${{ github.sha }}
           restore-keys: |
             gradle-v1-${{ runner.os }}-${{ runner.arch }}-jdk17-android36-${{ hashFiles('package-lock.json', 'src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/gradle-wrapper.properties') }}-
+      # The plugin writes the generated Android manifest from its build script.
+      # A restored Cargo result must not skip registration in a fresh project.
+      - name: Refresh generated Android deep links
+        run: cargo clean --manifest-path src-tauri/Cargo.toml --package tauri-plugin-deep-link
       - run: npx tauri android build --ci --apk
       - name: Save Rust dependencies and compilation
         if: github.repository == 'astraldeath/quire' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.rust-cache.outputs.cache-hit != 'true'

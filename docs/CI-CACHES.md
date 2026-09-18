@@ -9,3 +9,5 @@ Android additionally caches only Gradle dependency modules and wrapper distribut
 Explicit Rust and Gradle saves run only in the canonical repository on non-PR main or version-tag runs. Pull requests can restore available caches but do not save these caches. GitHub also scopes cache visibility to branches and allows access to default-branch caches; a new release can reuse a matching main cache. npm caching retains setup-node's own behavior. Caches contain no credentials and must never be treated as secret storage. A cold cache remains a supported build path.
 
 The cache action is pinned to the upstream v4.3.0 commit. Clear repository Actions caches or bump the relevant `*-v1` prefix after a suspected bad cache. Actual cache hit rates and native builds require a GitHub runner; actionlint verifies workflow syntax locally.
+
+The iOS OAuth callback is checked into `src-tauri/Info.plist`, so a cached dependency build cannot remove it. Android clears the deep-link plugin build output after project generation because its build script writes the generated manifest. Other Rust dependencies remain cached.
