@@ -14,6 +14,8 @@ import { Wordmark } from '../../components/Wordmark';
 import { devicePrivacyKey } from '../../storage';
 import { privacyChanged, privacyReceived } from './sync';
 import { samePrivacy } from './shared';
+import { desktopWindow } from '../desktop/window';
+import { watchInactive, withSystemDialog } from './inactive';
 import {
   canAccess,
   credential,
@@ -61,6 +63,27 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [covered, setCovered] = useState(false);
+  const [inactive, setInactive] = useState(false);
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void desktopWindow()
+      .then((value) => {
+        if (live) setDesktop(!!value);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!state.shield || !(desktop || (!isTauri() && state.coverOnBlur))) {
+      setInactive(false);
+      return;
+    }
+    return watchInactive(setInactive);
+  }, [desktop, state.shield, state.coverOnBlur]);
+  const showCover = (covered && state.shield) || inactive;
   const pending = useRef<((value: boolean) => void)[]>([]);
   const epoch = useRef(0);
   const nativeLifecycle = useRef(false);
@@ -128,7 +151,9 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
         update({ credential: value });
       } else {
         const valid = biometric
-          ? await invoke<boolean>('plugin:privacy|authenticate')
+          ? await withSystemDialog(() =>
+              invoke<boolean>('plugin:privacy|authenticate'),
+            )
           : await verifyPasscode(passcode, current.credential);
         if (started !== epoch.current) return;
         if (!valid) {
@@ -232,7 +257,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <div style={{ display: 'contents' }} inert={covered || prompt}>
+      <div style={{ display: 'contents' }} inert={showCover || prompt}>
         {children}
       </div>
       {prompt && (
@@ -305,7 +330,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
           </form>
         </Modal>
       )}
-      {covered && (
+      {showCover && (
         <dialog
           className="privacy-cover"
           aria-label="Quire privacy screen"

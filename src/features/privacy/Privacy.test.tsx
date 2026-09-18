@@ -5,10 +5,16 @@ import { PrivacyProvider, usePrivacy } from './Privacy';
 import { emptyPrivacy } from './model';
 import { privacyReceived } from './sync';
 import { restorePrivacy } from './shared';
-const { native } = vi.hoisted(() => ({ native: vi.fn(async () => true) }));
+const { native, platform } = vi.hoisted(() => ({
+  native: vi.fn(async () => true),
+  platform: { desktop: false, native: true },
+}));
 vi.mock('@tauri-apps/api/core', () => ({
-  isTauri: () => true,
-  invoke: () => native(),
+  isTauri: () => platform.native,
+  invoke: (command: string) =>
+    command === 'desktop_window'
+      ? Promise.resolve({ desktop: platform.desktop })
+      : native(),
 }));
 vi.mock('../../storage', () => ({
   devicePrivacyKey: () => 'privacy-provider-test',
@@ -33,6 +39,78 @@ afterEach(() => {
   vi.restoreAllMocks();
   localStorage.removeItem('privacy-provider-test');
   vi.clearAllMocks();
+  platform.desktop = false;
+  platform.native = true;
+});
+it('only covers browser focus loss when the stricter option is enabled', async () => {
+  platform.native = false;
+  const focused = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value() {
+      this.open = true;
+    },
+  });
+  const test = await fixture();
+  try {
+    await act(async () => privacy.update({ shield: true, autoLock: false }));
+    focused.mockReturnValue(false);
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    expect(test.host.querySelector('.privacy-cover')).toBeNull();
+    await act(async () => privacy.update({ coverOnBlur: true }));
+    expect(test.host.querySelector('.privacy-cover')).not.toBeNull();
+    focused.mockReturnValue(true);
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(test.host.querySelector('.privacy-cover')).toBeNull();
+    await act(async () => privacy.update({ coverOnBlur: false }));
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    await act(async () =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    expect(test.host.querySelector('.privacy-cover')).not.toBeNull();
+  } finally {
+    await test.close();
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  }
+});
+it('covers an inactive desktop without locking and restores its open prompt on focus', async () => {
+  platform.desktop = true;
+  const focused = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value() {
+      this.open = true;
+    },
+  });
+  const test = await fixture();
+  try {
+    await act(async () => privacy.update({ shield: true }));
+    await act(async () => {
+      void privacy.authenticate();
+    });
+    focused.mockReturnValue(false);
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    expect(test.host.querySelector('.privacy-cover')).not.toBeNull();
+    expect(test.host.querySelector('[role="dialog"]')).not.toBeNull();
+    focused.mockReturnValue(true);
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(test.host.querySelector('.privacy-cover')).toBeNull();
+    expect(test.host.querySelector('[role="dialog"]')).not.toBeNull();
+    await act(async () =>
+      Array.from(test.host.querySelectorAll('button'))
+        .find((b) => b.textContent === 'Use biometrics')!
+        .click(),
+    );
+    expect(privacy.unlocked).toBe(true);
+    focused.mockReturnValue(false);
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    expect(privacy.unlocked).toBe(true);
+    await act(async () => privacy.update({ shield: false }));
+    expect(test.host.querySelector('.privacy-cover')).toBeNull();
+  } finally {
+    await test.close();
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  }
 });
 it('relocks an unlocked library immediately when remote protection changes', async () => {
   const test = await fixture();

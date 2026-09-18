@@ -1,5 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { ensureBookFile } from '../sync/library';
+import { withSystemDialog } from '../privacy/inactive';
 
 export function epubFilename(title: string): string {
   let stem = title
@@ -30,9 +31,11 @@ export async function exportEpub(book: {
     const encoded = btoa(
       String.fromCharCode(...new TextEncoder().encode(name)),
     );
-    return invoke<boolean>('export_epub', bytes, {
-      headers: { 'x-quire-filename': encoded },
-    });
+    return withSystemDialog(() =>
+      invoke<boolean>('export_epub', bytes, {
+        headers: { 'x-quire-filename': encoded },
+      }),
+    );
   }
   const file = new File([bytes.slice().buffer], name, {
     type: 'application/epub+zip',
@@ -41,7 +44,7 @@ export async function exportEpub(book: {
   // when sharing cannot be started, but treat a dismissed share sheet normally.
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file] });
+      await withSystemDialog(() => navigator.share({ files: [file] }));
       return true;
     } catch (error) {
       const name =
