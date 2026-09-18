@@ -4,6 +4,7 @@ import {
 } from './features/storage/manager';
 import type { ActionAnchor } from './components/ActionPopover';
 import { LibraryControls } from './features/library/LibraryControls';
+import { UpdateNotice } from './features/updates/UpdateSettings';
 import { Modal } from './components/Modal';
 import { Wordmark } from './components/Wordmark';
 import { PrivacyProvider, usePrivacy } from './features/privacy/Privacy';
@@ -168,6 +169,7 @@ function AppContent({
   } | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('appearance');
   const [opened, setOpened] = useState<{
     book: Book;
     bytes: Uint8Array;
@@ -498,9 +500,10 @@ function AppContent({
       else closeWeb();
     } else setDetailsId(id);
   };
-  const goSettings = (open: boolean) => {
+  const goSettings = (open: boolean, tab = 'appearance') => {
+    if (open) setSettingsTab(tab);
     if (hostedWeb) {
-      if (open) navigateWeb('/settings/appearance');
+      if (open) navigateWeb('/settings/' + tab);
       else closeWeb();
     } else setSettings(open);
   };
@@ -887,6 +890,7 @@ function AppContent({
               { '--cover-size': `${preferences.coverSize}px` } as CSSProperties
             }
           >
+            <UpdateNotice onOpen={() => goSettings(true, 'updates')} />
             {reading &&
               recent &&
               !group &&
@@ -1348,11 +1352,14 @@ function AppContent({
       )}
       {settings && (
         <Settings
-          activeTab={hostedWeb ? route.tab : undefined}
+          beforeUpdate={async () => {
+            await queue.current;
+          }}
+          activeTab={hostedWeb ? route.tab : settingsTab}
           onTabChange={
             hostedWeb
               ? (tab) => navigateWeb('/settings/' + tab, true)
-              : undefined
+              : setSettingsTab
           }
           books={privacy.unlocked ? books : shelfBooks}
           backupActions={{

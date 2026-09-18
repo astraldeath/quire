@@ -1,4 +1,6 @@
 import { StorageSettings } from '../storage/StorageSettings';
+import { UpdateSettings } from '../updates/UpdateSettings';
+import { Download } from 'lucide-react';
 import { PrivacySettings } from '../privacy/PrivacySettings';
 import { usePrivacy } from '../privacy/Privacy';
 import { Shield } from 'lucide-react';
@@ -30,7 +32,9 @@ export function Settings({
   onClose,
   activeTab,
   onTabChange,
+  beforeUpdate,
 }: {
+  beforeUpdate?: () => Promise<void>;
   activeTab?: string;
   onTabChange?: (id: string) => void;
   books: Book[];
@@ -190,6 +194,14 @@ export function Settings({
                   content: <ServerSettings />,
                 },
               ]),
+          {
+            id: 'updates',
+            label: 'Updates',
+            icon: Download,
+            content: (
+              <UpdateSettings onBusy={setWorking} beforeUpdate={beforeUpdate} />
+            ),
+          },
         ]}
       />
     </Modal>

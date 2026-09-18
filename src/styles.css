@@ -1147,6 +1147,7 @@ dialog:has(.settings-tabs) .modal-body {
   overflow: hidden;
 }
 .settings-tabs {
+  container-type: inline-size;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1181,6 +1182,7 @@ dialog:has(.settings-tabs) .modal-body {
 }
 .settings-tablist {
   display: flex;
+  overflow-x: auto;
   gap: 6px;
   flex-shrink: 0;
   padding-bottom: 16px;
@@ -1195,6 +1197,7 @@ dialog:has(.settings-tabs) .modal-body {
   border-radius: 4px;
 }
 .settings-tablist button {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1248,7 +1251,7 @@ dialog:has(.settings-tabs) .modal-body {
   background: var(--fg);
   color: var(--bg);
 }
-@media (max-width: 450px) {
+@container (max-width: 600px) {
   .settings-tablist {
     gap: 4px;
     overflow-x: auto;

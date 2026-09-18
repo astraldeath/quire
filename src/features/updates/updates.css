@@ -1,0 +1,99 @@
+.updates-settings {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.update-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.update-section + .update-section {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.update-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.update-heading > span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.update-section p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.update-section button,
+.update-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.update-section button svg,
+.update-check svg,
+.update-notice svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.update-notes {
+  font-size: 0.9rem;
+}
+.update-notes summary {
+  cursor: pointer;
+  padding: 4px 0;
+}
+.update-notes > div {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.update-notes pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.update-error {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.update-section [role='status']:has(progress) {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.update-section progress {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.update-check {
+  justify-self: start;
+}
+.update-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.update-notice-action {
+  margin-left: auto;
+  color: var(--muted);
+}
