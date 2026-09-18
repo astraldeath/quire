@@ -2,6 +2,8 @@
 
 The native build target enables the custom window bar; browsers and iOS/Android do not render it. The bar uses the app theme, supports dragging and double-click maximize, and includes minimize, maximize/restore, and close controls. Fullscreen removes the bar and content inset.
 
+At desktop widths of 900px and above, the library header contains the window controls and its empty space is draggable. Search and action controls retain their normal input behavior. The reader and narrower windows use the compact separate bar.
+
 Native decorations remain enabled until the frontend bar has mounted. A page navigation restores decorations before the new frontend loads. Native controls also return while an HTML modal dialog (including the privacy shield) is open, because modal top-layer inertness would disable controls outside the dialog. Dismissal restores the custom bar. The temporary native bar can change client height according to the OS decoration size.
 
 Command failures attempt to restore native decorations. No desktop-only window permissions are granted to mobile, and the global Tauri window configuration retains its decorated default.

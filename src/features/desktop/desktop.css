@@ -59,3 +59,25 @@
   background: #c42b35;
   color: #fff;
 }
+.topbar.desktop-library-header {
+  gap: 18px;
+  padding-right: 0;
+  user-select: none;
+}
+.desktop-library-header .searchbox {
+  flex: 1;
+  min-width: 120px;
+  max-width: 300px;
+}
+.desktop-titlebar.desktop-titlebar-integrated {
+  position: static;
+  height: auto;
+  align-self: stretch;
+  flex: 0 0 auto;
+  border-bottom: 0;
+  border-left: 1px solid var(--line);
+  z-index: auto;
+}
+.desktop-titlebar-integrated > button {
+  width: 40px;
+}
