@@ -195,7 +195,7 @@ export function DesktopTitlebar() {
         title="Close"
         onClick={() => void act('close')}
       >
-        <X />
+        <X strokeWidth={1.5} />
       </button>
     </header>
   );
