@@ -72,6 +72,54 @@ it('mounts before removing decorations and wires minimize, maximize/restore, and
     await test.close();
   }
 });
+it('combines library and window controls without dragging interactive controls, then restores the reader bar', async () => {
+  const test = await fixture();
+  const shell = document.createElement('div');
+  shell.className = 'library-shell';
+  shell.innerHTML =
+    '<header class="topbar"><input aria-label="Search books"/><button>Settings</button></header>';
+  try {
+    await act(async () => {
+      document.body.append(shell);
+    });
+    const header = shell.querySelector('header')!;
+    expect(
+      header.querySelector('[aria-label="Window controls"]'),
+    ).not.toBeNull();
+    expect(document.documentElement.hasAttribute('data-desktop-titlebar')).toBe(
+      false,
+    );
+    mock.call.mockClear();
+    await act(async () =>
+      header
+        .querySelector('input')!
+        .dispatchEvent(
+          new MouseEvent('mousedown', { bubbles: true, button: 0 }),
+        ),
+    );
+    expect(mock.call).not.toHaveBeenCalledWith('drag');
+    await act(async () =>
+      header.dispatchEvent(
+        new MouseEvent('mousedown', { bubbles: true, button: 0, detail: 1 }),
+      ),
+    );
+    expect(mock.call).toHaveBeenCalledWith('drag');
+    await act(async () =>
+      header.dispatchEvent(
+        new MouseEvent('mousedown', { bubbles: true, button: 0, detail: 2 }),
+      ),
+    );
+    expect(mock.call).toHaveBeenCalledWith('maximize');
+    await act(async () => shell.remove());
+    expect(test.host.querySelector('.desktop-titlebar-drag')).not.toBeNull();
+    expect(document.documentElement.hasAttribute('data-desktop-titlebar')).toBe(
+      true,
+    );
+  } finally {
+    shell.remove();
+    await test.close();
+  }
+});
 it('restores native controls for modal dialogs, then restores custom controls on dismissal', async () => {
   const test = await fixture();
   const dialog = document.createElement('dialog');

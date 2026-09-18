@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Copy, Minus, Square, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import {
   desktopWindow,
   type DesktopWindowState,
@@ -10,6 +11,7 @@ import './desktop.css';
 export function DesktopTitlebar() {
   const [state, setState] = useState<DesktopWindowState | null>(null);
   const [failed, setFailed] = useState(false);
+  const [libraryHeader, setLibraryHeader] = useState<HTMLElement | null>(null);
   const queued = useRef(Promise.resolve());
   const control = useRef<(action: WindowAction) => void>(() => {});
   useEffect(() => {
@@ -25,6 +27,23 @@ export function DesktopTitlebar() {
   }, []);
 
   const desktop = !!state?.desktop;
+  useEffect(() => {
+    if (!desktop) return;
+    const locate = () =>
+      setLibraryHeader(
+        window.innerWidth >= 900
+          ? document.querySelector<HTMLElement>('.library-shell > .topbar')
+          : null,
+      );
+    locate();
+    const observer = new MutationObserver(locate);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', locate);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', locate);
+    };
+  }, [desktop]);
   useEffect(() => {
     if (!desktop) return;
     let alive = true;
@@ -107,29 +126,55 @@ export function DesktopTitlebar() {
 
   const visible = !!state && !failed && !state.fullscreen && !state.decorated;
   useLayoutEffect(() => {
-    document.documentElement.toggleAttribute('data-desktop-titlebar', visible);
+    document.documentElement.toggleAttribute(
+      'data-desktop-titlebar',
+      visible && !libraryHeader,
+    );
     return () =>
       document.documentElement.removeAttribute('data-desktop-titlebar');
-  }, [visible]);
+  }, [visible, libraryHeader]);
+  useEffect(() => {
+    if (!libraryHeader || !visible) return;
+    libraryHeader.classList.add('desktop-library-header');
+    const drag = (event: MouseEvent) => {
+      if (
+        event.button !== 0 ||
+        !(event.target instanceof Element) ||
+        event.target.closest(
+          'button,input,a,select,textarea,label,[role="button"],[contenteditable]',
+        )
+      )
+        return;
+      event.preventDefault();
+      control.current(event.detail === 2 ? 'maximize' : 'drag');
+    };
+    libraryHeader.addEventListener('mousedown', drag);
+    return () => {
+      libraryHeader.classList.remove('desktop-library-header');
+      libraryHeader.removeEventListener('mousedown', drag);
+    };
+  }, [libraryHeader, visible]);
 
   const act = (action: WindowAction) => control.current(action);
   if (!state || failed) return null;
-  return (
+  const bar = (
     <header
-      className="desktop-titlebar"
+      className={`desktop-titlebar${libraryHeader ? ' desktop-titlebar-integrated' : ''}`}
       aria-label="Window controls"
       hidden={!visible}
     >
-      <div
-        className="desktop-titlebar-drag"
-        onMouseDown={(event) => {
-          if (event.button !== 0) return;
-          event.preventDefault();
-          void act(event.detail === 2 ? 'maximize' : 'drag');
-        }}
-      >
-        <span>Quire</span>
-      </div>
+      {!libraryHeader && (
+        <div
+          className="desktop-titlebar-drag"
+          onMouseDown={(event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            void act(event.detail === 2 ? 'maximize' : 'drag');
+          }}
+        >
+          <span>Quire</span>
+        </div>
+      )}
       <button
         aria-label="Minimize window"
         title="Minimize"
@@ -154,4 +199,5 @@ export function DesktopTitlebar() {
       </button>
     </header>
   );
+  return libraryHeader ? createPortal(bar, libraryHeader) : bar;
 }
