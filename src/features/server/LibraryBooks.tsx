@@ -214,7 +214,7 @@ export function LibraryBooks({
             ) && <p className="muted">No matching books.</p>}
           {books.length === 0 && (
             <p className="muted">
-              No books yet. Upload an EPUB or add a watched folder.
+              No books yet. Upload a book or add a watched folder.
             </p>
           )}
         </div>

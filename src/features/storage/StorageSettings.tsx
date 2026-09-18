@@ -53,7 +53,7 @@ export function StorageSettings() {
             onChange={(autoUpload) => change({ autoUpload })}
           />
           <p className="muted">
-            Uploads existing and new EPUBs to your personal library on{' '}
+            Uploads existing and new books to your personal library on{' '}
             {account.origin} while Quire is open.
           </p>
           <Switch

@@ -227,7 +227,7 @@ export function ServerSettings() {
               </label>
               <p className="settings-note">
                 Signing in syncs this device’s library and reading data with
-                this account. Manage EPUB uploads in Library settings.
+                this account. Manage book uploads in Library settings.
                 Appearance settings stay on this device.
               </p>
             </>

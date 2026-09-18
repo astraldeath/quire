@@ -7,9 +7,10 @@ use tauri_plugin_dialog::DialogExt;
 fn export_name(encoded: &str) -> Result<String, String> {
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(encoded)
-        .map_err(|_| "Invalid EPUB filename.")?;
-    let name = String::from_utf8(bytes).map_err(|_| "Invalid EPUB filename.")?;
-    let stem = name.strip_suffix(".epub").ok_or("Invalid EPUB filename.")?;
+        .map_err(|_| "Invalid book filename.")?;
+    let name = String::from_utf8(bytes).map_err(|_| "Invalid book filename.")?;
+    let (stem, extension) = name.rsplit_once('.').ok_or("Invalid book filename.")?;
+    if !["epub", "cbz", "fb2", "fbz", "mobi", "azw3"].contains(&extension) { return Err("Invalid book filename.".into()); }
     if name.len() > 200
         || stem.is_empty()
         || stem.starts_with('.')
@@ -18,7 +19,7 @@ fn export_name(encoded: &str) -> Result<String, String> {
             .chars()
             .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
     {
-        return Err("Invalid EPUB filename.".into());
+        return Err("Invalid book filename.".into());
     }
     Ok(name)
 }
@@ -30,13 +31,13 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
             .headers()
             .get("x-quire-filename")
             .and_then(|value| value.to_str().ok())
-            .ok_or("Missing EPUB filename.")?,
+            .ok_or("Missing book filename.")?,
     )?;
     let bytes = match request.body() {
         InvokeBody::Raw(bytes) if !bytes.is_empty() && bytes.len() <= 128 * 1024 * 1024 => {
             bytes.clone()
         }
-        _ => return Err("Invalid or oversized EPUB.".into()),
+        _ => return Err("Invalid or oversized book.".into()),
     };
     tauri::async_runtime::spawn_blocking(move || {
         // Tauri's iOS picker exports a pre-existing Documents file. Create it
@@ -47,13 +48,13 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
             let directory = app
                 .path()
                 .document_dir()
-                .map_err(|_| "Could not prepare EPUB export.")?;
+                .map_err(|_| "Could not prepare book export.")?;
             let mut index = 0u32;
             loop {
                 let candidate = if index == 0 {
                     name.clone()
                 } else {
-                    format!("{} ({index}).epub", name.trim_end_matches(".epub"))
+                    format!("{} ({index}).{}", name.rsplit_once('.').unwrap().0, name.rsplit_once('.').unwrap().1)
                 };
                 let path = directory.join(&candidate);
                 match std::fs::OpenOptions::new()
@@ -65,16 +66,16 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
                         if file.write_all(&bytes).is_err() {
                             drop(file);
                             let _ = std::fs::remove_file(&path);
-                            return Err("Could not prepare EPUB export.".into());
+                            return Err("Could not prepare book export.".into());
                         }
                         break (candidate, path);
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                         index = index
                             .checked_add(1)
-                            .ok_or("Could not prepare EPUB export.")?;
+                            .ok_or("Could not prepare book export.")?;
                     }
-                    Err(_) => return Err("Could not prepare EPUB export.".into()),
+                    Err(_) => return Err("Could not prepare book export.".into()),
                 }
             }
         };
@@ -82,7 +83,7 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
             .dialog()
             .file()
             .set_file_name(&name)
-            .add_filter("EPUB book", &["epub"])
+            .add_filter("Book", &[name.rsplit_once('.').unwrap().1])
             .blocking_save_file();
         #[cfg(target_os = "ios")]
         {
@@ -94,15 +95,15 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
             Some(path) => {
                 let path = path
                     .into_path()
-                    .map_err(|_| "Could not save EPUB to this location.")?;
-                std::fs::write(path, bytes).map_err(|_| "Could not save EPUB to this location.")?;
+                    .map_err(|_| "Could not save book to this location.")?;
+                std::fs::write(path, bytes).map_err(|_| "Could not save book to this location.")?;
                 Ok(true)
             }
             None => Ok(false),
         }
     })
     .await
-    .map_err(|_| "Could not export EPUB.".to_string())?
+    .map_err(|_| "Could not export book.".to_string())?
 }
 
 #[cfg(test)]

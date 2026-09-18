@@ -2,7 +2,16 @@ import {
   startStorageManagement,
   protectOpenBook,
 } from './features/storage/manager';
-import type { ActionAnchor } from './components/ActionPopover';
+import { ActionPopover, type ActionAnchor } from './components/ActionPopover';
+import { FolderDialog } from './features/library/FolderDialog';
+import {
+  childFolders,
+  folderPaths,
+  folderContains,
+  importFolder,
+  validFolder,
+  normalizeFolder,
+} from './features/library/folders';
 import { LibraryControls } from './features/library/LibraryControls';
 import { UpdateNotice } from './features/updates/UpdateSettings';
 import { Modal } from './components/Modal';
@@ -46,6 +55,9 @@ import {
   type CSSProperties,
 } from 'react';
 import {
+  Folder,
+  FolderInput,
+  Pencil,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -91,7 +103,7 @@ import {
   listReadingActivity,
   saveReadingActivity,
 } from './storage';
-import { importEpub } from './epub';
+import { importBook, BOOK_ACCEPT, inferBookFormat } from './books';
 import { Reader } from './features/reader/Reader';
 import { BookDetails } from './features/library/BookDetails';
 import { Settings } from './features/library/Settings';
@@ -149,6 +161,11 @@ function AppContent({
   const [selecting, setSelecting] = useState(false),
     [selected, setSelected] = useState<string[]>([]),
     [bulkRemove, setBulkRemove] = useState(false);
+  const [folder, setFolder] = useState('');
+  const [moveIds, setMoveIds] = useState<string[] | null>(null);
+  const [renameFolder, setRenameFolder] = useState(false);
+  const [addAnchor, setAddAnchor] = useState<ActionAnchor | null>(null);
+  const directoryInput = useRef<HTMLInputElement>(null);
   const [seriesSort, setSeriesSort] = useState<Preferences['sort']>('volume');
 
   const [books, setBooks] = useState<Book[]>([]);
@@ -268,7 +285,13 @@ function AppContent({
     setPreferences(p);
     void enqueue(() => savePreferences(p)).catch(() => {});
   };
-  const importFiles = async (files: File[]) => {
+  const importFiles = async (files: File[], directory = false) => {
+    if (busy) return;
+    const destination = folder;
+    const selectedFiles = directory
+      ? files.filter((file) => !!inferBookFormat(file.name))
+      : files;
+    files = selectedFiles;
     setError('');
     setNotice('');
     let imported = 0;
@@ -276,7 +299,11 @@ function AppContent({
     for (const [index, file] of files.entries()) {
       setBusy(`Importing ${index + 1} of ${files.length}: ${file.name}`);
       try {
-        const result = await importEpub(file);
+        const result = await importBook(file);
+        result.book.folder = importFolder(
+          directory ? file.webkitRelativePath : '',
+          destination,
+        );
         await enqueue(async () => {
           const book = restoreImport(
             result.book,
@@ -304,14 +331,21 @@ function AppContent({
     );
     if (errors.length) setError(errors.join('\n'));
     if (imported) {
-      if (hostedWeb) navigateWeb('/library');
+      if (hostedWeb)
+        navigateWeb(
+          '/library' +
+            (destination ? '?folder=' + encodeURIComponent(destination) : ''),
+        );
       else {
         setQuery('');
         setReading(false);
         setGroup(null);
       }
     }
+    if (!files.length && directory)
+      setNotice('No supported books found in this folder.');
     if (input.current) input.current.value = '';
+    if (directoryInput.current) directoryInput.current.value = '';
   };
   const openBook = async (book: Book) => {
     if (!privacy.access(book.id) && !(await privacy.authenticate())) return;
@@ -329,7 +363,7 @@ function AppContent({
       refresh(await listBooks());
       if (!bytes)
         throw new Error(
-          'The local EPUB is unavailable. Import the same file again to restore it.',
+          'The local book file is unavailable. Import the same file again to restore it.',
         );
       setDetailsId(null);
       setOpened({
@@ -380,6 +414,7 @@ function AppContent({
       ).split('?')[1] ?? '',
     );
     setQuery(params.get('q') ?? '');
+    setFolder(validFolder(params.get('folder')) ? params.get('folder')! : '');
     setLibraryScope(params.get('collection') ?? 'all');
     setStatus(
       ['unread', 'reading', 'finished'].includes(params.get('status') ?? '')
@@ -453,6 +488,12 @@ function AppContent({
     const relocked = wasUnlocked.current && !privacy.unlocked;
     wasUnlocked.current = privacy.unlocked;
     if (!relocked) return;
+    setMoveIds(null);
+    setRenameFolder(false);
+    if (hiddenBooks) {
+      setFolder('');
+      if (hostedWeb) navigateWeb('/library', true);
+    }
     setHiddenBooks(false);
     setSelected([]);
     setActions(null);
@@ -489,9 +530,17 @@ function AppContent({
     if (hostedWeb && shelfElement.current)
       shelfElement.current.scrollTop = shelfScroll.current.get(scrollKey) ?? 0;
   }, [scrollKey, !!opened, loading]);
+  const groupHref = (name: string | null) => {
+    const params = new URLSearchParams();
+    if (folder) params.set('folder', folder);
+    if (libraryScope !== 'all') params.set('collection', libraryScope);
+    return (
+      (name ? '/series/' + encodeURIComponent(name) : '/library') +
+      (params.size ? '?' + params.toString() : '')
+    );
+  };
   const goGroup = (name: string | null) => {
-    if (hostedWeb)
-      navigateWeb(name ? '/series/' + encodeURIComponent(name) : '/library');
+    if (hostedWeb) navigateWeb(groupHref(name));
     else setGroup(name);
   };
   const goDetails = (id: string | null) => {
@@ -643,6 +692,7 @@ function AppContent({
       ? booksRef.current.filter(
           (b) =>
             b.series === entry.books[0].series &&
+            folderContains(folder, b.folder ?? '') &&
             visibleBook(privacy.state, b.id, hiddenBooks, privacy.unlocked),
         )
       : entry.books;
@@ -690,13 +740,74 @@ function AppContent({
           ),
     [shelfBooks, libraryScope, serverLibraries],
   );
+  const folders = useMemo(() => folderPaths(scopedBooks), [scopedBooks]);
+  const folderBooks = useMemo(
+    () =>
+      scopedBooks.filter((book) => folderContains(folder, book.folder ?? '')),
+    [scopedBooks, folder],
+  );
+  const goFolder = (path: string) => {
+    setSelected([]);
+    setGroup(null);
+    setQuery('');
+    if (hostedWeb) {
+      const params = new URLSearchParams(location.search);
+      params.delete('q');
+      if (path) params.set('folder', path);
+      else params.delete('folder');
+      navigateWeb('/library' + (params.size ? '?' + params.toString() : ''));
+    } else {
+      setFolder(path);
+      setReading(false);
+    }
+  };
+  const moveBooks = async (ids: string[], path: string, rename = false) => {
+    if (
+      ids.some((id) => !privacy.access(id)) &&
+      !(await privacy.authenticate())
+    )
+      return;
+    path = normalizeFolder(path);
+    if (rename && path !== folder && folders.includes(path))
+      throw new Error('A folder with this name already exists.');
+    if (rename && path !== folder && folderContains(folder, path))
+      throw new Error('Choose a location outside this folder.');
+    // Validate every descendant before changing any book.
+    const destinations = new Map(
+      ids.map((id) => {
+        const book = booksRef.current.find((book) => book.id === id);
+        return [
+          id,
+          normalizeFolder(
+            rename ? path + (book?.folder ?? '').slice(folder.length) : path,
+          ),
+        ];
+      }),
+    );
+    await enqueue(async () => {
+      for (const id of ids) {
+        if (!privacy.access(id))
+          throw new Error('Unlock private books before moving them.');
+        const book = booksRef.current.find((book) => book.id === id);
+        if (!book) continue;
+        const next = {
+          ...book,
+          folder: destinations.get(id)!,
+        };
+        await saveBook(next);
+        replace(next);
+      }
+    });
+    setSelected([]);
+    if (rename) goFolder(path);
+  };
   const deferredQuery = useDeferredValue(query);
   const shelfPreferences = group
     ? { ...preferences, sort: seriesSort }
     : preferences;
   const entries = useMemo(
     () =>
-      entriesFor(scopedBooks, shelfPreferences, deferredQuery, reading, group, {
+      entriesFor(folderBooks, shelfPreferences, deferredQuery, reading, group, {
         status:
           reading && status === 'all'
             ? undefined
@@ -704,7 +815,7 @@ function AppContent({
         availability: availability as 'all' | 'downloaded' | 'cloud',
       }),
     [
-      scopedBooks,
+      folderBooks,
       preferences,
       seriesSort,
       deferredQuery,
@@ -715,9 +826,9 @@ function AppContent({
     ],
   );
   const seriesBooks = group
-    ? scopedBooks.filter((b) => b.series === group)
+    ? folderBooks.filter((b) => b.series === group)
     : [];
-  const recent = continueBook(scopedBooks);
+  const recent = continueBook(folderBooks);
   const seriesNext =
     continueBook(seriesBooks) ??
     seriesBooks
@@ -782,6 +893,7 @@ function AppContent({
   const details = books.find((b) => b.id === detailsId && privacy.access(b.id));
   const goLibrary = (read = false) => {
     setHiddenBooks(false);
+    setFolder('');
     if (hostedWeb) {
       navigateWeb(read ? '/reading' : '/library');
       return;
@@ -796,10 +908,73 @@ function AppContent({
         className="file-input"
         ref={input}
         type="file"
-        accept=".epub,application/epub+zip"
+        accept={BOOK_ACCEPT}
         multiple
         onChange={(e) => void importFiles(Array.from(e.target.files ?? []))}
       />
+      <input
+        className="file-input"
+        ref={directoryInput}
+        type="file"
+        multiple
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+        onChange={(e) =>
+          void importFiles(Array.from(e.target.files ?? []), true)
+        }
+      />
+      {addAnchor && (
+        <ActionPopover
+          title="Add books"
+          anchor={addAnchor}
+          onClose={() => setAddAnchor(null)}
+        >
+          <div className="book-action-list">
+            <button
+              onClick={() => {
+                setAddAnchor(null);
+                input.current?.click();
+              }}
+            >
+              <Plus />
+              Add files
+            </button>
+            <button
+              onClick={() => {
+                setAddAnchor(null);
+                directoryInput.current?.click();
+              }}
+            >
+              <FolderInput />
+              Import folder
+            </button>
+          </div>
+        </ActionPopover>
+      )}
+      {moveIds && (
+        <FolderDialog
+          paths={folders}
+          initial={folder}
+          onClose={() => setMoveIds(null)}
+          onSave={(path) => moveBooks(moveIds, path)}
+        />
+      )}
+      {renameFolder && (
+        <FolderDialog
+          rename
+          paths={folders}
+          initial={folder}
+          onClose={() => setRenameFolder(false)}
+          onSave={(path) =>
+            moveBooks(
+              scopedBooks
+                .filter((book) => folderContains(folder, book.folder ?? ''))
+                .map((book) => book.id),
+              path,
+              true,
+            )
+          }
+        />
+      )}
       {opened && privacy.access(opened.book.id) ? (
         <Reader
           book={books.find((b) => b.id === opened.book.id) ?? opened.book}
@@ -865,7 +1040,9 @@ function AppContent({
               className="add-button"
               aria-label="Add books"
               disabled={!!busy || loading}
-              onClick={() => input.current?.click()}
+              onClick={(e) =>
+                setAddAnchor(e.currentTarget.getBoundingClientRect())
+              }
             >
               <Plus />
               <span>Add books</span>
@@ -910,6 +1087,53 @@ function AppContent({
                   </span>
                 </button>
               )}
+            {!group && !reading && (folders.length > 0 || !!folder) && (
+              <section className="folder-navigation" aria-label="Folders">
+                {folder && (
+                  <div className="folder-breadcrumbs">
+                    <button onClick={() => goFolder('')}>Library</button>
+                    {folder.split('/').map((part, index, parts) => (
+                      <button
+                        key={index}
+                        aria-current={
+                          index === parts.length - 1 ? 'page' : undefined
+                        }
+                        onClick={() =>
+                          goFolder(parts.slice(0, index + 1).join('/'))
+                        }
+                      >
+                        {part}
+                      </button>
+                    ))}
+                    <button
+                      className="icon"
+                      aria-label="Rename folder"
+                      onClick={() => setRenameFolder(true)}
+                    >
+                      <Pencil />
+                    </button>
+                  </div>
+                )}
+                {childFolders(folders, folder).length > 0 && (
+                  <div className="folder-list">
+                    {childFolders(folders, folder).map((path) => (
+                      <button key={path} onClick={() => goFolder(path)}>
+                        <Folder />
+                        <span>{path.split('/').at(-1)}</span>
+                        <span className="muted">
+                          {
+                            scopedBooks.filter((book) =>
+                              folderContains(path, book.folder ?? ''),
+                            ).length
+                          }
+                        </span>
+                        <ArrowRight />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
             <div className="shelf-toolbar">
               <div className="shelf-label">
                 {(group || hiddenBooks) && (
@@ -936,7 +1160,9 @@ function AppContent({
                       ? 'Hidden books'
                       : reading
                         ? 'Currently reading'
-                        : 'All books')}
+                        : folder
+                          ? folder.split('/').at(-1)
+                          : 'All books')}
                 </h1>
                 <span className="muted">
                   {entries.reduce((n, e) => n + e.books.length, 0)}
@@ -1009,6 +1235,7 @@ function AppContent({
                         void privacy.authenticate().then((ok) => {
                           if (ok) {
                             goLibrary(false);
+                            goFolder('');
                             setHiddenBooks(true);
                             setGroup(null);
                             setQuery('');
@@ -1072,6 +1299,13 @@ function AppContent({
                 aria-label="Selected books"
               >
                 <strong>{activeIds.length} selected</strong>
+                <button
+                  disabled={!activeIds.length || !!busy}
+                  onClick={() => setMoveIds(activeIds)}
+                >
+                  <FolderInput />
+                  Move
+                </button>
                 <PrivacyMenu ids={activeIds} onDone={() => setSelected([])} />
                 <button
                   onClick={() =>
@@ -1149,8 +1383,8 @@ function AppContent({
                       : reading
                         ? 'Open a book from your library to start reading.'
                         : onImport
-                          ? 'Upload an EPUB to your personal server library.'
-                          : 'Add an EPUB to start reading.'}
+                          ? 'Upload a book to your personal server library.'
+                          : 'Add a book to start reading.'}
                 </p>
                 <button
                   className="primary"
@@ -1214,7 +1448,7 @@ function AppContent({
                         href={
                           hostedWeb && !selecting
                             ? entry.series
-                              ? '/series/' + encodeURIComponent(book.series)
+                              ? groupHref(book.series)
                               : '/books/' + book.id + '/read'
                             : undefined
                         }
@@ -1424,7 +1658,7 @@ function AppContent({
         >
           <p>
             This deletes their downloads, progress, bookmarks, highlights, and
-            notes from Quire. Original EPUB files and exported backups are kept.
+            notes from Quire. Original book files and exported backups are kept.
           </p>
           <div className="button-row">
             <button onClick={() => setBulkRemove(false)}>Cancel</button>
@@ -1449,6 +1683,10 @@ function AppContent({
       )}
       {actions && actions.entry.books.every((b) => privacy.access(b.id)) && (
         <BookActions
+          onMove={() => {
+            setMoveIds(actions.entry.books.map((book) => book.id));
+            setActions(null);
+          }}
           onDownload={() =>
             batch(
               actions.entry.books.map((b) => b.id),

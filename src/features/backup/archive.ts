@@ -88,7 +88,10 @@ export async function createBackup(
       throw new Error(
         'A book file does not match its identity. Reimport that book before backing up.',
       );
-    await writer.add(`books/${book.id}.epub`, new Uint8ArrayReader(file!));
+    await writer.add(
+      `books/${book.id}.${book.format ?? 'epub'}`,
+      new Uint8ArrayReader(file!),
+    );
   }
   const result = await writer.close();
   if (result.length > MAX_BACKUP_BYTES)
@@ -112,7 +115,9 @@ export async function readBackup(bytes: Uint8Array): Promise<Backup> {
         e.directory ||
         e.encrypted ||
         names.has(e.filename) ||
-        !/^(manifest\.json|books\/[a-f0-9]{64}\.epub)$/.test(e.filename)
+        !/^(manifest\.json|books\/[a-f0-9]{64}\.(epub|cbz|fb2|fbz|mobi|azw3))$/.test(
+          e.filename,
+        )
       )
         throw new Error('Invalid backup archive.');
       names.add(e.filename);
@@ -162,7 +167,9 @@ export async function readBackup(bytes: Uint8Array): Promise<Backup> {
     for (const book of books) {
       let file: Uint8Array | undefined;
       if (fileIds.has(book.id)) {
-        const e = entries.find((e) => e.filename === `books/${book.id}.epub`);
+        const e = entries.find(
+          (e) => e.filename === `books/${book.id}.${book.format ?? 'epub'}`,
+        );
         if (!e || e.directory || !e.getData)
           throw new Error('A book file is missing from this backup.');
         file = await extract(e, e.uncompressedSize);

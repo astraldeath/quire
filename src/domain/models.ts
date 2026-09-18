@@ -16,6 +16,8 @@ export interface Position {
   updatedAt: number;
 }
 export interface Book {
+  format?: 'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3';
+  folder?: string;
   id: string;
   title: string;
   author: string;

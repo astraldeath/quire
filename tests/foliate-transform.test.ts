@@ -3,6 +3,84 @@ import { describe, expect, it, vi } from 'vitest';
 import { hardenFoliate } from '../scripts/foliate-transform';
 const source = readFileSync('node_modules/foliate-js/paginator.js', 'utf8');
 const id = '/node_modules/foliate-js/paginator.js';
+const fixedSource = readFileSync(
+  'node_modules/foliate-js/fixed-layout.js',
+  'utf8',
+);
+const fixedId = '/node_modules/foliate-js/fixed-layout.js';
+
+it.each([false, true])(
+  'uses bounded srcdoc loading for comics (hosted=%s) and rejects fixed-layout upstream drift',
+  async (hosted) => {
+    const output = hardenFoliate(fixedSource, fixedId + '?v=cache', hosted)!;
+    expect(output).toContain('iframe.srcdoc = markup');
+    expect(output).not.toContain('iframe.src = src');
+    expect(() =>
+      hardenFoliate(
+        fixedSource.replace(
+          "iframe.setAttribute('scrolling', 'no')",
+          'changed()',
+        ),
+        fixedId,
+      ),
+    ).toThrow(/review/i);
+    const method = output.slice(
+      output.indexOf('    async #createFrame('),
+      output.indexOf('    #render(side'),
+    );
+    const Frame = new Function(
+      'getViewport',
+      `return class extends EventTarget {
+    #root = { append() {} };
+    create() { return this.#createFrame({ index: 0, src: 'blob:comic' }); }
+    ${method}
+  }`,
+    )(() => ({ width: 600, height: 900 }));
+    let iframe: HTMLIFrameElement;
+    const create = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation(((tag: string) => {
+      const element = create(tag);
+      if (tag === 'iframe') iframe = element as HTMLIFrameElement;
+      return element;
+    }) as typeof document.createElement);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        text: async () => '<html><body>Page</body></html>',
+      })),
+    );
+    vi.useFakeTimers();
+    try {
+      const frame = new Frame();
+      const loaded = vi.fn();
+      frame.addEventListener('load', loaded);
+      const pending = frame.create();
+      Object.defineProperty(iframe!, 'contentDocument', {
+        configurable: true,
+        value: { URL: 'about:blank', readyState: 'complete' },
+      });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(loaded).not.toHaveBeenCalled();
+      Object.defineProperty(iframe!, 'contentDocument', {
+        configurable: true,
+        value: { URL: 'about:srcdoc', readyState: 'complete' },
+      });
+      await vi.advanceTimersByTimeAsync(50);
+      expect(await pending).toMatchObject({ width: 600, height: 900 });
+      expect(loaded).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+      const stalled = expect(frame.create()).rejects.toThrow(/timed out/);
+      await vi.advanceTimersByTimeAsync(15000);
+      await stalled;
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  },
+);
 function fixture(hosted = false) {
   const output = hardenFoliate(source, id, hosted)!;
   const method = output.slice(

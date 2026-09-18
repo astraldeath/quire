@@ -73,6 +73,8 @@ function values(
       author: book.author,
       series: book.series,
       volume: book.volume,
+      ...(book.format ? { format: book.format } : {}),
+      ...(book.folder !== undefined ? { folder: book.folder } : {}),
     },
   });
   if (book.position) {
@@ -223,6 +225,8 @@ export function applyRecords(s: SyncState, books: Book[]): Book[] {
         author: v.author ?? '',
         series: v.series ?? '',
         volume: v.volume ?? null,
+        ...(v.format !== undefined ? { format: v.format } : {}),
+        ...(v.folder !== undefined ? { folder: v.folder } : {}),
       });
     } else if (book && r.kind === 'position') {
       if (c.deleted) delete book.position;

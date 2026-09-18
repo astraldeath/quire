@@ -35,10 +35,12 @@ export function BookActions({
   onDownload,
   onMark,
   onContinue,
+  onMove,
 }: {
   onDownload?: () => Promise<void>;
   onMark?: (finished: boolean) => Promise<void>;
   onContinue?: () => void;
+  onMove?: () => void;
   onTracking?: () => void;
   entry: LibraryEntry;
   anchor?: ActionAnchor;
@@ -195,7 +197,7 @@ export function BookActions({
             </p>
             {confirm === 'library' && (
               <p className="muted">
-                Original EPUB files and exported backups are kept.
+                Original book files and exported backups are kept.
               </p>
             )}
             <div className="button-row">
@@ -257,6 +259,12 @@ export function BookActions({
               Files and downloads
               <ChevronRight className="menu-chevron" />
             </button>
+            {onMove && (
+              <button onClick={onMove}>
+                <FolderOpen />
+                Move to folder
+              </button>
+            )}
             <button onClick={() => setPrivacyOpen(true)}>
               <Shield />
               Privacy
