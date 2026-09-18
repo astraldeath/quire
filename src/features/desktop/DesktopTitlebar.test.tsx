@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DesktopTitlebar } from './DesktopTitlebar';
 
 const mock = vi.hoisted(() => ({ call: vi.fn() }));
@@ -8,6 +8,10 @@ vi.mock('./window', () => ({ desktopWindow: mock.call }));
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+beforeEach(() => {
+  HTMLElement.prototype.showPopover = vi.fn();
+  HTMLElement.prototype.hidePopover = vi.fn();
+});
 afterEach(() => {
   vi.clearAllMocks();
   document.documentElement.removeAttribute('data-desktop-titlebar');
@@ -38,6 +42,9 @@ async function fixture() {
   await act(async () => root.render(<DesktopTitlebar />));
   return {
     host,
+    decorate: () => {
+      state = { ...state, decorated: true };
+    },
     fullscreen: () => {
       state = { ...state, fullscreen: true };
     },
@@ -120,22 +127,63 @@ it('combines library and window controls without dragging interactive controls, 
     await test.close();
   }
 });
-it('restores native controls for modal dialogs, then restores custom controls on dismissal', async () => {
+it('keeps custom controls in the active modal top layer without changing the frame', async () => {
   const test = await fixture();
   const dialog = document.createElement('dialog');
+  const nested = document.createElement('dialog');
+  try {
+    mock.call.mockClear();
+    await act(async () => {
+      dialog.open = true;
+      document.body.append(dialog);
+    });
+    expect(mock.call).not.toHaveBeenCalledWith('native');
+    expect(
+      dialog.querySelector('[popover="manual"] [aria-label="Minimize window"]'),
+    ).not.toBeNull();
+    expect(HTMLElement.prototype.showPopover).toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute('data-desktop-titlebar')).toBe(
+      true,
+    );
+    await act(async () =>
+      (
+        dialog.querySelector(
+          '[aria-label="Minimize window"]',
+        ) as HTMLButtonElement
+      ).click(),
+    );
+    expect(mock.call).toHaveBeenCalledWith('minimize');
+    await act(async () => {
+      nested.open = true;
+      document.body.append(nested);
+    });
+    expect(nested.querySelector('[popover]')).not.toBeNull();
+    expect(dialog.querySelector('[popover]')).toBeNull();
+    await act(async () => nested.remove());
+    expect(dialog.querySelector('[popover]')).not.toBeNull();
+    await act(async () => dialog.remove());
+    expect(
+      test.host.querySelector('[aria-label="Window controls"]'),
+    ).not.toBeNull();
+    expect(mock.call).not.toHaveBeenCalledWith('native');
+  } finally {
+    dialog.remove();
+    nested.remove();
+    await test.close();
+  }
+});
+it('restores native controls if the top layer cannot be opened', async () => {
+  const test = await fixture();
+  const dialog = document.createElement('dialog');
+  vi.mocked(HTMLElement.prototype.showPopover).mockImplementation(() => {
+    throw new Error('unsupported');
+  });
   try {
     await act(async () => {
       dialog.open = true;
       document.body.append(dialog);
     });
     expect(mock.call).toHaveBeenCalledWith('native');
-    expect(document.documentElement.hasAttribute('data-desktop-titlebar')).toBe(
-      false,
-    );
-    await act(async () => dialog.remove());
-    expect(document.documentElement.hasAttribute('data-desktop-titlebar')).toBe(
-      true,
-    );
   } finally {
     dialog.remove();
     await test.close();
@@ -231,11 +279,7 @@ it('does not remove native decorations when a stale state response arrives after
 
 it('waits for an in-flight frame mutation before cleanup restores native decorations', async () => {
   const test = await fixture();
-  const dialog = document.createElement('dialog');
-  await act(async () => {
-    dialog.open = true;
-    document.body.append(dialog);
-  });
+  test.decorate();
   const implementation = mock.call.getMockImplementation()!;
   let resolve!: () => void;
   mock.call.mockImplementation((action?: string) =>
@@ -251,7 +295,7 @@ it('waits for an in-flight frame mutation before cleanup restores native decorat
         })
       : implementation(action),
   );
-  await act(async () => dialog.remove());
+  await act(async () => window.dispatchEvent(new Event('resize')));
   expect(resolve).toBeTypeOf('function');
   mock.call.mockClear();
   await test.close();

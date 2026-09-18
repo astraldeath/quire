@@ -47,6 +47,11 @@ export function safeInsets() {
     bottom: parseFloat(css.paddingBottom) || 0,
   };
   probe.remove();
+  const controls = document.querySelector<HTMLElement>(
+    '.desktop-titlebar:not([hidden])',
+  );
+  if (controls)
+    insets.top = Math.max(insets.top, controls.getBoundingClientRect().bottom);
   return insets;
 }
 export function visualBox(): ViewportBox {

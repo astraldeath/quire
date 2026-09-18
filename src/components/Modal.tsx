@@ -76,6 +76,7 @@ export function Modal({
     vv?.addEventListener('resize', update);
     vv?.addEventListener('scroll', update);
     window.addEventListener('resize', update);
+    window.addEventListener('quire-window-controls', update);
     const panel = ref.current;
     panel?.addEventListener('focusin', update);
     return () => {
@@ -89,6 +90,7 @@ export function Modal({
       vv?.removeEventListener('resize', update);
       vv?.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
+      window.removeEventListener('quire-window-controls', update);
     };
   }, []);
   return (
@@ -97,6 +99,7 @@ export function Modal({
       tabIndex={-1}
       onCancel={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }}
       onClick={(e) => {

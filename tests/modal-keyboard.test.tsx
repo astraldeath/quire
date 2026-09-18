@@ -5,6 +5,42 @@ import { Modal } from '../src/components/Modal';
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+it('Escape closes only the innermost dialog', async () => {
+  const show = HTMLDialogElement.prototype.showModal;
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const parent = vi.fn(),
+    child = vi.fn();
+  try {
+    await act(async () =>
+      root.render(
+        <Modal title="Settings" onClose={parent}>
+          <Modal title="Confirm" onClose={child}>
+            Confirm
+          </Modal>
+        </Modal>,
+      ),
+    );
+    await act(async () =>
+      host
+        .querySelector('dialog dialog')!
+        .dispatchEvent(
+          new Event('cancel', { bubbles: true, cancelable: true }),
+        ),
+    );
+    expect(child).toHaveBeenCalledOnce();
+    expect(parent).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    if (show) HTMLDialogElement.prototype.showModal = show;
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  }
+});
 it('shrinks the dialog scroll area instead of recentering the header above its original position', async () => {
   let resizeContent: (() => void) | undefined;
   vi.stubGlobal(
