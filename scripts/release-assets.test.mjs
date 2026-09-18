@@ -12,7 +12,9 @@ test('rejects incomplete releases and hashes complete downloads', () => {
       'Quire.exe',
       'Quire.exe.sig',
       'Quire_0.2.0_android.apk',
+      'Quire_0.2.0_android.apk.sig',
       'Quire_0.2.0_ios-unsigned.ipa',
+      'Quire_0.2.0_ios-unsigned.ipa.sig',
       'latest.json',
       'release-notes.md',
     ];
@@ -34,7 +36,9 @@ test('rejects incomplete releases and hashes complete downloads', () => {
     writeFileSync(join(dir, 'release-notes.md'), 'Notes');
     for (const asset of [
       'Quire_0.2.0_android.apk',
+      'Quire_0.2.0_android.apk.sig',
       'Quire_0.2.0_ios-unsigned.ipa',
+      'Quire_0.2.0_ios-unsigned.ipa.sig',
     ]) {
       rmSync(join(dir, asset));
       assert.throws(() => finalizeAssets(dir), /ENOENT/);
@@ -47,7 +51,39 @@ test('rejects incomplete releases and hashes complete downloads', () => {
     writeFileSync(join(dir, 'Quire.exe.sig'), 'asset');
     finalizeAssets(dir);
     const hashes = readFileSync(join(dir, 'SHA256SUMS.txt'), 'utf8');
-    assert.equal(hashes.trim().split('\n').length, 5);
+    assert.equal(hashes.trim().split('\n').length, 7);
+    const manifest = JSON.parse(readFileSync(join(dir, 'latest.json'), 'utf8'));
+    assert.deepEqual(Object.keys(manifest.platforms).sort(), [
+      'android-universal',
+      'ios-aarch64',
+      'windows-x86_64',
+    ]);
+    assert.deepEqual(manifest.platforms['android-universal'], {
+      url: 'https://github.com/astraldeath/quire/releases/download/v0.2.0/Quire_0.2.0_android.apk',
+      signature: 'asset',
+    });
+    assert.deepEqual(manifest.platforms['ios-aarch64'], {
+      url: 'https://github.com/astraldeath/quire/releases/download/v0.2.0/Quire_0.2.0_ios-unsigned.ipa',
+      signature: 'asset',
+    });
+    // Finalization is repeatable, but never silently changes an existing feed signature.
+    finalizeAssets(dir);
+    assert.equal(readFileSync(join(dir, 'SHA256SUMS.txt'), 'utf8'), hashes);
+    for (const mobile of [
+      'Quire_0.2.0_android.apk.sig',
+      'Quire_0.2.0_ios-unsigned.ipa.sig',
+    ]) {
+      writeFileSync(join(dir, mobile), 'https://example.org/signature');
+      assert.throws(() => finalizeAssets(dir), /signature/);
+      writeFileSync(join(dir, mobile), 'wrong');
+      assert.throws(() => finalizeAssets(dir), /signature/);
+      writeFileSync(join(dir, mobile), 'asset');
+    }
+    manifest.platforms['linux-x86_64'] = manifest.platforms['windows-x86_64'];
+    writeFileSync(join(dir, 'latest.json'), JSON.stringify(manifest));
+    assert.throws(() => finalizeAssets(dir), /Unexpected release platform/);
+    delete manifest.platforms['linux-x86_64'];
+    writeFileSync(join(dir, 'latest.json'), JSON.stringify(manifest));
     assert.match(hashes, /^[a-f0-9]{64}  /);
     writeFileSync(join(dir, 'private.jks'), 'secret');
     assert.throws(() => finalizeAssets(dir), /Unexpected/);

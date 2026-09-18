@@ -42,6 +42,33 @@ export function releaseNotes(changelog, version) {
   return notes;
 }
 
+export function signedAsset({ tag, assetName, signature, extension }) {
+  if (
+    !assetName ||
+    basename(assetName) !== assetName ||
+    /[\\/]/.test(assetName) ||
+    !assetName.endsWith(extension)
+  ) {
+    throw new Error(
+      'The release asset must be a valid filename with the expected extension.',
+    );
+  }
+  const normalizedSignature =
+    typeof signature === 'string' ? signature.trim() : '';
+  if (
+    !normalizedSignature ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(normalizedSignature)
+  ) {
+    throw new Error(
+      'The asset signature must contain the base64 Tauri .sig contents.',
+    );
+  }
+  return {
+    signature: normalizedSignature,
+    url: `https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/${encodeURIComponent(assetName)}`,
+  };
+}
+
 export function createManifest({
   version,
   tag,
@@ -51,33 +78,18 @@ export function createManifest({
   now = new Date(),
 }) {
   releaseVersion(version, tag);
-  if (
-    !assetName ||
-    basename(assetName) !== assetName ||
-    /[\\/]/.test(assetName) ||
-    !assetName.endsWith('.exe')
-  ) {
-    throw new Error('The updater asset must be a Windows installer filename.');
-  }
-  const normalizedSignature = signature.trim();
-  if (
-    !normalizedSignature ||
-    !/^[A-Za-z0-9+/]+={0,2}$/.test(normalizedSignature)
-  ) {
-    throw new Error(
-      'The installer signature must contain the base64 Tauri .sig contents.',
-    );
-  }
   if (!notes?.trim()) throw new Error('Release notes are required.');
   return {
     version,
     notes: notes.trim(),
     pub_date: now.toISOString(),
     platforms: {
-      'windows-x86_64': {
-        signature: normalizedSignature,
-        url: `https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/${encodeURIComponent(assetName)}`,
-      },
+      'windows-x86_64': signedAsset({
+        tag,
+        assetName,
+        signature,
+        extension: '.exe',
+      }),
     },
   };
 }

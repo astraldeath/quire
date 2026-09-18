@@ -49,6 +49,19 @@ jobs:
       - run: rustup toolchain install 1.95.0 --profile minimal
       - run: rustup override set 1.95.0
       - run: rustup target add x86_64-pc-windows-msvc
+      - name: Restore Rust dependencies and compilation
+        id: rust-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target/**/deps
+            src-tauri/target/**/build
+            src-tauri/target/**/.fingerprint
+          key: rust-v1-${{ runner.os }}-${{ runner.arch }}-1.95.0-x86_64-pc-windows-msvc-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            rust-v1-${{ runner.os }}-${{ runner.arch }}-1.95.0-x86_64-pc-windows-msvc-${{ hashFiles('src-tauri/Cargo.lock') }}-
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
       - name: Build signed Windows updater installer
         env:
@@ -59,6 +72,17 @@ jobs:
           '{"bundle":{"createUpdaterArtifacts":true}}' | Set-Content -LiteralPath updater-build.json -Encoding utf8
           npx tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis --config updater-build.json
           if ($LASTEXITCODE -ne 0) { throw 'Signed updater build failed.' }
+      - name: Save Rust dependencies and compilation
+        if: github.repository == 'astraldeath/quire' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target/**/deps
+            src-tauri/target/**/build
+            src-tauri/target/**/.fingerprint
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
       - name: Generate updater feed from signed artifacts
         shell: pwsh
         run: node scripts/release-manifest.mjs $env:RELEASE_TAG src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis release-artifacts
@@ -93,10 +117,52 @@ jobs:
           rustup toolchain install 1.95.0 --profile minimal
           rustup override set 1.95.0
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+      - name: Restore Rust dependencies and compilation
+        id: rust-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target/**/deps
+            src-tauri/target/**/build
+            src-tauri/target/**/.fingerprint
+          key: rust-v1-${{ runner.os }}-${{ runner.arch }}-1.95.0-android-ndk28.0.13004108-all-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            rust-v1-${{ runner.os }}-${{ runner.arch }}-1.95.0-android-ndk28.0.13004108-all-${{ hashFiles('src-tauri/Cargo.lock') }}-
       - run: npx tauri android init --ci
       - name: Install Quire Android icons
         run: cp -R src-tauri/icons/android/. src-tauri/gen/android/app/src/main/res/
+      - name: Restore Gradle dependencies
+        id: gradle-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: gradle-v1-${{ runner.os }}-${{ runner.arch }}-jdk17-android36-${{ hashFiles('package-lock.json', 'src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/gradle-wrapper.properties') }}-${{ github.sha }}
+          restore-keys: |
+            gradle-v1-${{ runner.os }}-${{ runner.arch }}-jdk17-android36-${{ hashFiles('package-lock.json', 'src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/gradle-wrapper.properties') }}-
       - run: npx tauri android build --ci --apk
+      - name: Save Rust dependencies and compilation
+        if: github.repository == 'astraldeath/quire' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target/**/deps
+            src-tauri/target/**/build
+            src-tauri/target/**/.fingerprint
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
+      - name: Save Gradle dependencies
+        if: github.repository == 'astraldeath/quire' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.gradle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
       - name: Sign and verify APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -152,10 +218,34 @@ jobs:
           rustup toolchain install 1.95.0 --profile minimal
           rustup override set 1.95.0
           rustup target add aarch64-apple-ios
+      - name: Restore Rust dependencies and compilation
+        id: rust-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target/**/deps
+            src-tauri/target/**/build
+            src-tauri/target/**/.fingerprint
+          key: rust-v1-${{ runner.os }}-${{ runner.arch }}-1.95.0-aarch64-apple-ios-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            rust-v1-${{ runner.os }}-${{ runner.arch }}-1.95.0-aarch64-apple-ios-${{ hashFiles('src-tauri/Cargo.lock') }}-
       - run: python3 scripts/test-ios-assets.py
       - run: npx tauri ios init --ci
       - run: python3 scripts/ios-icons.py
       - run: npx tauri ios build --ci --target aarch64 --no-sign
+      - name: Save Rust dependencies and compilation
+        if: github.repository == 'astraldeath/quire' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target/**/deps
+            src-tauri/target/**/build
+            src-tauri/target/**/.fingerprint
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
       - run: python3 scripts/ios-verify.py
       - name: Collect unsigned IPA
         run: |
@@ -193,11 +283,26 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+          cache: npm
+      - run: npm ci
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: release-*
           path: release-artifacts
           merge-multiple: true
+      - name: Sign mobile downloads for the release feed
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) { throw 'Missing updater signing key.' }
+          $mobileAssets = @(Get-ChildItem -LiteralPath release-artifacts -File | Where-Object { $_.Extension -in '.apk', '.ipa' })
+          if ($mobileAssets.Count -ne 2) { throw 'Expected one APK and one IPA.' }
+          foreach ($asset in $mobileAssets) {
+            npx --no-install tauri signer sign $asset.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Could not sign $($asset.Name)." }
+          }
       - name: Validate complete downloads and write checksums
         run: node scripts/release-assets.mjs release-artifacts
       - name: Publish complete release
