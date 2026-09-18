@@ -86,3 +86,52 @@
 .desktop-titlebar-integrated > button {
   width: 40px;
 }
+.desktop-modal-window-layer {
+  position: fixed;
+  inset: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  color: var(--muted);
+}
+.desktop-modal-window-layer::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+.desktop-modal-window-layer > .desktop-titlebar-modal {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  border: 0;
+  color: inherit;
+}
+.desktop-titlebar-modal.desktop-titlebar-integrated {
+  background: transparent;
+}
+.desktop-titlebar-modal > button {
+  background: var(--bg);
+}
+.desktop-titlebar-modal > button:hover {
+  background: var(--hover);
+}
+.desktop-titlebar-modal > .desktop-titlebar-close:hover {
+  background: #c42b35;
+}
+.privacy-cover > .desktop-modal-window-layer {
+  color: #fff;
+}
+.privacy-cover .desktop-titlebar-modal,
+.privacy-cover .desktop-titlebar-modal > button {
+  background: #1e1e1e;
+}
+.privacy-cover .desktop-titlebar-modal > button:hover {
+  background: #333;
+}
+.privacy-cover .desktop-titlebar-modal > .desktop-titlebar-close:hover {
+  background: #c42b35;
+}

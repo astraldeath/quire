@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Copy, Minus, Square, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
@@ -8,10 +15,65 @@ import {
 } from './window';
 import './desktop.css';
 
+function ModalWindowLayer({
+  dialog,
+  libraryHeader,
+  onFailure,
+  children,
+}: {
+  dialog: HTMLDialogElement;
+  libraryHeader: HTMLElement | null;
+  onFailure: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const layer = ref.current;
+    if (!layer) return;
+    const size = () => {
+      layer.style.height = `${libraryHeader?.getBoundingClientRect().height || 34}px`;
+    };
+    size();
+    try {
+      layer.showPopover();
+    } catch {
+      onFailure();
+      return;
+    }
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? undefined
+        : new ResizeObserver(size);
+    if (libraryHeader) observer?.observe(libraryHeader);
+    window.addEventListener('resize', size);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', size);
+      try {
+        layer.hidePopover();
+      } catch {
+        /* Closing a dialog may already remove its top layer. */
+      }
+    };
+  }, [dialog, libraryHeader, onFailure]);
+  // Descending from the active dialog avoids modal inertness. The popover top
+  // layer also escapes that dialog's transform, clipping, and scroll position.
+  return createPortal(
+    <div ref={ref} popover="manual" className="desktop-modal-window-layer">
+      {children}
+    </div>,
+    dialog,
+  );
+}
+
 export function DesktopTitlebar() {
   const [state, setState] = useState<DesktopWindowState | null>(null);
   const [failed, setFailed] = useState(false);
   const [libraryHeader, setLibraryHeader] = useState<HTMLElement | null>(null);
+  const [activeDialog, setActiveDialog] = useState<HTMLDialogElement | null>(
+    null,
+  );
+  const layerFailure = useCallback(() => setFailed(true), []);
   const queued = useRef(Promise.resolve());
   const control = useRef<(action: WindowAction) => void>(() => {});
   useEffect(() => {
@@ -27,6 +89,38 @@ export function DesktopTitlebar() {
   }, []);
 
   const desktop = !!state?.desktop;
+  useEffect(() => {
+    if (!desktop) return;
+    let stack: HTMLDialogElement[] = [];
+    const updateDialogs = (records: MutationRecord[] = []) => {
+      const open = Array.from(
+        document.querySelectorAll<HTMLDialogElement>('dialog[open]'),
+      );
+      stack = stack.filter((dialog) => open.includes(dialog));
+      for (const dialog of open)
+        if (!stack.includes(dialog)) stack.push(dialog);
+      for (const record of records) {
+        if (
+          record.attributeName === 'open' &&
+          record.target instanceof HTMLDialogElement &&
+          record.target.open
+        ) {
+          stack = stack.filter((dialog) => dialog !== record.target);
+          stack.push(record.target);
+        }
+      }
+      setActiveDialog(stack.at(-1) ?? null);
+    };
+    updateDialogs();
+    const observer = new MutationObserver(updateDialogs);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['open'],
+    });
+    return () => observer.disconnect();
+  }, [desktop]);
   useEffect(() => {
     if (!desktop) return;
     const locate = () =>
@@ -72,15 +166,12 @@ export function DesktopTitlebar() {
     };
     control.current = run;
     const sync = () => {
-      // Native modal dialogs make every element outside them inert, regardless
-      // of z-index. Keep native window controls available for that interval.
       enqueue(async () => {
         if (!alive || stopped) return;
         try {
           const current = await desktopWindow();
           if (!alive || stopped) return;
-          const native = !!document.querySelector('dialog[open]');
-          const decorated = native || failed;
+          const decorated = failed;
           const next =
             current && current.decorated !== decorated
               ? await desktopWindow(decorated ? 'native' : 'custom')
@@ -91,20 +182,6 @@ export function DesktopTitlebar() {
         }
       });
     };
-    let modalOpen = !!document.querySelector('dialog[open]');
-    const observer = new MutationObserver(() => {
-      const open = !!document.querySelector('dialog[open]');
-      if (open !== modalOpen) {
-        modalOpen = open;
-        sync();
-      }
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['open'],
-    });
     // This effect runs only after the titlebar's first DOM commit.
     sync();
     window.addEventListener('resize', sync);
@@ -112,7 +189,6 @@ export function DesktopTitlebar() {
     return () => {
       alive = false;
       control.current = () => {};
-      observer.disconnect();
       window.removeEventListener('resize', sync);
       window.removeEventListener('focus', sync);
       // Finish any in-flight mutation before restoring decorations. The shared
@@ -130,6 +206,7 @@ export function DesktopTitlebar() {
       'data-desktop-titlebar',
       visible && !libraryHeader,
     );
+    window.dispatchEvent(new Event('quire-window-controls'));
     return () =>
       document.documentElement.removeAttribute('data-desktop-titlebar');
   }, [visible, libraryHeader]);
@@ -157,13 +234,13 @@ export function DesktopTitlebar() {
 
   const act = (action: WindowAction) => control.current(action);
   if (!state || failed) return null;
-  const bar = (
+  const bar = (modal = false) => (
     <header
-      className={`desktop-titlebar${libraryHeader ? ' desktop-titlebar-integrated' : ''}`}
+      className={`desktop-titlebar${libraryHeader ? ' desktop-titlebar-integrated' : ''}${modal ? ' desktop-titlebar-modal' : ''}`}
       aria-label="Window controls"
       hidden={!visible}
     >
-      {!libraryHeader && (
+      {(!libraryHeader || modal) && (
         <div
           className="desktop-titlebar-drag"
           onMouseDown={(event) => {
@@ -172,7 +249,7 @@ export function DesktopTitlebar() {
             void act(event.detail === 2 ? 'maximize' : 'drag');
           }}
         >
-          <span>Quire</span>
+          {!libraryHeader && <span>Quire</span>}
         </div>
       )}
       <button
@@ -199,5 +276,18 @@ export function DesktopTitlebar() {
       </button>
     </header>
   );
-  return libraryHeader ? createPortal(bar, libraryHeader) : bar;
+  return (
+    <>
+      {libraryHeader ? createPortal(bar(), libraryHeader) : bar()}
+      {visible && activeDialog && (
+        <ModalWindowLayer
+          dialog={activeDialog}
+          libraryHeader={libraryHeader}
+          onFailure={layerFailure}
+        >
+          {bar(true)}
+        </ModalWindowLayer>
+      )}
+    </>
+  );
 }

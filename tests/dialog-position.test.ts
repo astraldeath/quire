@@ -1,5 +1,21 @@
-import { expect, it } from 'vitest';
-import { dialogPosition } from '../src/components/dialogPosition';
+import { expect, it, vi } from 'vitest';
+import { dialogPosition, safeInsets } from '../src/components/dialogPosition';
+it('reserves custom window controls while leaving fullscreen and mobile insets unchanged', () => {
+  const bar = document.createElement('header');
+  bar.className = 'desktop-titlebar';
+  vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue({
+    bottom: 65,
+  } as DOMRect);
+  document.body.append(bar);
+  try {
+    expect(safeInsets().top).toBe(65);
+    bar.hidden = true;
+    expect(safeInsets().top).toBe(0);
+  } finally {
+    bar.remove();
+    vi.restoreAllMocks();
+  }
+});
 it('keeps the dialog below the status bar and anchored when the keyboard opens', () => {
   const screen = { top: 0, left: 0, width: 390, height: 844 };
   const safe = { top: 59, bottom: 34 };
