@@ -127,13 +127,22 @@ export function PrivacySettings() {
       <section className="backup-settings">
         <h3>Privacy screen</h3>
         <Switch
-          label="Hide app preview"
+          label="Cover when inactive"
           checked={p.state.shield}
           onChange={(shield) => void run(async () => p.update({ shield }))}
         />
         <p className="muted">
-          Show Quire’s wordmark when the app is in the background.
+          Show Quire’s wordmark while away. This does not lock books.
         </p>
+        {!isTauri() && p.state.shield && (
+          <Switch
+            label="Also cover when the browser loses focus"
+            checked={p.state.coverOnBlur}
+            onChange={(coverOnBlur) =>
+              void run(async () => p.update({ coverOnBlur }))
+            }
+          />
+        )}
       </section>
       {error && (
         <p className="error" role="alert">

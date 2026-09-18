@@ -11,6 +11,7 @@ export interface PrivacyState {
   biometrics: boolean;
   autoLock: boolean;
   shield: boolean;
+  coverOnBlur: boolean;
   failures: number;
   retryAt: number;
   sync?: PrivacySyncState;
@@ -21,6 +22,7 @@ export const emptyPrivacy = (): PrivacyState => ({
   biometrics: false,
   autoLock: true,
   shield: false,
+  coverOnBlur: false,
   failures: 0,
   retryAt: 0,
 });
