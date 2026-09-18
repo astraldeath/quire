@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { releaseVersion, RELEASE_REPOSITORY } from './release-manifest.mjs';
+import {
+  releaseVersion,
+  RELEASE_REPOSITORY,
+  signedAsset,
+} from './release-manifest.mjs';
 
 export function finalizeAssets(directory) {
   const manifest = JSON.parse(
@@ -22,7 +26,9 @@ export function finalizeAssets(directory) {
     installer,
     `${installer}.sig`,
     `Quire_${version}_android.apk`,
+    `Quire_${version}_android.apk.sig`,
     `Quire_${version}_ios-unsigned.ipa`,
+    `Quire_${version}_ios-unsigned.ipa.sig`,
     'latest.json',
   ];
   for (const name of readdirSync(directory)) {
@@ -34,13 +40,38 @@ export function finalizeAssets(directory) {
     if (!file.isFile() || file.size === 0)
       throw new Error(`Empty release file: ${name}`);
   }
-  if (
-    readFileSync(join(directory, `${installer}.sig`), 'utf8').trim() !==
-    platform.signature
-  )
-    throw new Error(
-      'Updater signature does not match the installer signature file.',
-    );
+  const assets = {
+    'windows-x86_64': [installer, '.exe'],
+    'android-universal': [`Quire_${version}_android.apk`, '.apk'],
+    'ios-aarch64': [`Quire_${version}_ios-unsigned.ipa`, '.ipa'],
+  };
+  for (const key of Object.keys(manifest.platforms)) {
+    if (!Object.hasOwn(assets, key))
+      throw new Error(`Unexpected release platform: ${key}`);
+  }
+  const platforms = {};
+  for (const [key, [assetName, extension]] of Object.entries(assets)) {
+    const entry = signedAsset({
+      tag: `v${version}`,
+      assetName,
+      extension,
+      signature: readFileSync(join(directory, `${assetName}.sig`), 'utf8'),
+    });
+    const existing = manifest.platforms[key];
+    if (
+      existing &&
+      (existing.signature !== entry.signature || existing.url !== entry.url)
+    )
+      throw new Error(
+        `Updater URL or signature does not match the ${key} asset.`,
+      );
+    platforms[key] = entry;
+  }
+  manifest.platforms = platforms;
+  writeFileSync(
+    join(directory, 'latest.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
   writeFileSync(
     join(directory, 'SHA256SUMS.txt'),
     expected
