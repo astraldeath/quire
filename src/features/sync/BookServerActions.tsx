@@ -53,7 +53,7 @@ export function BookServerActions({ book }: { book: Book }) {
           ? 'Available from a read-only watched folder'
           : remote?.uploaded
             ? 'Uploaded to your server'
-            : 'No EPUB on your server'}
+            : 'No book file on your server'}
       </p>
       <div className="server-actions">
         {book.local && !remote && (
@@ -64,14 +64,14 @@ export function BookServerActions({ book }: { book: Book }) {
             onClick={() =>
               void run('Uploading', async () => {
                 const bytes = await getFile(book.id);
-                if (!bytes) throw new Error('Local EPUB is unavailable.');
+                if (!bytes) throw new Error('Local book file is unavailable.');
                 await syncNow();
                 await upload(account, book.id, bytes);
               })
             }
           >
             <CloudUpload />
-            Upload EPUB
+            Upload book file
           </button>
         )}
         {remote?.uploaded && !confirm && (
@@ -89,7 +89,7 @@ export function BookServerActions({ book }: { book: Book }) {
       {confirm && (
         <div className="removal">
           <p>
-            Remove the uploaded EPUB from your server? Existing downloads,
+            Remove the uploaded book file from your server? Existing downloads,
             notes, and reading progress stay saved.
             {remote?.watched
               ? ' The watched-folder copy will remain available.'

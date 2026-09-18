@@ -22,6 +22,9 @@ export function mergeBook(local: Book | undefined, incoming: Book): Book {
   }
   return {
     ...local,
+    ...(local.format === undefined && incoming.format
+      ? { format: incoming.format }
+      : {}),
     local: local.local || incoming.local,
     position:
       !local.position ||

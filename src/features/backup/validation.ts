@@ -39,6 +39,21 @@ export function validateBook(value: unknown): Book {
     cover,
     addedAt: num(b.addedAt),
     local: false,
+    ...(b.format !== undefined
+      ? {
+          format: choice(b.format, [
+            'epub',
+            'cbz',
+            'fb2',
+            'fbz',
+            'mobi',
+            'azw3',
+          ] as const),
+        }
+      : {}),
+    ...(b.folder !== undefined
+      ? { folder: validFolder(b.folder) ? b.folder : fail() }
+      : {}),
   };
   if (b.position !== undefined) {
     const p = obj(b.position);
@@ -137,3 +152,4 @@ export function validatePreferences(value: unknown): Preferences {
     },
   };
 }
+import { validFolder } from '../library/folders';

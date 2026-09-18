@@ -17,7 +17,7 @@ declare module 'foliate-js/epub.js' {
   }
 }
 declare module 'foliate-js/view.js' {
-  import type { EPUB } from 'foliate-js/epub.js';
+  import type { ReaderBook } from './books';
   export class View extends HTMLElement {
     renderer: HTMLElement & {
       getContents(): { doc: Document; index: number }[];
@@ -45,7 +45,7 @@ declare module 'foliate-js/view.js' {
       | string
     >;
     clearSearch(): void;
-    open(book: EPUB): Promise<void>;
+    open(book: import('./books').ReaderBook): Promise<void>;
     init(options: {
       lastLocation?: string;
       showTextStart?: boolean;
@@ -62,4 +62,11 @@ declare module 'foliate-js/overlayer.js' {
   export class Overlayer {
     static highlight(rects: unknown, options?: unknown): SVGElement;
   }
+}
+
+declare module 'foliate-js/fb2.js' {
+  export function makeFB2(blob: Blob): Promise<import('./books').ReaderBook>;
+}
+declare module 'foliate-js/vendor/fflate.js' {
+  export function unzlibSync(bytes: Uint8Array): Uint8Array;
 }

@@ -201,15 +201,15 @@ export function BookDetails({
             ) : (
               <button type="button" className="text-action" onClick={onImport}>
                 <HardDriveDownload />
-                Import EPUB instead
+                Import book file instead
               </button>
             )}
           </div>
           {confirm && (
             <div className="removal">
               <p>
-                Remove the downloaded EPUB? Book details, progress, bookmarks,
-                highlights, and notes stay in your library.
+                Remove the downloaded book file? Book details, progress,
+                bookmarks, highlights, and notes stay in your library.
               </p>
               <div className="button-row">
                 <button

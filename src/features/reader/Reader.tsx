@@ -11,9 +11,9 @@ import {
   PanelLeftOpen,
   X,
 } from 'lucide-react';
-import { EPUB, type TocItem } from 'foliate-js/epub.js';
+import { type TocItem } from 'foliate-js/epub.js';
 import { View } from 'foliate-js/view.js';
-import { detectBookStructure, openArchive } from '../../epub';
+import { openBook, type ReaderBook } from '../../books';
 import {
   completedChapterAt,
   chapterHrefAtRange,
@@ -89,7 +89,7 @@ export function applyReaderPreferences(view: View, p: ReaderPreferences) {
       : p.font === 'publisher'
         ? 'inherit'
         : 'Georgia, Charter, serif';
-  view.renderer.setStyles(
+  view.renderer.setStyles?.(
     `${readerThemeCss(c.foreground, c.background)} html { --theme-bg-color: ${c.background}; color: ${c.foreground} !important; background: ${c.background} !important; color-scheme: ${c.dark ? 'dark' : 'light'}; } body { margin: 0 !important; padding: 0 !important; color: ${c.foreground} !important; background: transparent !important; font-size: ${clamp(p.size, 12, 36)}px !important; line-height: ${clamp(p.lineHeight, 1.2, 2.4)} !important; ${p.font !== 'publisher' ? `font-family: ${font} !important;` : ''} } ${!p.publisherStyles ? `p, li, div { font-size: inherit !important; line-height: inherit !important; font-family: inherit !important; color: inherit !important; }` : ''} a { color: inherit; } img, svg { max-width: 100%; }`,
   );
 }
@@ -169,7 +169,7 @@ export function Reader({
     const cleanups: (() => void)[] = [];
     let cancelled = false;
     let chapterLoaded = false;
-    let epub: EPUB | undefined;
+    let epub: ReaderBook | undefined;
     let structure: BookStructure = { chapters: [] };
     let locationHref = '';
     let forwardUntil = 0;
@@ -311,9 +311,9 @@ export function Reader({
       });
     });
     void (async () => {
-      const archive = await openArchive(bytes);
-      structure = detectBookStructure(archive);
-      epub = await new EPUB(archive).init();
+      const opened = await openBook(bytes, book.format);
+      structure = opened.structure;
+      epub = opened.publication;
       if (cancelled) {
         epub.destroy();
         return;
@@ -399,10 +399,16 @@ export function Reader({
         lastLocation: book.position?.cfi,
         showTextStart: !book.position?.cfi,
       });
+      // Foliate's goTo catches renderer failures internally. A resolved init
+      // without a loaded page must still surface a recoverable reader error.
+      if (!cancelled && !chapterLoaded)
+        throw new Error(
+          'The book page could not load. Close the book and try again.',
+        );
       if (!cancelled) setReady(true);
     })().catch((e) => {
       if (!cancelled)
-        setError(e instanceof Error ? e.message : 'Unable to read this EPUB.');
+        setError(e instanceof Error ? e.message : 'Unable to read this book.');
     });
     return () => {
       cleanups.forEach((cleanup) => cleanup());

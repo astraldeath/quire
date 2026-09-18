@@ -10,6 +10,7 @@ export function ExportBookAction({
   book: Book;
   onClose(): void;
 }) {
+  const format = (book.format ?? 'epub').toUpperCase();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function run() {
@@ -18,7 +19,9 @@ export function ExportBookAction({
     try {
       if (await exportEpub(book)) onClose();
     } catch {
-      setError('Could not export EPUB. Check your connection and try again.');
+      setError(
+        'Could not export the book. Check your connection and try again.',
+      );
     } finally {
       setBusy(false);
     }
@@ -29,9 +32,9 @@ export function ExportBookAction({
         <Download />
         {busy
           ? book.local
-            ? 'Exporting EPUB…'
-            : 'Downloading EPUB…'
-          : 'Export EPUB'}
+            ? `Exporting ${format}…`
+            : `Downloading ${format}…`
+          : `Export ${format}`}
       </button>
       {error && (
         <p className="error" role="alert">

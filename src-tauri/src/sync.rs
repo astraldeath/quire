@@ -52,18 +52,18 @@ fn check_book_id(id:&str)->Result<(),String>{if id.len()!=64||!id.bytes().all(|c
 pub async fn sync_upload(request:tauri::ipc::Request<'_>)->Result<(),String>{
  let header=|key:&str|request.headers().get(key).and_then(|v|v.to_str().ok()).map(String::from).ok_or("Missing transfer details.");
  let o=origin(&header("x-quire-server")?)?;let username=header("x-quire-user")?;let id=header("x-quire-book")?;check_book_id(&id)?;
- let bytes=match request.body(){tauri::ipc::InvokeBody::Raw(bytes) if bytes.len()<=128*1024*1024=>bytes.clone(),_=>return Err("Invalid or oversized EPUB.".into())};
+ let bytes=match request.body(){tauri::ipc::InvokeBody::Raw(bytes) if bytes.len()<=128*1024*1024=>bytes.clone(),_=>return Err("Invalid or oversized book file.".into())};
  let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to upload books.")?;
  let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_|"Connection unavailable.")?;
- let response=client.put(format!("{o}/v1/books/{id}/file")).bearer_auth(token).header("Content-Type","application/epub+zip").body(bytes).send().await.map_err(|_|"Upload interrupted. Try again.")?;
+ let response=client.put(format!("{o}/v1/books/{id}/file")).bearer_auth(token).header("Content-Type","application/octet-stream").body(bytes).send().await.map_err(|_|"Upload interrupted. Try again.")?;
  if !response.status().is_success(){return Err("Upload failed. Check your session and file size, then retry.".into())}Ok(())
 }
 #[tauri::command]
 pub async fn sync_download(server:String,username:String,book:String)->Result<tauri::ipc::Response,String>{
  let o=origin(&server)?;check_book_id(&book)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to download books.")?;
  let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_|"Connection unavailable.")?;
- let mut response=client.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_|"Download interrupted. Try again.")?;if !response.status().is_success(){return Err("The server EPUB is unavailable.".into())}
- let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Download interrupted.")?{if bytes.len()+chunk.len()>128*1024*1024{return Err("EPUB is too large.".into())}bytes.extend_from_slice(&chunk)}Ok(tauri::ipc::Response::new(bytes))
+ let mut response=client.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_|"Download interrupted. Try again.")?;if !response.status().is_success(){return Err("The server book file is unavailable.".into())}
+ let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Download interrupted.")?{if bytes.len()+chunk.len()>128*1024*1024{return Err("book file is too large.".into())}bytes.extend_from_slice(&chunk)}Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command]

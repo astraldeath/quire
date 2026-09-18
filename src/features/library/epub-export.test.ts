@@ -24,6 +24,8 @@ describe('EPUB export', () => {
   });
 
   it('makes bounded portable meaningful names', () => {
+    expect(epubFilename('Comic.cbz', 'cbz')).toBe('Comic.cbz');
+    expect(epubFilename('Novel.fb2.zip', 'fbz')).toBe('Novel.fbz');
     expect(epubFilename('../A: Book? .epub')).toBe('A Book.epub');
     expect(epubFilename('CON')).toBe('Book CON.epub');
     expect(epubFilename('..')).toBe('Book.epub');
@@ -31,6 +33,14 @@ describe('EPUB export', () => {
     expect(
       new TextEncoder().encode(epubFilename('旅'.repeat(300))).length,
     ).toBeLessThanOrEqual(190);
+  });
+
+  it('exports a comic with its original format and MIME type', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await exportEpub({ id: 'comic', title: 'Comic', format: 'cbz' });
+    const file = vi.mocked(URL.createObjectURL).mock.calls[0][0] as File;
+    expect(file.name).toBe('Comic.cbz');
+    expect(file.type).toBe('application/vnd.comicbook+zip');
   });
 
   it('passes exact original bytes and Unicode filename to native export and preserves cancellation', async () => {

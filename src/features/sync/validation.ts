@@ -85,6 +85,12 @@ function validValue(kind: Kind, v: Value) {
       !!v.title &&
       (v.author === undefined || text(v.author, 2048)) &&
       (v.series === undefined || text(v.series, 2048)) &&
+      (v.folder === undefined || validFolder(v.folder)) &&
+      (v.format === undefined ||
+        (typeof v.format === 'string' &&
+          ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3'].includes(
+            v.format as string,
+          ))) &&
       (v.volume == null ||
         (typeof v.volume === 'number' && Number.isFinite(v.volume)))
     );
@@ -108,3 +114,4 @@ function validValue(kind: Kind, v: Value) {
     (v.note === undefined || text(v.note))
   );
 }
+import { validFolder } from '../library/folders';

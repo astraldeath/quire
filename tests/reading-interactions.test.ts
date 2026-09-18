@@ -7,6 +7,25 @@ import {
 } from '../src/features/reader/interactions';
 import type { View } from 'foliate-js/view.js';
 
+it('turns comic pages by swipe without paginator scrolling methods', () => {
+  const target = document.createElement('div');
+  const next = vi.fn().mockResolvedValue(undefined);
+  const dispose = installReadingInteractions(
+    target,
+    {
+      renderer: { localName: 'foliate-fxl' },
+      next,
+      getBoundingClientRect: () => ({ left: 0, width: 400 }),
+    } as unknown as View,
+    () => ({ ...defaults.reader, flow: 'scrolled' }),
+  );
+  target.dispatchEvent(touchEvent('touchstart', 350, 100));
+  target.dispatchEvent(touchEvent('touchmove', 100, 100));
+  target.dispatchEvent(touchEvent('touchend', 100, 100));
+  expect(next).toHaveBeenCalledOnce();
+  dispose();
+});
+
 it('uses side zones, preserves the center, and reverses physical sides for RTL', () => {
   expect(sideTurn(20, 400)).toBe('prev');
   expect(sideTurn(380, 400)).toBe('next');

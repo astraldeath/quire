@@ -10,7 +10,7 @@ import {
 } from './domain/book-structure';
 
 const MB = 1024 * 1024;
-const CSP =
+export const CSP =
   "default-src 'none'; script-src 'none'; connect-src 'none'; img-src blob: data:; style-src 'unsafe-inline' blob:; font-src blob: data:; media-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 const xml = (text: string) => {
   if (/<!ENTITY|<!DOCTYPE[^>]*\[/i.test(text))
@@ -125,7 +125,7 @@ export function sanitizeDocument(text: string, html = false): string {
   return new XMLSerializer().serializeToString(doc.documentElement);
 }
 
-export async function openArchive(bytes: Uint8Array) {
+export async function openZip(bytes: Uint8Array) {
   if (bytes.length > 128 * MB)
     throw new Error('EPUB is too large (128 MB maximum).');
   const reader = new ZipReader(new Uint8ArrayReader(bytes), {
@@ -184,6 +184,11 @@ export async function openArchive(bytes: Uint8Array) {
   } finally {
     await reader.close();
   }
+  return files;
+}
+
+export async function openArchive(bytes: Uint8Array) {
+  const files = await openZip(bytes);
   const text = (path: string) => new TextDecoder().decode(files.get(path));
   if (text('mimetype').trim() !== 'application/epub+zip')
     throw new Error('This file is not a valid EPUB.');

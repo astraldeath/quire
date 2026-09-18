@@ -3001,3 +3001,76 @@ dialog:focus {
   font-weight: 500;
   margin-left: 6px;
 }
+
+.folder-navigation {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 20px;
+}
+.folder-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.folder-breadcrumbs > button {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 13px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.folder-breadcrumbs > button:has(+ .icon),
+.folder-breadcrumbs > button[aria-current='page'] {
+  color: var(--fg);
+}
+.folder-breadcrumbs > .icon {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+}
+.folder-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+.folder-list > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+  text-align: left;
+}
+.folder-list > button:hover {
+  background: var(--hover);
+}
+.folder-list > button > span:first-of-type {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.folder-list > button > .muted {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.folder-list > button > svg {
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+}
+.folder-navigation button:focus-visible {
+  outline-offset: -3px;
+}

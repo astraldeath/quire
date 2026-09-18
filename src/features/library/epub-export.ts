@@ -1,14 +1,18 @@
+import { BOOK_MIME, type BookFormat } from '../../books';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { ensureBookFile } from '../sync/library';
 import { withSystemDialog } from '../privacy/inactive';
 
-export function epubFilename(title: string): string {
+export function epubFilename(
+  title: string,
+  format: BookFormat = 'epub',
+): string {
   let stem = title
     .normalize('NFC')
     .replace(/[<>:"/\\|?*\p{Cc}\p{Cf}]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\.epub$/i, '')
+    .replace(/\.(epub|cbz|fb2|fbz|mobi|azw3|fb2\.zip)$/i, '')
     .replace(/^[. ]+|[. ]+$/g, '');
   // Bound UTF-8 bytes as well as characters for filesystem portability.
   const encoder = new TextEncoder();
@@ -17,16 +21,17 @@ export function epubFilename(title: string): string {
   stem = stem.replace(/[. ]+$/g, '') || 'Book';
   if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(stem))
     stem = `Book ${stem}`;
-  return `${stem}.epub`;
+  return `${stem}.${format}`;
 }
 
-/** Export the original EPUB, including fetching server-only books on demand. */
+/** Export the original book, including fetching server-only books on demand. */
 export async function exportEpub(book: {
   id: string;
   title: string;
+  format?: BookFormat;
 }): Promise<boolean> {
   const bytes = await ensureBookFile(book.id);
-  const name = epubFilename(book.title);
+  const name = epubFilename(book.title, book.format);
   if (isTauri()) {
     const encoded = btoa(
       String.fromCharCode(...new TextEncoder().encode(name)),
@@ -38,7 +43,7 @@ export async function exportEpub(book: {
     );
   }
   const file = new File([bytes.slice().buffer], name, {
-    type: 'application/epub+zip',
+    type: BOOK_MIME[book.format ?? 'epub'],
   });
   // A network download may consume transient activation. Fall back to download
   // when sharing cannot be started, but treat a dismissed share sheet normally.

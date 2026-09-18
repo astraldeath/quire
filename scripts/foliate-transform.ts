@@ -65,25 +65,114 @@ const loadMethod = `    async load(src, afterLoad, beforeRender) {
     }
 `;
 
-export function hardenFoliate(code: string, id: string, hosted = false): string | undefined {
-  if (!id.split('?')[0].replaceAll('\\', '/').endsWith('/foliate-js/paginator.js')) return;
+export function hardenFoliate(
+  code: string,
+  id: string,
+  hosted = false,
+): string | undefined {
+  if (
+    id
+      .split('?')[0]
+      .replaceAll('\\', '/')
+      .endsWith('/foliate-js/fixed-layout.js')
+  ) {
+    const normalized = code.replaceAll('\r\n', '\n');
+    const start = normalized.indexOf('    async #createFrame(');
+    const end = normalized.indexOf('    #render(side', start);
+    const method = normalized.slice(start, end);
+    if (
+      start < 0 ||
+      end < 0 ||
+      createHash('sha256').update(method).digest('hex') !==
+        '4f9d012392b52a048d8d453f8b6af573968db1f8acdb19594588c1fc367fccd7'
+    )
+      throw new Error(
+        'Review foliate fixed-layout frame loading before upgrading the renderer.',
+      );
+    const promise = method.indexOf('        return new Promise(resolve => {');
+    const safe =
+      method.slice(0, promise) +
+      `        const response = await fetch(src); if (!response.ok) throw new Error('Could not load comic page'); const markup = await response.text();
+        return new Promise((resolve, reject) => {
+            let finished = false, polling, deadline, observed = 'unavailable'
+            const cleanup = () => {
+                clearInterval(polling); clearTimeout(deadline)
+                iframe.removeEventListener('load', onLoad)
+            }
+            const onLoad = () => {
+                if (finished) return
+                try {
+                    const doc = iframe.contentDocument
+                    observed = doc ? doc.URL + ' (' + doc.readyState + ')' : 'unavailable'
+                    if (!doc || doc.URL !== 'about:srcdoc' || doc.readyState !== 'complete') return
+                    finished = true; cleanup()
+                    this.dispatchEvent(new CustomEvent('load', { detail: { doc, index } }))
+                    const { width, height } = getViewport(doc, this.defaultViewport)
+                    resolve({ element, iframe, width: parseFloat(width), height: parseFloat(height), onZoom })
+                } catch (error) { finished = true; cleanup(); reject(error) }
+            }
+            iframe.addEventListener('load', onLoad)
+            polling = setInterval(onLoad, 50)
+            deadline = setTimeout(() => {
+                finished = true; cleanup(); reject(new Error('Comic page frame load timed out; document readiness: ' + observed))
+            }, 15000)
+            iframe.srcdoc = markup
+        })
+    }
+`;
+    return normalized.slice(0, start) + safe + normalized.slice(end);
+  }
+  if (
+    !id.split('?')[0].replaceAll('\\', '/').endsWith('/foliate-js/paginator.js')
+  )
+    return;
   const normalized = code.replaceAll('\r\n', '\n');
-  const start = normalized.indexOf('    async load(src, afterLoad, beforeRender) {');
+  const start = normalized.indexOf(
+    '    async load(src, afterLoad, beforeRender) {',
+  );
   const end = normalized.indexOf('    render(layout) {', start);
   const original = "'allow-same-origin allow-scripts'";
   const method = normalized.slice(start, end);
-  if (start < 0 || end < 0 || createHash('sha256').update(method).digest('hex') !== '4aed7675f9eeafcbea035d4c0f7b9babc3f12505ef0aeb45bdb9d31c9e17ac7e' || normalized.split(original).length !== 2) {
-    throw new Error('Review foliate iframe sandbox and load lifecycle before upgrading the renderer.');
+  if (
+    start < 0 ||
+    end < 0 ||
+    createHash('sha256').update(method).digest('hex') !==
+      '4aed7675f9eeafcbea035d4c0f7b9babc3f12505ef0aeb45bdb9d31c9e17ac7e' ||
+    normalized.split(original).length !== 2
+  ) {
+    throw new Error(
+      'Review foliate iframe sandbox and load lifecycle before upgrading the renderer.',
+    );
   }
   const turnStart = normalized.indexOf('    async #turnPage(dir, distance) {');
   const turnEnd = normalized.indexOf('    async prev(distance)', turnStart);
   const turnMethod = normalized.slice(turnStart, turnEnd);
-  if (createHash('sha256').update(turnMethod).digest('hex') !== '54cd719e2da3783549906b32e4e9e8dda488fc68edaff36b27559d9d296043ed') throw new Error('Review foliate page-turn locking before upgrading the renderer.');
-  const safeTurn = turnMethod.replace('        const prev =', '        try {\n        const prev =').replace('        this.#locked = false', '        } finally { this.#locked = false }');
-  const browserLoad = hosted ? loadMethod
-    .replace("return new Promise((resolve, reject) => {", "const response = await fetch(src); if (!response.ok) throw new Error('Could not load chapter'); const markup = await response.text(); return new Promise((resolve, reject) => {")
-    .replaceAll('doc.URL !== src', "doc.URL !== 'about:srcdoc'")
-    .replaceAll('doc.URL === src', "doc.URL === 'about:srcdoc'")
-    .replace('this.#iframe.src = src', 'this.#iframe.srcdoc = markup') : loadMethod;
-  return (normalized.slice(0, start) + browserLoad + normalized.slice(end)).replace(turnMethod, safeTurn);
+  if (
+    createHash('sha256').update(turnMethod).digest('hex') !==
+    '54cd719e2da3783549906b32e4e9e8dda488fc68edaff36b27559d9d296043ed'
+  )
+    throw new Error(
+      'Review foliate page-turn locking before upgrading the renderer.',
+    );
+  const safeTurn = turnMethod
+    .replace('        const prev =', '        try {\n        const prev =')
+    .replace(
+      '        this.#locked = false',
+      '        } finally { this.#locked = false }',
+    );
+  const browserLoad = hosted
+    ? loadMethod
+        .replace(
+          'return new Promise((resolve, reject) => {',
+          "const response = await fetch(src); if (!response.ok) throw new Error('Could not load chapter'); const markup = await response.text(); return new Promise((resolve, reject) => {",
+        )
+        .replaceAll('doc.URL !== src', "doc.URL !== 'about:srcdoc'")
+        .replaceAll('doc.URL === src', "doc.URL === 'about:srcdoc'")
+        .replace('this.#iframe.src = src', 'this.#iframe.srcdoc = markup')
+    : loadMethod;
+  return (
+    normalized.slice(0, start) +
+    browserLoad +
+    normalized.slice(end)
+  ).replace(turnMethod, safeTurn);
 }

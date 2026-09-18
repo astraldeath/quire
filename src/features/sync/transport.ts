@@ -283,7 +283,7 @@ export async function deleteUpload(a: Account, book: string) {
 }
 export async function upload(a: Account, book: string, bytes: Uint8Array) {
   if (bytes.length > 128 * 1024 * 1024)
-    throw new Error('The server accepts EPUBs up to 128 MB.');
+    throw new Error('The server accepts books up to 128 MB.');
   if (isTauri())
     return invoke('sync_upload', bytes, {
       headers: {
@@ -298,7 +298,7 @@ export async function upload(a: Account, book: string, bytes: Uint8Array) {
     credentials: credentials(a.origin),
     headers: {
       ...requestHeaders(webToken(a)),
-      'Content-Type': 'application/epub+zip',
+      'Content-Type': 'application/octet-stream',
     },
     body: bytes.slice().buffer,
     signal: AbortSignal.timeout(300000),
@@ -320,7 +320,7 @@ export async function download(a: Account, book: string): Promise<Uint8Array> {
     headers: { ...requestHeaders(webToken(a)) },
     signal: AbortSignal.timeout(300000),
   });
-  if (!r.ok || !r.body) throw new Error('The server EPUB is unavailable.');
+  if (!r.ok || !r.body) throw new Error('The server book file is unavailable.');
   const reader = r.body.getReader();
   let size = 0;
   const parts: Uint8Array[] = [];
@@ -330,7 +330,7 @@ export async function download(a: Account, book: string): Promise<Uint8Array> {
     size += value.length;
     if (size > 128 * 1024 * 1024) {
       await reader.cancel();
-      throw new Error('EPUB is too large.');
+      throw new Error('Book file is too large.');
     }
     parts.push(value);
   }
@@ -386,7 +386,7 @@ export async function uploadShared(
       credentials: credentials(a.origin),
       headers: {
         ...requestHeaders(webToken(a)),
-        'Content-Type': 'application/epub+zip',
+        'Content-Type': 'application/octet-stream',
       },
       body: bytes,
       signal: AbortSignal.timeout(300000),

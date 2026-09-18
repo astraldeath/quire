@@ -1,3 +1,4 @@
+import { BOOK_ACCEPT } from '../../books';
 import { LibraryActions } from './LibraryActions';
 import { syncNow } from '../sync/engine';
 import { LibraryBooks } from './LibraryBooks';
@@ -93,7 +94,7 @@ export function Management({
       {notice && <p role="status">{notice}</p>}
       {scanning && (
         <p role="status" className="scan-progress">
-          <RefreshCw /> Scanning EPUBs…
+          <RefreshCw /> Scanning books…
         </p>
       )}
       {tab === 'settings' && (
@@ -259,10 +260,10 @@ export function Management({
                       ))}
                   </div>
                   <label className="admin-upload">
-                    <span>Upload EPUB</span>
+                    <span>Upload book</span>
                     <input
                       type="file"
-                      accept=".epub"
+                      accept={BOOK_ACCEPT}
                       disabled={busy}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -272,7 +273,7 @@ export function Management({
                             const bytes = await file.arrayBuffer();
                             if (bytes.byteLength > 128 * 1024 * 1024)
                               throw new Error(
-                                'EPUB must be smaller than 128 MB.',
+                                'Book file must be smaller than 128 MB.',
                               );
                             const hash = Array.from(
                               new Uint8Array(
@@ -301,7 +302,7 @@ export function Management({
         <>
           <h2>Watched folders</h2>
           <p className="muted">
-            Server folders only. Original EPUBs are not changed.
+            Server folders only. Original books are not changed.
           </p>
           <form
             className="admin-create"
