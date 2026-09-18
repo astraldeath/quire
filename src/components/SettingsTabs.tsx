@@ -36,6 +36,17 @@ export function SettingsTabs({
   const panels = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (panels.current) panels.current.scrollTop = 0;
+    const selected = buttons.current.find(
+      (button) => button?.getAttribute('aria-selected') === 'true',
+    );
+    const reveal = () =>
+      selected?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    reveal();
+    if (typeof ResizeObserver !== 'undefined' && selected?.parentElement) {
+      const observer = new ResizeObserver(reveal);
+      observer.observe(selected.parentElement);
+      return () => observer.disconnect();
+    }
   }, [active]);
   return (
     <div className="settings-tabs">

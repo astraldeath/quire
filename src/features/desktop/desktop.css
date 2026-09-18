@@ -1,0 +1,61 @@
+:root {
+  --desktop-titlebar-height: 0px;
+}
+:root[data-desktop-titlebar] {
+  --desktop-titlebar-height: 34px;
+}
+:root[data-desktop-titlebar] body {
+  padding-top: var(--desktop-titlebar-height);
+}
+:root[data-desktop-titlebar] .library-shell,
+:root[data-desktop-titlebar] .reader {
+  height: calc(var(--app-height, 100dvh) - var(--desktop-titlebar-height));
+}
+:root[data-desktop-titlebar] .reader {
+  top: var(--desktop-titlebar-height);
+}
+:root[data-desktop-titlebar] .reader-dialog-layer {
+  padding-top: calc(16px + var(--desktop-titlebar-height));
+}
+.desktop-titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 34px;
+  z-index: 2147483647;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg);
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+.desktop-titlebar[hidden] {
+  display: none;
+}
+.desktop-titlebar-drag {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.desktop-titlebar > button {
+  width: 46px;
+  padding: 0;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+}
+.desktop-titlebar > button svg {
+  width: 14px;
+  height: 14px;
+}
+.desktop-titlebar > button:focus-visible {
+  outline-offset: -3px;
+}
+.desktop-titlebar > .desktop-titlebar-close:hover {
+  background: #c42b35;
+  color: #fff;
+}

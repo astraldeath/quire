@@ -1,6 +1,14 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { Account, SyncResponse } from './model';
 const tokens = new Map<string, string>();
+export async function serverUpdatesCall(account: Account): Promise<unknown> {
+  return isTauri()
+    ? invoke('updates_call', {
+        server: account.origin,
+        username: account.username,
+      })
+    : accountRequest(account, '/v1/updates');
+}
 const browserSessionKey = 'quire-hosted-session';
 export function clearBrowserSession() {
   try {
@@ -93,15 +101,17 @@ async function web(
   }
   if (!response.ok)
     throw new Error(
-      response.status === 404 && path === '/v1/privacy/sync'
-        ? 'Update Quire Server to sync private library settings.'
-        : response.status === 401
-          ? 'Sign in again; this session expired or was revoked.'
-          : response.status === 409
-            ? 'Sync conflict requires attention. Local changes are saved.'
-            : response.status === 429
-              ? 'Server is busy. Try again shortly.'
-              : 'The server could not complete this request.',
+      response.status === 404 && path === '/v1/updates'
+        ? 'Update Quire Server to enable version checks.'
+        : response.status === 404 && path === '/v1/privacy/sync'
+          ? 'Update Quire Server to sync private library settings.'
+          : response.status === 401
+            ? 'Sign in again; this session expired or was revoked.'
+            : response.status === 409
+              ? 'Sync conflict requires attention. Local changes are saved.'
+              : response.status === 429
+                ? 'Server is busy. Try again shortly.'
+                : 'The server could not complete this request.',
     );
   if (response.status === 204) return null;
   const reader = response.body?.getReader();

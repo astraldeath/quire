@@ -1,4 +1,6 @@
 mod backup;
+mod desktop;
+mod updates;
 mod epub_export;
 mod sync;
 mod tracking;
@@ -18,17 +20,20 @@ pub fn run() {
         }
     }));
     builder
+        .on_page_load(desktop::page_load)
         .plugin(tauri_plugin_privacy::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|_app| {
+            #[cfg(desktop)]
+            _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             #[cfg(mobile)]
             _app.handle().plugin(tauri_plugin_haptics::init())?;
             tracking::setup(_app.handle())?;
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![backup::export_backup, epub_export::export_epub, sync::sync_discover, sync::sync_login, sync::sync_call, sync::statistics_call, sync::privacy_call, sync::sync_logout, sync::sync_files, sync::sync_upload, sync::sync_download, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
+        .invoke_handler(tauri::generate_handler![desktop::desktop_window, updates::updates_info, sync::updates_call, backup::export_backup, epub_export::export_epub, sync::sync_discover, sync::sync_login, sync::sync_call, sync::statistics_call, sync::privacy_call, sync::sync_logout, sync::sync_files, sync::sync_upload, sync::sync_download, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
         .plugin(tauri_plugin_sql::Builder::default().add_migrations("sqlite:quire.db", vec![Migration {
             version: 1,
             description: "local library and device preferences",

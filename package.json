@@ -1,6 +1,6 @@
 {
   "name": "quire-reader",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -17,6 +17,7 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-haptics": "^2.3.3",
     "@tauri-apps/plugin-sql": "^2.4.1",
+    "@tauri-apps/plugin-updater": "^2.11.0",
     "@zip.js/zip.js": "^2.14.1",
     "foliate-js": "^1.0.1",
     "idb": "^8.0.3",

@@ -110,6 +110,9 @@ const idb = () => (browserPromise ??= browser());
 let nativePromise: Promise<Database> | undefined;
 const sql = () => (nativePromise ??= Database.load('sqlite:quire.db'));
 let queue: Promise<unknown> = Promise.resolve();
+export async function flushStorage(): Promise<void> {
+  await queue;
+}
 function serial<T>(fn: () => Promise<T>): Promise<T> {
   const result = queue.then(fn);
   queue = result.catch(() => {});

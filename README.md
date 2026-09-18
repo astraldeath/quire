@@ -45,6 +45,7 @@ Use `npm run format` to format source and tests. Type checking rejects unused de
 - [Reader, backups, sync, and storage guide](docs/READER.md)
 - [Standalone MangaBaka tracking](docs/TRACKING.md)
 - [Build and installation guide](docs/BUILDING.md)
+- [Desktop updates and release publishing](docs/UPDATES.md)
 - [Server setup and administration](https://github.com/astraldeath/quire-server)
 
 Licensed under [MIT](LICENSE).

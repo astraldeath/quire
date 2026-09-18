@@ -1,12 +1,30 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Quire",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "app.quire.reader",
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["app.quire.reader"] },
-      "mobile": [{ "scheme": ["app.quire.reader"], "host": "oauth", "path": ["/mangabaka"], "appLink": false }]
+      "desktop": {
+        "schemes": ["app.quire.reader"]
+      },
+      "mobile": [
+        {
+          "scheme": ["app.quire.reader"],
+          "host": "oauth",
+          "path": ["/mangabaka"],
+          "appLink": false
+        }
+      ]
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/astraldeath/quire/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      },
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDNEJFMDIxN0EyRkU3QUQKUldTdDV5OTZJZUJMN0loZG5MdXM4YllycUZzUUJrOUVCZ1Zia2NPVnlsbnFiYjVYMTFGUEsxZ3cK"
     }
   },
   "build": {
@@ -16,8 +34,32 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "label": "main", "title": "Quire", "width": 1100, "height": 800, "minWidth": 360, "minHeight": 500 }],
-    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: https://cdn.mangabaka.dev; font-src 'self' data: blob:; connect-src ipc: http://ipc.localhost 'self' blob: https://en.wiktionary.org; frame-src blob: 'self'; object-src 'none'; base-uri 'self'" }
+    "windows": [
+      {
+        "label": "main",
+        "title": "Quire",
+        "width": 1100,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 500
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: https://cdn.mangabaka.dev; font-src 'self' data: blob:; connect-src ipc: http://ipc.localhost 'self' blob: https://en.wiktionary.org; frame-src blob: 'self'; object-src 'none'; base-uri 'self'"
+    }
   },
-  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"], "iOS": { "minimumSystemVersion": "15.0" } }
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "iOS": {
+      "minimumSystemVersion": "15.0"
+    }
+  }
 }
