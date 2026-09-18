@@ -1,11 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.0]
 
 - Organize books into nested folders, with bulk moves and directory import.
 - Read and export CBZ, FB2/FBZ, and DRM-free MOBI/AZW3 alongside EPUB.
 - Preserve folder assignments and original formats in server sync and backups.
 - Include every released platform in the update manifest and cache workflow builds.
+- Keep standalone OAuth callbacks registered in cached iOS builds.
 
 ## [0.2.0]
 
