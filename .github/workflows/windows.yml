@@ -21,7 +21,7 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - name: Verify release manifest generation
-        run: node --test scripts/release-manifest.test.mjs
+        run: node --test scripts/release-manifest.test.mjs scripts/release-assets.test.mjs
       - run: rustup toolchain install 1.95.0 --profile minimal
       - run: rustup override set 1.95.0
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
