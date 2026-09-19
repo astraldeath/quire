@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.5.0",
-      "versionDate": "2026-09-19T02:10:52.000Z",
-      "versionDescription": "- Browse folders as cover cards alongside unfiled books, with nested folders in grid and list views.\n- Add books to multiple folders without duplicating their files, progress, or annotations.\n- Manage folder memberships for individual books, series, or a selection.\n- Preserve existing folders, memberships, and reading data through backups and server sync.\n- Keep search and Reading inclusive of books inside folders, and show folder differences when resolving sync conflicts.\n- Update Quire Server before syncing books assigned to multiple folders.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.0/Quire_0.5.0_ios-unsigned.ipa",
-      "size": 5078248,
+      "version": "0.5.1",
+      "versionDate": "2026-09-19T14:31:01.000Z",
+      "versionDescription": "- Navigate nested folders with clickable breadcrumbs.\n- Rename or delete folders from the folder actions menu.\n- Keep books, reading progress, and other memberships when deleting a folder and its subfolders.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.1/Quire_0.5.1_ios-unsigned.ipa",
+      "size": 5082428,
       "versions": [
+        {
+          "version": "0.5.1",
+          "date": "2026-09-19T14:31:01.000Z",
+          "localizedDescription": "- Navigate nested folders with clickable breadcrumbs.\n- Rename or delete folders from the folder actions menu.\n- Keep books, reading progress, and other memberships when deleting a folder and its subfolders.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.1/Quire_0.5.1_ios-unsigned.ipa",
+          "size": 5082428
+        },
         {
           "version": "0.5.0",
           "date": "2026-09-19T02:10:52.000Z",
