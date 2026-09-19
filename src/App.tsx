@@ -3,6 +3,7 @@ import {
   protectOpenBook,
 } from './features/storage/manager';
 import { ActionPopover, type ActionAnchor } from './components/ActionPopover';
+import { FolderNavigation } from './features/library/FolderNavigation';
 import { FolderCard } from './features/library/FolderCard';
 import {
   FolderMembershipDialog,
@@ -65,7 +66,6 @@ import {
 } from 'react';
 import {
   FolderInput,
-  Pencil,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -1132,33 +1132,26 @@ function AppContent({
                 </button>
               )}
             {!group && !reading && !!folder && (
-              <section className="folder-navigation" aria-label="Folders">
-                {folder && (
-                  <div className="folder-breadcrumbs">
-                    <button onClick={() => goFolder('')}>Library</button>
-                    {folder.split('/').map((part, index, parts) => (
-                      <button
-                        key={index}
-                        aria-current={
-                          index === parts.length - 1 ? 'page' : undefined
-                        }
-                        onClick={() =>
-                          goFolder(parts.slice(0, index + 1).join('/'))
-                        }
-                      >
-                        {part}
-                      </button>
-                    ))}
-                    <button
-                      className="icon"
-                      aria-label="Rename folder"
-                      onClick={() => setRenameFolder(true)}
-                    >
-                      <Pencil />
-                    </button>
-                  </div>
-                )}
-              </section>
+              <FolderNavigation
+                path={folder}
+                href={hostedWeb ? folderHref : undefined}
+                onOpen={goFolder}
+                onRename={() => setRenameFolder(true)}
+                onDelete={async () => {
+                  await updateBookFolders(
+                    scopedBooks
+                      .filter((book) => bookInFolder(book, folder))
+                      .map((book) => book.id),
+                    (paths) =>
+                      paths.filter((path) => !folderContains(folder, path)),
+                  );
+                  goFolder(
+                    folder.includes('/')
+                      ? folder.slice(0, folder.lastIndexOf('/'))
+                      : '',
+                  );
+                }}
+              />
             )}
             <div className="shelf-toolbar">
               <div className="shelf-label">
