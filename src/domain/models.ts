@@ -9,6 +9,7 @@ export interface Annotation {
   updatedAt: number;
 }
 export interface Position {
+  currentChapter?: number;
   completedChapter?: number;
   cfi: string;
   fraction: number;
@@ -16,7 +17,7 @@ export interface Position {
   updatedAt: number;
 }
 export interface Book {
-  format?: 'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3';
+  format?: 'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3' | 'pdf';
   folder?: string;
   folders?: string[];
   id: string;

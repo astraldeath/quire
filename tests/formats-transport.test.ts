@@ -22,7 +22,7 @@ import {
 import { validateResponse } from '../src/features/sync/validation';
 import { validFolder } from '../src/features/library/folders';
 
-const formats = ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3'] as const;
+const formats = ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3', 'pdf'] as const;
 const baseBook: Book = {
   id: 'a'.repeat(64),
   title: 'Example',
@@ -244,7 +244,7 @@ describe('format and folder sync transport', () => {
 });
 
 describe('reader/server metadata validation parity', () => {
-  it.each(['pdf', 'CBZ', '', null, 1, ['cbz'], { format: 'cbz' }])(
+  it.each(['txt', 'CBZ', '', null, 1, ['cbz'], { format: 'cbz' }])(
     'rejects invalid format %j',
     (format) => {
       expect(() => validateBook({ ...baseBook, format })).toThrow();

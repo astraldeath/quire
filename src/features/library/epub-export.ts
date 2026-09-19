@@ -13,7 +13,7 @@ export function epubFilename(
     .replace(/[<>:"/\\|?*\p{Cc}\p{Cf}]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\.(epub|cbz|fb2|fbz|mobi|azw3|fb2\.zip)$/i, '')
+    .replace(/\.(epub|cbz|fb2|fbz|mobi|azw3|pdf|fb2\.zip)$/i, '')
     .replace(/^[. ]+|[. ]+$/g, '');
   // Bound UTF-8 bytes as well as characters for filesystem portability.
   const encoder = new TextEncoder();

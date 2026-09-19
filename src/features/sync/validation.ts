@@ -89,7 +89,7 @@ function validValue(kind: Kind, v: Value) {
       (v.folders === undefined || validFolders(v.folders)) &&
       (v.format === undefined ||
         (typeof v.format === 'string' &&
-          ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3'].includes(
+          ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3', 'pdf'].includes(
             v.format as string,
           ))) &&
       (v.volume == null ||
@@ -99,6 +99,10 @@ function validValue(kind: Kind, v: Value) {
     return false;
   if (kind === 'position')
     return (
+      (v.currentChapter === undefined ||
+        (Number.isInteger(v.currentChapter) &&
+          Number(v.currentChapter) >= 1 &&
+          Number(v.currentChapter) <= 100000)) &&
       (v.completedChapter === undefined ||
         (Number.isInteger(v.completedChapter) &&
           Number(v.completedChapter) >= 0 &&

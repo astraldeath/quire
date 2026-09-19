@@ -48,6 +48,7 @@ export function validateBook(value: unknown): Book {
             'fbz',
             'mobi',
             'azw3',
+            'pdf',
           ] as const),
         }
       : {}),
@@ -63,6 +64,8 @@ export function validateBook(value: unknown): Book {
   };
   if (b.position !== undefined) {
     const p = obj(b.position);
+    if (p.currentChapter !== undefined && !Number.isInteger(p.currentChapter))
+      fail();
     if (
       p.completedChapter !== undefined &&
       !Number.isInteger(p.completedChapter)
@@ -71,6 +74,9 @@ export function validateBook(value: unknown): Book {
     result.position = {
       cfi: str(p.cfi),
       fraction: num(p.fraction, 0, 1),
+      ...(p.currentChapter !== undefined
+        ? { currentChapter: num(p.currentChapter, 1, 100000) }
+        : {}),
       ...(p.completedChapter !== undefined
         ? { completedChapter: num(p.completedChapter, 0, 100000) }
         : {}),
