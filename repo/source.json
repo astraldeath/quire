@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.5.3",
-      "versionDate": "2026-09-19T15:19:05.000Z",
-      "versionDescription": "- Remove the 128 MB limit for local book imports. Server upload limits remain separate.\n- Load comic pages on demand instead of unpacking the entire CBZ into memory.\n- Store new native book files separately from SQLite, with chunked transfers and compatibility with existing libraries.\n- Export large books directly from native storage and support larger backups with Blob-backed creation and restore.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.3/Quire_0.5.3_ios-unsigned.ipa",
-      "size": 5147023,
+      "version": "0.5.4",
+      "versionDate": "2026-09-19T15:55:52.000Z",
+      "versionDescription": "- Preload neighboring comic pages and retain decoded images when turning forward or back, including double-page spreads.\n- Keep the current comic spread visible while the next one loads, and bound Webtoon buffering to nearby pages.\n- Preload adjacent text chapter resources and retain the previous chapter for faster back navigation without advancing reading progress.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.4/Quire_0.5.4_ios-unsigned.ipa",
+      "size": 5149455,
       "versions": [
+        {
+          "version": "0.5.4",
+          "date": "2026-09-19T15:55:52.000Z",
+          "localizedDescription": "- Preload neighboring comic pages and retain decoded images when turning forward or back, including double-page spreads.\n- Keep the current comic spread visible while the next one loads, and bound Webtoon buffering to nearby pages.\n- Preload adjacent text chapter resources and retain the previous chapter for faster back navigation without advancing reading progress.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.4/Quire_0.5.4_ios-unsigned.ipa",
+          "size": 5149455
+        },
         {
           "version": "0.5.3",
           "date": "2026-09-19T15:19:05.000Z",
