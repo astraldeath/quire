@@ -4,15 +4,22 @@ import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { expect, it, vi } from 'vitest';
 import type { Book } from '../src/domain/models';
 
-vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true }));
+const { prepareLibrary } = vi.hoisted(() => ({
+  prepareLibrary: vi.fn(async () => {}),
+}));
+vi.mock('@tauri-apps/api/core', () => ({
+  isTauri: () => true,
+  invoke: prepareLibrary,
+}));
 vi.mock('@tauri-apps/plugin-sql', () => ({
   default: {
     load: async () => {
+      expect(prepareLibrary).toHaveBeenCalledWith('prepare_library');
       const database = new DatabaseSync(':memory:');
       const migration = readFileSync(
-        new URL('../src-tauri/src/lib.rs', import.meta.url),
+        new URL('../src-tauri/src/migrations.rs', import.meta.url),
         'utf8',
-      ).match(/sql: "([^"]+)"/)![1];
+      ).match(/pub const LIBRARY_SQL: &str = "([^"]+)"/)![1];
       database.exec(migration);
       database.exec(
         readFileSync(
