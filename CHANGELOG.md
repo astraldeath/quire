@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.1]
+
+- Detect chapters in books with underscore-separated titles, recap entries, and isolated numbering errors, restoring chapter progress for tracking.
+- Count completed chapters when reading past a short final page, while excluding chapter jumps from reading activity.
+
 ## [0.6.0]
 
 - Read PDF books with lazy page rendering, neighboring-page preloading, page layouts, bookmarks, and saved progress. Include PDFs in server libraries, backups, and file exports.
