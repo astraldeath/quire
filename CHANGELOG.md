@@ -1,9 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.5]
 
 - Open books faster by deferring EPUB media extraction, pipelining native file reads, and reducing library and chapter-index work.
-
 - Add Linux x64 AppImage and Debian packages to releases, with signed AppImage updates and desktop keyring support for sync and tracking.
 
 ## [0.5.4]
