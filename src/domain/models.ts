@@ -18,6 +18,7 @@ export interface Position {
 export interface Book {
   format?: 'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3';
   folder?: string;
+  folders?: string[];
   id: string;
   title: string;
   author: string;

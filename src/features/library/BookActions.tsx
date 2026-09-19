@@ -262,7 +262,7 @@ export function BookActions({
             {onMove && (
               <button onClick={onMove}>
                 <FolderOpen />
-                Move to folder
+                Folders
               </button>
             )}
             <button onClick={() => setPrivacyOpen(true)}>

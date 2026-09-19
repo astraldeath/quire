@@ -1,4 +1,5 @@
 import { usePrivacy } from '../privacy/Privacy';
+import { validFolders } from '../library/folders';
 import {
   conflictsForReview,
   recordKey,
@@ -85,6 +86,18 @@ function VersionChoices({
                   'Saved passage',
               )}
       </span>
+      {!candidate.deleted && record.kind === 'book' && (
+        <small>
+          {validFolders(candidate.value?.folders)
+            ? candidate.value.folders.length
+              ? `Folders: ${candidate.value.folders.join(', ')}`
+              : 'No folders'
+            : typeof candidate.value?.folder === 'string' &&
+                candidate.value.folder
+              ? `Folder: ${candidate.value.folder}`
+              : 'Keep current folders'}
+        </small>
+      )}
       <small>
         {local.includes(candidate) ? 'Use local version' : 'Use server version'}
       </small>

@@ -28,13 +28,45 @@ export function validFolder(value: unknown): value is string {
 }
 export const folderContains = (parent: string, path: string) =>
   !parent || path === parent || path.startsWith(`${parent}/`);
-export function folderPaths(books: { folder?: string }[]) {
+type FolderBook = { folder?: string; folders?: string[] };
+export function normalizeFolders(values: readonly string[]): string[] {
+  const folders = [...new Set(values.map(normalizeFolder))];
+  if (folders.some((folder) => !folder) || folders.length > 32)
+    throw new Error('Choose up to 32 nonempty folders.');
+  return folders;
+}
+export function validFolders(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(
+      (folder) => typeof folder === 'string' && !!folder && validFolder(folder),
+    ) &&
+    new Set(value).size === value.length
+  );
+}
+export function bookFolders(book: FolderBook): string[] {
+  if (book.folders !== undefined) return normalizeFolders(book.folders);
+  return book.folder ? normalizeFolders([book.folder]) : [];
+}
+/** Keep the legacy primary path readable by older clients. */
+export function migrateBookFolders<T extends FolderBook>(book: T): T {
+  if (book.folders === undefined && book.folder === undefined) return book;
+  const folders = bookFolders(book);
+  return { ...book, folders, folder: folders[0] ?? '' };
+}
+export const bookInFolder = (book: FolderBook, parent: string) =>
+  !parent || bookFolders(book).some((path) => folderContains(parent, path));
+export const bookDirectlyInFolder = (book: FolderBook, parent: string) =>
+  parent ? bookFolders(book).includes(parent) : bookFolders(book).length === 0;
+export function folderPaths(books: FolderBook[]) {
   const paths = new Set<string>();
   for (const book of books) {
-    if (!book.folder || !validFolder(book.folder)) continue;
-    const parts = book.folder.split('/');
-    for (let i = 1; i <= parts.length; i++)
-      paths.add(parts.slice(0, i).join('/'));
+    for (const folder of bookFolders(book)) {
+      const parts = folder.split('/');
+      for (let i = 1; i <= parts.length; i++)
+        paths.add(parts.slice(0, i).join('/'));
+    }
   }
   return [...paths].sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true }),

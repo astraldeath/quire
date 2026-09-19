@@ -1,4 +1,9 @@
 import type { Book } from '../../domain/models';
+import {
+  bookFolders,
+  normalizeFolders,
+  migrateBookFolders,
+} from '../library/folders';
 export type Kind = 'book' | 'position' | 'annotation';
 export type Value = Record<string, unknown> | null;
 export interface Operation {
@@ -12,6 +17,8 @@ export interface Operation {
   frozen?: boolean;
   dependsOn?: string;
   blocked?: boolean;
+  /** Persist the negotiated payload so a retry keeps the same operation identity. */
+  wireValue?: Value;
 }
 export interface Candidate {
   operationId: string;
@@ -75,7 +82,9 @@ function values(
       series: book.series,
       volume: book.volume,
       ...(book.format ? { format: book.format } : {}),
-      ...(book.folder !== undefined ? { folder: book.folder } : {}),
+      ...(book.folder !== undefined || book.folders !== undefined
+        ? { folders: bookFolders(book), folder: bookFolders(book)[0] ?? '' }
+        : {}),
     },
   });
   if (book.position) {
@@ -149,17 +158,40 @@ export function queueChanges(
     );
   }
 }
-export function prepareBatch(s: SyncState) {
+export function prepareBatch(s: SyncState, multipleFolders = true) {
   const ready = sendableOperations(s).slice(0, 50);
+  if (
+    !multipleFolders &&
+    ready.some(
+      (p) =>
+        p.kind === 'book' &&
+        p.value?.folders !== undefined &&
+        ((p.frozen && p.wireValue === undefined) ||
+          bookFolders(p.value as { folders: string[] }).length > 1),
+    )
+  )
+    throw new Error(
+      'Update Quire Server to sync books in multiple folders. Local changes are saved.',
+    );
   for (const p of ready)
     if (new TextEncoder().encode(JSON.stringify(p.value)).length > 32768)
       throw new Error(
         'A saved passage exceeds the server’s 32 KB limit. Shorten it before syncing; the local copy is saved.',
       );
   const operations = ready.map((p) => {
+    if (
+      !p.frozen &&
+      !multipleFolders &&
+      p.kind === 'book' &&
+      p.value?.folders !== undefined
+    ) {
+      const { folders: _, ...legacy } = p.value;
+      p.wireValue = legacy;
+    }
+    // Frozen operations created by older clients must also keep their original value.
     p.frozen = true;
-    const { frozen: _, dependsOn: __, blocked: ___, ...op } = p;
-    return op;
+    const { frozen: _, dependsOn: __, blocked: ___, wireValue, ...op } = p;
+    return { ...op, value: wireValue === undefined ? op.value : wireValue };
   });
   return { cursor: s.cursor, operations };
 }
@@ -210,6 +242,7 @@ export function resolveConflict(
   s: SyncState,
   record: RemoteRecord,
   candidate: Candidate,
+  currentBook?: Book,
 ) {
   const key = recordKey(record);
   const latest = conflictsForReview(s).find((r) => recordKey(r) === key);
@@ -225,9 +258,49 @@ export function resolveConflict(
     !s.pending.some((p) => recordKey(p) === key && p.blocked)
   )
     throw new Error('Sync pending edits before resolving this conflict.');
+  let value = candidate.deleted ? null : candidate.value;
+  if (record.kind === 'book' && value && value.folders === undefined) {
+    let existing: string[];
+    if (currentBook?.id === record.bookId) existing = bookFolders(currentBook);
+    else {
+      // A fresh device has no book until this conflict is settled. Recover its
+      // membership baseline from candidate metadata rather than inventing [].
+      const live = record.candidates.filter((c) => !c.deleted && c.value);
+      const canonical = live.filter((c) => c.value!.folders !== undefined);
+      const baselines = canonical.length
+        ? canonical.map((c) => normalizeFolders(c.value!.folders as string[]))
+        : value.folder !== undefined
+          ? [normalizeFolders(value.folder ? [String(value.folder)] : [])]
+          : live
+              .filter((c) => c.value!.folder !== undefined)
+              .map((c) =>
+                normalizeFolders(
+                  c.value!.folder ? [String(c.value!.folder)] : [],
+                ),
+              );
+      const distinct = new Set(
+        baselines.map((folders) => JSON.stringify(folders)),
+      );
+      if (distinct.size > 1)
+        throw new Error(
+          'Folder memberships differ between these versions. Choose a version with folder information.',
+        );
+      existing = baselines[0] ?? [];
+    }
+    // Resolution is an explicit, one-time write: replace the chosen legacy
+    // primary while preserving secondary memberships from the known baseline.
+    const folders =
+      value.folder === undefined
+        ? existing
+        : normalizeFolders([
+            ...(value.folder ? [String(value.folder)] : []),
+            ...existing.slice(1),
+          ]);
+    value = { ...value, folders, folder: folders[0] ?? '' };
+  }
   // Explicit user choice replaces this record's rejected operation and dependent edits only.
   s.pending = s.pending.filter((p) => recordKey(p) !== key);
-  queueValue(s, record, candidate.deleted ? null : candidate.value, true);
+  queueValue(s, record, value, true);
 }
 export function acceptResponse(s: SyncState, response: SyncResponse) {
   for (const result of response.results) {
@@ -291,7 +364,21 @@ export function applyRecords(s: SyncState, books: Book[]): Book[] {
         series: v.series ?? '',
         volume: v.volume ?? null,
         ...(v.format !== undefined ? { format: v.format } : {}),
-        ...(v.folder !== undefined ? { folder: v.folder } : {}),
+        ...(v.folders !== undefined || v.folder !== undefined
+          ? (() => {
+              const existing = bookFolders(book!);
+              // Legacy records cannot describe which memberships changed. Preserve
+              // multi-folder organization; in particular, replaying folder: '' must
+              // not repeatedly remove whichever folder is currently first.
+              const folders =
+                v.folders !== undefined
+                  ? normalizeFolders(v.folders as string[])
+                  : existing.length > 1
+                    ? existing
+                    : normalizeFolders(v.folder ? [String(v.folder)] : []);
+              return { folders, folder: folders[0] ?? '' };
+            })()
+          : {}),
       });
     } else if (book && r.kind === 'position') {
       if (c.deleted) delete book.position;
@@ -323,5 +410,5 @@ export function applyRecords(s: SyncState, books: Book[]): Book[] {
         } as NonNullable<Book['annotations']>[number]);
     }
   }
-  return [...map.values()];
+  return [...map.values()].map(migrateBookFolders);
 }

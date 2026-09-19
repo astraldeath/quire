@@ -1,7 +1,10 @@
 import type { Book } from '../../domain/models';
+import { migrateBookFolders } from '../library/folders';
 /** Keep local organization; preserve distinct note versions and make repeat imports idempotent. */
 export function mergeBook(local: Book | undefined, incoming: Book): Book {
+  incoming = migrateBookFolders(incoming);
   if (!local) return incoming;
+  local = migrateBookFolders(local);
   const annotations = [...(local.annotations ?? [])];
   for (const item of incoming.annotations ?? []) {
     if (

@@ -14,6 +14,35 @@ const book: Book = {
   addedAt: 1,
   local: true,
 };
+it('migrates legacy folder metadata and roundtrips all memberships, including explicit clearing', async () => {
+  expect(validateBook({ ...book, folder: 'A' })).toMatchObject({
+    folders: ['A'],
+    folder: 'A',
+  });
+  expect(validateBook({ ...book, folder: 'A', folders: [] })).toMatchObject({
+    folders: [],
+    folder: '',
+  });
+  const organized = { ...book, folders: ['A', 'B/C'], folder: 'stale' };
+  const backup = await readBackup(
+    await createBackup([{ book: organized }], defaults, 'data'),
+  );
+  expect(backup.records[0].book).toMatchObject({
+    folders: ['A', 'B/C'],
+    folder: 'A',
+  });
+  expect(
+    mergeBook({ ...book, folders: ['Local', 'Other'] }, backup.records[0].book)
+      .folders,
+  ).toEqual(['Local', 'Other']);
+  for (const folders of [
+    [''],
+    ['A', 'A'],
+    ['../A'],
+    Array.from({ length: 33 }, (_, i) => String(i)),
+  ])
+    expect(() => validateBook({ ...book, folders })).toThrow();
+});
 it('roundtrips private library restrictions without device authentication or sync metadata', async () => {
   const privacy = {
     credential: { salt: 'a'.repeat(32), hash: 'b'.repeat(64) },

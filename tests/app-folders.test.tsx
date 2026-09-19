@@ -138,7 +138,9 @@ async function click(text: string) {
   );
 }
 async function input(value: string) {
-  const el = host.querySelector<HTMLInputElement>('[role="dialog"] input')!;
+  const el = host.querySelector<HTMLInputElement>(
+    '[role="dialog"] input:not([type="checkbox"])',
+  )!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -171,13 +173,13 @@ it('keeps private-only folders and counts out of the visible library', async () 
   expect(host.textContent).toContain('Book Two');
 });
 it('keeps series links scoped to folder and collection, including new tabs', async () => {
-  await mount('/library?folder=Shelf&collection=one', true);
+  await mount('/library?folder=Shelf%2FNested&collection=one', true);
   const link = host.querySelector<HTMLAnchorElement>(
     '[aria-label="Open series A/B"]',
   )!;
   expect(link).not.toBeNull();
   const url = new URL(link.href);
-  expect(url.searchParams.get('folder')).toBe('Shelf');
+  expect(url.searchParams.get('folder')).toBe('Shelf/Nested');
   expect(url.searchParams.get('collection')).toBe('one');
   await act(async () => link.click());
   expect(new URLSearchParams(location.search).get('collection')).toBe('one');
@@ -201,21 +203,44 @@ it('renames descendant folders only within the selected collection', async () =>
   expect(new URLSearchParams(location.search).get('folder')).toBe('Renamed');
   expect(new URLSearchParams(location.search).get('collection')).toBe('one');
 });
-it('moves the selected series into a new folder without changing its metadata', async () => {
-  await mount('/library');
+it('adds the selected series to another folder without changing existing memberships', async () => {
+  await mount('/library?q=Book');
   await click('Select');
   await act(async () =>
     host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click(),
   );
-  await click('Move');
+  await click('Folders');
   await click('New folder');
   await input('New shelf');
   await submit();
   expect(saveBook).toHaveBeenCalledTimes(3);
   expect(saveBook.mock.calls.map((call) => call[0])).toEqual(
-    books.map((book) => ({ ...book, folder: 'New shelf' })),
+    books.map((book) => ({ ...book, folders: [book.folder, 'New shelf'] })),
   );
   expect(host.querySelector('[role="dialog"]')).toBeNull();
+});
+
+it('shows folder cards instead of duplicating their books at the library root', async () => {
+  await mount('/library');
+  expect(
+    host.querySelector('.books .folder-card [aria-label="Open folder Shelf"]'),
+  ).not.toBeNull();
+  expect(host.querySelector('.books .folder-card')?.textContent).toContain(
+    '3 books',
+  );
+  expect(
+    host.querySelector('.books [aria-label="Open series A/B"]'),
+  ).toBeNull();
+  expect(host.querySelector('.empty')).toBeNull();
+});
+
+it('shows immediate subfolders and directly assigned books within a folder', async () => {
+  await mount('/library?folder=Shelf');
+  expect(
+    host.querySelector('.folder-card [aria-label="Open folder Nested"]'),
+  ).not.toBeNull();
+  expect(host.querySelector('[aria-label="Open Book Two"]')).not.toBeNull();
+  expect(host.querySelector('[aria-label="Open Book One"]')).toBeNull();
 });
 
 it('imports a picked directory beneath the current folder and skips non-book files', async () => {
