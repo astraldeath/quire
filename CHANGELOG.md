@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.4]
+
+- Preload neighboring comic pages and retain decoded images when turning forward or back, including double-page spreads.
+- Keep the current comic spread visible while the next one loads, and bound Webtoon buffering to nearby pages.
+- Preload adjacent text chapter resources and retain the previous chapter for faster back navigation without advancing reading progress.
+
 ## [0.5.3]
 
 - Remove the 128 MB limit for local book imports. Server upload limits remain separate.
