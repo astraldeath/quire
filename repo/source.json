@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.4.0",
-      "versionDate": "2026-09-19T01:29:20.000Z",
-      "versionDescription": "- Read comics as single pages, double-page spreads, or a continuous Webtoon strip, in either reading direction.\n- Keep comic bookmarks and use taps, swipes, or keyboard navigation.\n- Recover rejected sync batches without blocking unrelated book changes.\n- Review local and server versions in the hosted WebUI under Settings / Sync.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.4.0/Quire_0.4.0_ios-unsigned.ipa",
-      "size": 5081129,
+      "version": "0.5.0",
+      "versionDate": "2026-09-19T02:10:52.000Z",
+      "versionDescription": "- Browse folders as cover cards alongside unfiled books, with nested folders in grid and list views.\n- Add books to multiple folders without duplicating their files, progress, or annotations.\n- Manage folder memberships for individual books, series, or a selection.\n- Preserve existing folders, memberships, and reading data through backups and server sync.\n- Keep search and Reading inclusive of books inside folders, and show folder differences when resolving sync conflicts.\n- Update Quire Server before syncing books assigned to multiple folders.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.0/Quire_0.5.0_ios-unsigned.ipa",
+      "size": 5078248,
       "versions": [
+        {
+          "version": "0.5.0",
+          "date": "2026-09-19T02:10:52.000Z",
+          "localizedDescription": "- Browse folders as cover cards alongside unfiled books, with nested folders in grid and list views.\n- Add books to multiple folders without duplicating their files, progress, or annotations.\n- Manage folder memberships for individual books, series, or a selection.\n- Preserve existing folders, memberships, and reading data through backups and server sync.\n- Keep search and Reading inclusive of books inside folders, and show folder differences when resolving sync conflicts.\n- Update Quire Server before syncing books assigned to multiple folders.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.0/Quire_0.5.0_ios-unsigned.ipa",
+          "size": 5078248
+        },
         {
           "version": "0.4.0",
           "date": "2026-09-19T01:29:20.000Z",
