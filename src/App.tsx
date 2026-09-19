@@ -1,3 +1,4 @@
+import { startDesktopOpen } from './features/desktop/open-files';
 import {
   startStorageManagement,
   protectOpenBook,
@@ -293,6 +294,48 @@ function AppContent({
     const timeout = window.setTimeout(() => setNotice(''), 5000);
     return () => window.clearTimeout(timeout);
   }, [notice, busy]);
+  const desktopOpenRef = useRef({
+    busy,
+    loading,
+    open: async (_file: File) => {},
+  });
+  desktopOpenRef.current = {
+    busy,
+    loading,
+    open: async (file: File) => {
+      setError('');
+      setBusy(`Opening ${file.name}…`);
+      try {
+        const result = await importBook(file);
+        let book = result.book;
+        await enqueue(async () => {
+          book = restoreImport(
+            result.book,
+            booksRef.current.find((b) => b.id === result.book.id),
+          );
+          await putBook(book, result.bytes);
+          replace(book);
+        });
+        if (!privacy.access(book.id) && !(await privacy.authenticate())) return;
+        setSettings(false);
+        setActions(null);
+        setDetailsId(null);
+        setOpened({ book, bytes: result.bytes });
+      } finally {
+        setBusy('');
+      }
+    },
+  };
+  useEffect(
+    () =>
+      startDesktopOpen(
+        (file) => desktopOpenRef.current.open(file),
+        (error) =>
+          setError(error instanceof Error ? error.message : String(error)),
+        () => !desktopOpenRef.current.busy && !desktopOpenRef.current.loading,
+      ),
+    [],
+  );
   const changePreferences = (p: Preferences) => {
     preferencesRef.current = p;
     setPreferences(p);
