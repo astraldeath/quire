@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.3.0",
-      "versionDate": "2026-09-18T23:55:10.000Z",
-      "versionDescription": "- Organize books into nested folders, with bulk moves and directory import.\n- Read and export CBZ, FB2/FBZ, and DRM-free MOBI/AZW3 alongside EPUB.\n- Preserve folder assignments and original formats in server sync and backups.\n- Include every released platform in the update manifest and cache workflow builds.\n- Keep standalone OAuth callbacks registered in cached iOS builds.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.3.0/Quire_0.3.0_ios-unsigned.ipa",
-      "size": 5080321,
+      "version": "0.4.0",
+      "versionDate": "2026-09-19T01:29:20.000Z",
+      "versionDescription": "- Read comics as single pages, double-page spreads, or a continuous Webtoon strip, in either reading direction.\n- Keep comic bookmarks and use taps, swipes, or keyboard navigation.\n- Recover rejected sync batches without blocking unrelated book changes.\n- Review local and server versions in the hosted WebUI under Settings / Sync.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.4.0/Quire_0.4.0_ios-unsigned.ipa",
+      "size": 5081129,
       "versions": [
+        {
+          "version": "0.4.0",
+          "date": "2026-09-19T01:29:20.000Z",
+          "localizedDescription": "- Read comics as single pages, double-page spreads, or a continuous Webtoon strip, in either reading direction.\n- Keep comic bookmarks and use taps, swipes, or keyboard navigation.\n- Recover rejected sync batches without blocking unrelated book changes.\n- Review local and server versions in the hosted WebUI under Settings / Sync.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.4.0/Quire_0.4.0_ios-unsigned.ipa",
+          "size": 5081129
+        },
         {
           "version": "0.3.0",
           "date": "2026-09-18T23:55:10.000Z",
