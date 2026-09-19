@@ -184,16 +184,12 @@ export function Settings({
             icon: ChartNoAxesCombined,
             content: <Statistics books={books} />,
           },
-          ...(import.meta.env.VITE_HOSTED === 'true'
-            ? []
-            : [
-                {
-                  id: 'server',
-                  label: 'Server',
-                  icon: Cloud,
-                  content: <ServerSettings />,
-                },
-              ]),
+          {
+            id: 'server',
+            label: 'Sync',
+            icon: Cloud,
+            content: <ServerSettings />,
+          },
           {
             id: 'updates',
             label: 'Updates',

@@ -33,6 +33,8 @@ The API contract is version 1. Sync edits, acknowledgements and cursor changes a
 
 ## Library and tracking
 
+**Settings / Sync** shows changes that need a choice between local and server versions, including in the hosted WebUI. A rejected edit stays local for review while unrelated books continue syncing. Selecting a version explicitly resolves that record; reloading or retrying does not discard it.
+
 Library filters cover reading status and local availability. Sort by last read, date added, title, or author; series additionally sort by volume. View controls set grid/list, cover size, and grouping. Select mode offers batch download, finished/unread status, and confirmed removal. Series continuation skips finished volumes. Book and series overflow menus are also available by hold or right-click.
 
 Hosted URLs support refresh, browser history, and direct book links. Installed Quire connects directly to MangaBaka without a Quire server; the hosted WebUI uses server-side OAuth. Tracking is optional per book or explicitly applied to a series, with individual overrides preserved. See [standalone tracking](TRACKING.md) for account setup and limitations.

@@ -11,6 +11,7 @@ export interface Operation {
   value: Value;
   frozen?: boolean;
   dependsOn?: string;
+  blocked?: boolean;
 }
 export interface Candidate {
   operationId: string;
@@ -149,20 +150,84 @@ export function queueChanges(
   }
 }
 export function prepareBatch(s: SyncState) {
-  for (const p of s.pending.filter((p) => !p.dependsOn).slice(0, 50))
+  const ready = sendableOperations(s).slice(0, 50);
+  for (const p of ready)
     if (new TextEncoder().encode(JSON.stringify(p.value)).length > 32768)
       throw new Error(
         'A saved passage exceeds the server’s 32 KB limit. Shorten it before syncing; the local copy is saved.',
       );
-  const operations = s.pending
-    .filter((p) => !p.dependsOn)
-    .slice(0, 50)
-    .map((p) => {
-      p.frozen = true;
-      const { frozen: _, dependsOn: __, ...op } = p;
-      return op;
-    });
+  const operations = ready.map((p) => {
+    p.frozen = true;
+    const { frozen: _, dependsOn: __, blocked: ___, ...op } = p;
+    return op;
+  });
   return { cursor: s.cursor, operations };
+}
+export function sendableOperations(s: SyncState) {
+  const blocked = new Set(s.pending.filter((p) => p.blocked).map(recordKey));
+  return s.pending.filter((p) => !p.dependsOn && !blocked.has(recordKey(p)));
+}
+
+/** Include unsent local edits in the choice; never discard them to make a retry succeed. */
+export function conflictsForReview(s: SyncState): RemoteRecord[] {
+  const keys = new Set([
+    ...Object.values(s.records)
+      .filter((r) => r.candidates.length > 1)
+      .map(recordKey),
+    ...s.pending.filter((p) => p.blocked).map(recordKey),
+  ]);
+  return [...keys].map((key) => {
+    const pending = s.pending.filter((p) => recordKey(p) === key);
+    const local = pending.at(-1);
+    const remote = s.records[key];
+    const record = remote ?? {
+      bookId: local!.bookId,
+      kind: local!.kind,
+      recordId: local!.recordId,
+      revision: 0,
+      candidates: [],
+    };
+    return {
+      ...record,
+      candidates: [
+        ...record.candidates,
+        ...(local && !record.candidates.some((c) => c.operationId === local.id)
+          ? [
+              {
+                operationId: local.id,
+                deleted: local.deleted,
+                value: local.value,
+                createdAt: 0,
+              },
+            ]
+          : []),
+      ],
+    };
+  });
+}
+
+export function resolveConflict(
+  s: SyncState,
+  record: RemoteRecord,
+  candidate: Candidate,
+) {
+  const key = recordKey(record);
+  const latest = conflictsForReview(s).find((r) => recordKey(r) === key);
+  if (
+    JSON.stringify(latest) !== JSON.stringify(record) ||
+    !latest?.candidates.some(
+      (c) => JSON.stringify(c) === JSON.stringify(candidate),
+    )
+  )
+    throw new Error('This conflict changed. Review the latest choices.');
+  if (
+    s.pending.some((p) => recordKey(p) === key) &&
+    !s.pending.some((p) => recordKey(p) === key && p.blocked)
+  )
+    throw new Error('Sync pending edits before resolving this conflict.');
+  // Explicit user choice replaces this record's rejected operation and dependent edits only.
+  s.pending = s.pending.filter((p) => recordKey(p) !== key);
+  queueValue(s, record, candidate.deleted ? null : candidate.value, true);
 }
 export function acceptResponse(s: SyncState, response: SyncResponse) {
   for (const result of response.results) {

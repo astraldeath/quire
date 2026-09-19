@@ -6,6 +6,10 @@ import {
 } from '../src/features/navigation/routes';
 describe('WebUI navigation', () => {
   it('recognizes encoded series, reader, and nested routes', () => {
+    expect(parseWebRoute('/settings/server')).toEqual({
+      kind: 'settings',
+      tab: 'server',
+    });
     expect(parseWebRoute('/settings/statistics')).toEqual({
       kind: 'settings',
       tab: 'statistics',

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Recover rejected sync batches without blocking unrelated book changes.
+- Review local and server versions in the hosted WebUI under Settings / Sync.
+
 ## [0.3.0]
 
 - Organize books into nested folders, with bulk moves and directory import.
