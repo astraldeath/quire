@@ -4,13 +4,20 @@ import { SyncConflictError } from './errors';
 const tokens = new Map<string, string>();
 const folderCapabilities = new Map<
   string,
-  { supported: boolean; checkedAt: number }
+  { supported: boolean; currentChapter: boolean; checkedAt: number }
 >();
 export async function supportsMultipleFolders(origin: string) {
   const cached = folderCapabilities.get(origin);
   if (cached && Date.now() - cached.checkedAt < 30000) return cached.supported;
   await discover(origin);
   return folderCapabilities.get(origin)!.supported;
+}
+export async function supportsCurrentChapter(origin: string) {
+  const cached = folderCapabilities.get(origin);
+  if (cached && Date.now() - cached.checkedAt < 30000)
+    return cached.currentChapter;
+  await discover(origin);
+  return folderCapabilities.get(origin)!.currentChapter;
 }
 export async function serverUpdatesCall(account: Account): Promise<unknown> {
   return isTauri()
@@ -161,6 +168,9 @@ export async function discover(origin: string) {
   )
     throw new Error('This server is not compatible with Quire.');
   folderCapabilities.set(origin, {
+    currentChapter:
+      Array.isArray(v.capabilities) &&
+      v.capabilities.includes('current-chapter'),
     supported:
       Array.isArray(v.capabilities) &&
       v.capabilities.includes('multiple-folders'),

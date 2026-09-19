@@ -210,28 +210,46 @@ export function chapterHrefAtRange(
   return result;
 }
 
-/** Reports chapters passed in document order, never guesses from a percentage. */
-export function completedChapterAt(
+type ChapterLocation = { spineIndex: number; href?: string; atEnd?: boolean };
+
+function chapterIndexAt(
   structure: BookStructure,
-  location: { spineIndex: number; href?: string; atEnd?: boolean },
-): number | null {
+  location: ChapterLocation,
+): number {
   if (!Number.isInteger(location.spineIndex) || location.spineIndex < 0)
-    return null;
+    return -1;
   const chapters = structure.chapters;
-  if (!chapters.length) return null;
+  if (!chapters.length) return -1;
   const exact = location.href
     ? chapters.findIndex((c) => c.hrefs.includes(location.href!))
     : -1;
-  const current =
-    exact >= 0 &&
+  return exact >= 0 &&
     chapters[exact].startSpineIndex <= location.spineIndex &&
     chapters[exact].endSpineIndex >= location.spineIndex
-      ? exact
-      : chapters.findIndex(
-          (c) =>
-            c.startSpineIndex <= location.spineIndex &&
-            c.endSpineIndex >= location.spineIndex,
-        );
+    ? exact
+    : chapters.findIndex(
+        (c) =>
+          c.startSpineIndex <= location.spineIndex &&
+          c.endSpineIndex >= location.spineIndex,
+      );
+}
+
+/** The chapter at the saved reading location, independently of completion. */
+export function currentChapterAt(
+  structure: BookStructure,
+  location: ChapterLocation,
+): number | null {
+  const current = chapterIndexAt(structure, location);
+  return current < 0 ? null : structure.chapters[current].number;
+}
+
+/** Reports chapters passed in document order, never guesses from a percentage. */
+export function completedChapterAt(
+  structure: BookStructure,
+  location: ChapterLocation,
+): number | null {
+  const chapters = structure.chapters;
+  const current = chapterIndexAt(structure, location);
   if (current < 0) return null;
   if (location.atEnd && location.spineIndex === chapters.at(-1)!.endSpineIndex)
     return chapters.at(-1)!.number;

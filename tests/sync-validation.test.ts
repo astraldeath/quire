@@ -78,6 +78,22 @@ it('accepts locationless manual completion but requires locations for partial pr
     hasMore: false,
   });
   const completed = response('position', { cfi: '', fraction: 1, section: '' });
+  for (const currentChapter of [1, 9, 100000]) {
+    const current = response('position', {
+      cfi: 'chapter',
+      fraction: 0.5,
+      currentChapter,
+    });
+    expect(validateResponse(current, 0, [])).toEqual(current);
+  }
+  for (const currentChapter of [0, -1, 1.5, 100001, '9'])
+    expect(() =>
+      validateResponse(
+        response('position', { cfi: 'chapter', fraction: 0.5, currentChapter }),
+        0,
+        [],
+      ),
+    ).toThrow();
   expect(validateResponse(completed, 0, [])).toEqual(completed);
   for (const completedChapter of [0, 259]) {
     const chapters = response('position', {

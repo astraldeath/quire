@@ -88,7 +88,8 @@ function values(
     },
   });
   if (book.position) {
-    const { cfi, fraction, section, completedChapter } = book.position;
+    const { cfi, fraction, section, currentChapter, completedChapter } =
+      book.position;
     result.set('position/default', {
       kind: 'position',
       recordId: 'default',
@@ -96,6 +97,7 @@ function values(
         cfi,
         fraction,
         section,
+        ...(currentChapter !== undefined ? { currentChapter } : {}),
         ...(completedChapter !== undefined ? { completedChapter } : {}),
       },
     });
@@ -158,7 +160,11 @@ export function queueChanges(
     );
   }
 }
-export function prepareBatch(s: SyncState, multipleFolders = true) {
+export function prepareBatch(
+  s: SyncState,
+  multipleFolders = true,
+  currentChapter = true,
+) {
   const ready = sendableOperations(s).slice(0, 50);
   if (
     !multipleFolders &&
@@ -189,6 +195,15 @@ export function prepareBatch(s: SyncState, multipleFolders = true) {
       p.wireValue = legacy;
     }
     // Frozen operations created by older clients must also keep their original value.
+    if (
+      !p.frozen &&
+      !currentChapter &&
+      p.kind === 'position' &&
+      p.value?.currentChapter !== undefined
+    ) {
+      const { currentChapter: _, ...legacy } = p.value;
+      p.wireValue = legacy;
+    }
     p.frozen = true;
     const { frozen: _, dependsOn: __, blocked: ___, wireValue, ...op } = p;
     return { ...op, value: wireValue === undefined ? op.value : wireValue };
@@ -387,6 +402,13 @@ export function applyRecords(s: SyncState, books: Book[]): Book[] {
           cfi: String(c.value!.cfi),
           fraction: Number(c.value!.fraction),
           section: String(c.value!.section ?? ''),
+          ...(c.value!.currentChapter !== undefined
+            ? { currentChapter: Number(c.value!.currentChapter) }
+            : book.position?.cfi === c.value!.cfi &&
+                book.position?.fraction === c.value!.fraction &&
+                book.position?.currentChapter !== undefined
+              ? { currentChapter: book.position.currentChapter }
+              : {}),
           ...(c.value!.completedChapter !== undefined
             ? { completedChapter: Number(c.value!.completedChapter) }
             : {}),

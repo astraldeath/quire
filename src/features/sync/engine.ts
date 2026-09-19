@@ -86,12 +86,15 @@ export function syncNow(): Promise<void> {
       const multipleFolders = await transport.supportsMultipleFolders(
         initial.account.origin,
       );
+      const currentChapter = await transport.supportsCurrentChapter(
+        initial.account.origin,
+      );
       for (let i = 0; i < 100; i++) {
         const batch = await syncTransaction((s) => ({
           result: {
             account: s.account,
             enabled: s.enabled,
-            request: prepareBatch(s, multipleFolders),
+            request: prepareBatch(s, multipleFolders, currentChapter),
           },
         }));
         if (!batch.enabled || !batch.account) return;

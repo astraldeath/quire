@@ -76,7 +76,11 @@ async function updateProgress(state: LocalTracking) {
     const fraction = book.position?.fraction ?? 0;
     const step = fraction >= 0.999 ? 2 : fraction > 0 ? 1 : 0;
     const chapter =
-      link.volume === 0 ? (book.position?.completedChapter ?? 0) : 0;
+      link.volume === 0
+        ? (book.position?.currentChapter ??
+          book.position?.completedChapter ??
+          0)
+        : 0;
     if (step <= link.lastStep && chapter <= (link.lastChapter ?? 0)) continue;
     link.lastAttempt = now;
     try {
@@ -244,7 +248,11 @@ export async function nativeTrackingRequest(
             );
             link.lastChapter = Math.max(
               link.lastChapter ?? 0,
-              link.volume === 0 ? (book?.position?.completedChapter ?? 0) : 0,
+              link.volume === 0
+                ? (book?.position?.currentChapter ??
+                    book?.position?.completedChapter ??
+                    0)
+                : 0,
             );
             link.nextAttempt = 0;
             link.error = '';

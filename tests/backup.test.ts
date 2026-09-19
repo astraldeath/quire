@@ -84,12 +84,21 @@ it('preserves detected chapter progress in backups and rejects invalid chapter v
       section: 'Chapter 5',
       updatedAt: 1,
       completedChapter: 4,
+      currentChapter: 5,
     },
   };
   const data = await readBackup(
     await createBackup([{ book: chapterBook }], defaults, 'data'),
   );
   expect(data.records[0].book.position?.completedChapter).toBe(4);
+  expect(data.records[0].book.position?.currentChapter).toBe(5);
+  for (const currentChapter of [0, -1, 1.5, 100001])
+    expect(() =>
+      validateBook({
+        ...chapterBook,
+        position: { ...chapterBook.position, currentChapter },
+      }),
+    ).toThrow();
   for (const completedChapter of [-1, 1.5, 100001])
     expect(() =>
       validateBook({

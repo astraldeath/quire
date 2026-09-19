@@ -31,6 +31,85 @@ function state(): SyncState {
   };
 }
 
+it('strips current chapters for legacy servers while preserving immutable retries and local progress', () => {
+  const s = state();
+  const position = {
+    cfi: 'chapter-9',
+    fraction: 0.5,
+    section: '009—My First Monster',
+    currentChapter: 9,
+    completedChapter: 8,
+    updatedAt: 1,
+  };
+  queueChanges(s, book, { ...book, position });
+  const legacy = prepareBatch(s, true, false);
+  expect(legacy.operations[0].value).not.toHaveProperty('currentChapter');
+  expect(legacy.operations[0].value).toHaveProperty('completedChapter', 8);
+  expect(prepareBatch(JSON.parse(JSON.stringify(s)), true, true)).toEqual(
+    legacy,
+  );
+  const remote = state();
+  remote.records[`${book.id}/position/default`] = {
+    bookId: book.id,
+    kind: 'position',
+    recordId: 'default',
+    revision: 1,
+    candidates: [
+      {
+        operationId: legacy.operations[0].id,
+        createdAt: 1,
+        deleted: false,
+        value: legacy.operations[0].value,
+      },
+    ],
+  };
+  expect(applyRecords(remote, [{ ...book, position }])[0].position).toEqual(
+    position,
+  );
+  expect(
+    applyRecords(remote, [
+      {
+        ...book,
+        position: { ...position, cfi: 'chapter-10', currentChapter: 10 },
+      },
+    ])[0].position,
+  ).not.toHaveProperty('currentChapter');
+});
+
+it('roundtrips current and completed chapter numbers independently', () => {
+  const s = state();
+  const position = {
+    cfi: 'chapter-9',
+    fraction: 0.5,
+    section: '009—My First Monster',
+    currentChapter: 9,
+    completedChapter: 8,
+    updatedAt: 1,
+  };
+  queueChanges(s, book, { ...book, position });
+  const operation = prepareBatch(s).operations[0];
+  expect(operation.value).toMatchObject({
+    currentChapter: 9,
+    completedChapter: 8,
+  });
+  const remote = state();
+  remote.records[`${book.id}/position/default`] = {
+    bookId: book.id,
+    kind: 'position',
+    recordId: 'default',
+    revision: 1,
+    candidates: [
+      {
+        operationId: operation.id,
+        createdAt: 1,
+        deleted: false,
+        value: operation.value,
+      },
+    ],
+  };
+  expect(applyRecords(remote, [book])[0].position).toEqual(position);
+});
+
 it('resolves legacy metadata conflicts with explicit preserved memberships on the wire', () => {
   for (const currentBook of [
     undefined,

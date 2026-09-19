@@ -3,10 +3,29 @@ import {
   inferSeriesVolume,
   buildBookStructure,
   completedChapterAt,
+  currentChapterAt,
   chapterHrefAtRange,
 } from './book-structure';
 
 describe('explicit book structure', () => {
+  it('tracks the current padded chapter separately from completed chapters', () => {
+    const structure = buildBookStructure(
+      [
+        { label: '008—Before', href: '8.xhtml' },
+        { label: '009—My First Monster', href: '9.xhtml' },
+        { label: '010—After', href: '10.xhtml' },
+      ],
+      ['front.xhtml', '8.xhtml', '9.xhtml', '10.xhtml'],
+    );
+    expect(currentChapterAt(structure, { spineIndex: 2 })).toBe(9);
+    expect(completedChapterAt(structure, { spineIndex: 2 })).toBe(8);
+    expect(currentChapterAt(structure, { spineIndex: 0 })).toBeNull();
+    expect(currentChapterAt(structure, { spineIndex: 3 })).toBe(10);
+    expect(completedChapterAt(structure, { spineIndex: 3 })).toBe(9);
+    expect(completedChapterAt(structure, { spineIndex: 3, atEnd: true })).toBe(
+      10,
+    );
+  });
   it('resolves in-book anchors even when the navigation has no chapter entries', () => {
     const doc = new DOMParser().parseFromString(
       '<html><body><section id="one"><h2>Chapter 1</h2></section><section id="two"><h2>Chapter 2</h2><p>Reading here</p></section></body></html>',
@@ -143,6 +162,9 @@ describe('explicit book structure', () => {
       ['a.xhtml', 'b.xhtml'],
     );
     expect(completedChapterAt(structure, { spineIndex: 0 })).toBeNull();
+    expect(
+      currentChapterAt(structure, { spineIndex: 0, href: 'a.xhtml#two' }),
+    ).toBe(2);
     expect(
       completedChapterAt(structure, { spineIndex: 0, href: 'a.xhtml#two' }),
     ).toBe(1);
