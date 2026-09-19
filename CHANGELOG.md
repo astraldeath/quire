@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.4.0]
 
 - Read comics as single pages, double-page spreads, or a continuous Webtoon strip, in either reading direction.
 - Keep comic bookmarks and use taps, swipes, or keyboard navigation.
