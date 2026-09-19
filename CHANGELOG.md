@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.2]
+
+- Fix the startup event-listener permission error in installed apps.
+- Show unresolved sync conflicts in the library with a direct link to review them.
+
 ## [0.6.1]
 
 - Detect chapters in books with underscore-separated titles, recap entries, and isolated numbering errors, restoring chapter progress for tracking.
