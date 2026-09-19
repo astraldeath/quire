@@ -1,0 +1,51 @@
+{
+  "name": "Quire",
+  "identifier": "app.quire.reader.source",
+  "website": "https://github.com/astraldeath/quire",
+  "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
+  "subtitle": "Offline book reader",
+  "tintColor": "728EAE",
+  "apps": [
+    {
+      "name": "Quire",
+      "bundleIdentifier": "app.quire.reader",
+      "developerName": "astraldeath",
+      "subtitle": "Offline book reader",
+      "localizedDescription": "Read EPUB, CBZ, FB2, and DRM-free Kindle books. Organize your library, track reading progress, and optionally sync with Quire Server.",
+      "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
+      "tintColor": "728EAE",
+      "category": "books",
+      "version": "0.3.0",
+      "versionDate": "2026-09-18T23:55:10.000Z",
+      "versionDescription": "- Organize books into nested folders, with bulk moves and directory import.\n- Read and export CBZ, FB2/FBZ, and DRM-free MOBI/AZW3 alongside EPUB.\n- Preserve folder assignments and original formats in server sync and backups.\n- Include every released platform in the update manifest and cache workflow builds.\n- Keep standalone OAuth callbacks registered in cached iOS builds.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.3.0/Quire_0.3.0_ios-unsigned.ipa",
+      "size": 5080321,
+      "versions": [
+        {
+          "version": "0.3.0",
+          "date": "2026-09-18T23:55:10.000Z",
+          "localizedDescription": "- Organize books into nested folders, with bulk moves and directory import.\n- Read and export CBZ, FB2/FBZ, and DRM-free MOBI/AZW3 alongside EPUB.\n- Preserve folder assignments and original formats in server sync and backups.\n- Include every released platform in the update manifest and cache workflow builds.\n- Keep standalone OAuth callbacks registered in cached iOS builds.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.3.0/Quire_0.3.0_ios-unsigned.ipa",
+          "size": 5080321
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-09-18T20:27:57.000Z",
+          "localizedDescription": "- Add a custom desktop title bar with window controls.\n- Check for desktop reader updates, view release notes, and install updates from Quire.\n- Show server update notices and changelogs in the reader.\n- Collapse chapter groups for easier navigation.\n- Edit tracker entries and sync private books.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.2.0/Quire_0.2.0_ios-unsigned.ipa",
+          "size": 5056274
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": [
+          {
+            "name": "NSFaceIDUsageDescription",
+            "usageDescription": "Unlock your private books in Quire."
+          }
+        ]
+      }
+    }
+  ],
+  "news": []
+}

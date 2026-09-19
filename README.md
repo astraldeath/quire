@@ -18,6 +18,16 @@ Supported formats: reflowable EPUB, CBZ comics, FB2 (including FBZ and FB2.ZIP),
 
 Use **Add books > Import folder** to import supported files from a directory and retain its subfolders. Use **Move to folder** on a book or a selection to organize the library. Folders contain books; empty folders disappear. Folder assignments are included in backups and sync when a server is connected. **Export** saves the original book file.
 
+## iOS sideloading sources
+
+<p>
+  <a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json"><img alt="AltStore Source" src="https://img.shields.io/badge/open_in_app-_?style=for-the-badge&amp;label=AltStore&amp;labelColor=black&amp;color=728EAE"></a>
+  <a href="https://intradeus.github.io/http-protocol-redirector?r=feather://source/https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json"><img alt="Feather Source" src="https://img.shields.io/badge/open_in_app-_?style=for-the-badge&amp;label=Feather&amp;labelColor=black&amp;color=728EAE"></a>
+  <a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json"><img alt="SideStore Source" src="https://img.shields.io/badge/open_in_app-_?style=for-the-badge&amp;label=SideStore&amp;labelColor=black&amp;color=728EAE"></a>
+</p>
+
+[Direct source URL](https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json) — paste this into your sideloading app to subscribe. The source updates after each release. IPAs are unsigned and need signing in your sideloading app.
+
 ## Development
 
 Install Node.js and npm, then run:

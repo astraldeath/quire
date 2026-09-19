@@ -1,0 +1,45 @@
+name: Update sideloading source
+on:
+  workflow_run:
+    workflows: ['Publish release']
+    types: [completed]
+  release:
+    types: [published, edited, deleted]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/sideload-source*.mjs'
+      - '.github/workflows/sideload-source.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sideload-source
+  cancel-in-progress: false
+jobs:
+  update:
+    if: github.repository == 'astraldeath/quire' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # Always run reviewed default-branch code, never triggering-run artifacts.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/sideload-source.test.mjs
+      - run: node scripts/sideload-source.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Commit updated source
+        run: |
+          git add repo/source.json
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(ios): update sideloading source'
+          git push origin HEAD:main

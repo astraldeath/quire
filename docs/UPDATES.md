@@ -56,3 +56,11 @@ The first tag using this workflow is the hosted build acceptance check. Local ma
 ## Build caches
 
 See [CI cache boundaries](CI-CACHES.md) for cache contents, trusted write rules, and invalidation.
+
+## Sideloading source
+
+`repo/source.json` is an AltStore-style source for Feather, AltStore, and SideStore. The README includes app-opening links and its raw GitHub URL. It lists published stable IPAs with their exact versioned download URLs, sizes, dates, and release notes; it does not sign or modify the packages.
+
+**Update sideloading source** runs after a successful **Publish release** workflow, on manual release changes, or by manual dispatch. It regenerates the file from GitHub release metadata and commits only that file to `main` when it changes. `workflow_run` handles releases created with `GITHUB_TOKEN`, which do not trigger another workflow's ordinary release event. No Pages site or additional secret is required.
+
+To preview locally, run `node --test scripts/sideload-source.test.mjs` and `node scripts/sideload-source.mjs`. An optional `GITHUB_TOKEN` increases the GitHub API rate limit; never commit it.
