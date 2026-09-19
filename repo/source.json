@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.6.0",
-      "versionDate": "2026-09-19T22:31:25.000Z",
-      "versionDescription": "- Read PDF books with lazy page rendering, neighboring-page preloading, page layouts, bookmarks, and saved progress. Include PDFs in server libraries, backups, and file exports.\n- Offer Quire as a desktop file handler without replacing existing defaults. Open books from your file manager, including when Quire is already running.\n- Sync the current numbered chapter to tracking services while keeping completed chapters separate for reading statistics. Recognize padded titles such as `009—My First Monster`.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.0/Quire_0.6.0_ios-unsigned.ipa",
-      "size": 7647986,
+      "version": "0.6.1",
+      "versionDate": "2026-09-19T22:48:49.000Z",
+      "versionDescription": "- Detect chapters in books with underscore-separated titles, recap entries, and isolated numbering errors, restoring chapter progress for tracking.\n- Count completed chapters when reading past a short final page, while excluding chapter jumps from reading activity.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.1/Quire_0.6.1_ios-unsigned.ipa",
+      "size": 7651068,
       "versions": [
+        {
+          "version": "0.6.1",
+          "date": "2026-09-19T22:48:49.000Z",
+          "localizedDescription": "- Detect chapters in books with underscore-separated titles, recap entries, and isolated numbering errors, restoring chapter progress for tracking.\n- Count completed chapters when reading past a short final page, while excluding chapter jumps from reading activity.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.1/Quire_0.6.1_ios-unsigned.ipa",
+          "size": 7651068
+        },
         {
           "version": "0.6.0",
           "date": "2026-09-19T22:31:25.000Z",
