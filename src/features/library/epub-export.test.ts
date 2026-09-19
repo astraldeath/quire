@@ -1,16 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { ensureBookFile } from '../sync/library';
+import { getNativeFileReference } from '../../storage';
 import { epubFilename, exportEpub } from './epub-export';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: vi.fn() }));
 vi.mock('../sync/library', () => ({ ensureBookFile: vi.fn() }));
+vi.mock('../../storage', () => ({ getNativeFileReference: vi.fn() }));
 
 describe('EPUB export', () => {
   const bytes = new Uint8Array([80, 75, 0, 128, 255]);
   beforeEach(() => {
     vi.mocked(isTauri).mockReturnValue(false);
     vi.mocked(ensureBookFile).mockResolvedValue(bytes);
+    vi.mocked(getNativeFileReference).mockResolvedValue(undefined);
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:epub'),
       revokeObjectURL: vi.fn(),
@@ -57,6 +60,23 @@ describe('EPUB export', () => {
       'x-quire-filename': btoa(
         String.fromCharCode(...new TextEncoder().encode('旅の本.epub')),
       ),
+    });
+  });
+
+  it('exports a native file without reading its bytes into the webview', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(getNativeFileReference).mockResolvedValue('@quire-file:abc');
+    vi.mocked(invoke).mockResolvedValue(true);
+    vi.mocked(ensureBookFile).mockClear();
+    expect(
+      await exportEpub({ id: 'large', title: 'Comic', format: 'cbz' }),
+    ).toBe(true);
+    expect(ensureBookFile).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenLastCalledWith('export_epub', undefined, {
+      headers: {
+        'x-quire-filename': btoa('Comic.cbz'),
+        'x-quire-file-reference': '@quire-file:abc',
+      },
     });
   });
 

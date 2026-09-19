@@ -2,6 +2,7 @@ import { BOOK_MIME, type BookFormat } from '../../books';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { ensureBookFile } from '../sync/library';
 import { withSystemDialog } from '../privacy/inactive';
+import { getNativeFileReference } from '../../storage';
 
 export function epubFilename(
   title: string,
@@ -30,19 +31,30 @@ export async function exportEpub(book: {
   title: string;
   format?: BookFormat;
 }): Promise<boolean> {
-  const bytes = await ensureBookFile(book.id);
   const name = epubFilename(book.title, book.format);
   if (isTauri()) {
     const encoded = btoa(
       String.fromCharCode(...new TextEncoder().encode(name)),
     );
+    const reference = await getNativeFileReference(book.id);
+    if (reference)
+      return withSystemDialog(() =>
+        invoke<boolean>('export_epub', undefined, {
+          headers: {
+            'x-quire-filename': encoded,
+            'x-quire-file-reference': reference,
+          },
+        }),
+      );
+    const bytes = await ensureBookFile(book.id);
     return withSystemDialog(() =>
       invoke<boolean>('export_epub', bytes, {
         headers: { 'x-quire-filename': encoded },
       }),
     );
   }
-  const file = new File([bytes.slice().buffer], name, {
+  const bytes = await ensureBookFile(book.id);
+  const file = new File([bytes as Uint8Array<ArrayBuffer>], name, {
     type: BOOK_MIME[book.format ?? 'epub'],
   });
   // A network download may consume transient activation. Fall back to download

@@ -11,6 +11,30 @@ vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => true,
   invoke: prepareLibrary,
 }));
+// File IPC is exercised separately; keep SQLite and its actual commit triggers
+// real here so rollback/outbox regression coverage remains intact.
+vi.mock('../src/native-files', () => {
+  const objects = new Map<string, Uint8Array>();
+  let next = 0;
+  return {
+    nativeFileId: (value: string) =>
+      value.startsWith('@quire-file:') ? value.slice(12) : undefined,
+    writeNativeFile: async (value: Uint8Array | Blob) => {
+      const id = (++next).toString(16).padStart(64, '0');
+      objects.set(
+        id,
+        value instanceof Blob
+          ? new Uint8Array(await value.arrayBuffer())
+          : value.slice(),
+      );
+      return '@quire-file:' + id;
+    },
+    readNativeFile: async (id: string) => objects.get(id)?.slice(),
+    deleteNativeFile: async (reference: string) => {
+      objects.delete(reference.slice(12));
+    },
+  };
+});
 vi.mock('@tauri-apps/plugin-sql', () => ({
   default: {
     load: async () => {

@@ -10,7 +10,7 @@ npm run tauri dev
 npm run tauri build
 ```
 
-The Windows installer is written under `src-tauri/target/release/bundle/nsis`. The native app uses a migrated SQLite database named `quire.db` in its application directory. EPUB bytes are base64 text in the same row as metadata, allowing atomic import/removal without multi-connection transactions; this adds approximately one-third storage overhead. Browser development uses IndexedDB in that browser profile, independently of the native library. Clearing site data removes that development library. Remove download retains book metadata and reading position; identical imports restore the file.
+The Windows installer is written under `src-tauri/target/release/bundle/nsis`. The native app uses a migrated SQLite database named `quire.db` in its application directory. New book files are immutable objects under the application data directory in `book-files/`; SQLite stores their references with metadata and the sync outbox atomically. Transfers use 1 MiB binary chunks. Older base64-backed rows remain readable. Keep the database and book-files directory together when copying native app data. Interrupted writes can leave unreferenced files; use Quire backups for portable library copies. Browser development uses IndexedDB in that browser profile, independently of the native library. Clearing site data removes that development library. Remove download retains book metadata and reading position; identical imports restore the file.
 
 ## Unsigned iPhone build from Windows
 
