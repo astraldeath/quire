@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.6]
 
 - Add a device-local desktop screen capture setting under Privacy, with Windows capture exclusion, limited macOS protection, and explicit Linux availability information.
 
