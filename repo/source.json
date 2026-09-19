@@ -15,12 +15,26 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.5.6",
-      "versionDate": "2026-09-19T21:31:41.000Z",
-      "versionDescription": "- Add a device-local desktop screen capture setting under Privacy, with Windows capture exclusion, limited macOS protection, and explicit Linux availability information.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.6/Quire_0.5.6_ios-unsigned.ipa",
-      "size": 5151389,
+      "version": "0.6.0",
+      "versionDate": "2026-09-19T22:31:25.000Z",
+      "versionDescription": "- Read PDF books with lazy page rendering, neighboring-page preloading, page layouts, bookmarks, and saved progress. Include PDFs in server libraries, backups, and file exports.\n- Offer Quire as a desktop file handler without replacing existing defaults. Open books from your file manager, including when Quire is already running.\n- Sync the current numbered chapter to tracking services while keeping completed chapters separate for reading statistics. Recognize padded titles such as `009—My First Monster`.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.0/Quire_0.6.0_ios-unsigned.ipa",
+      "size": 7647986,
       "versions": [
+        {
+          "version": "0.6.0",
+          "date": "2026-09-19T22:31:25.000Z",
+          "localizedDescription": "- Read PDF books with lazy page rendering, neighboring-page preloading, page layouts, bookmarks, and saved progress. Include PDFs in server libraries, backups, and file exports.\n- Offer Quire as a desktop file handler without replacing existing defaults. Open books from your file manager, including when Quire is already running.\n- Sync the current numbered chapter to tracking services while keeping completed chapters separate for reading statistics. Recognize padded titles such as `009—My First Monster`.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.0/Quire_0.6.0_ios-unsigned.ipa",
+          "size": 7647986
+        },
+        {
+          "version": "0.5.7",
+          "date": "2026-09-19T22:13:54.000Z",
+          "localizedDescription": "- Show a local-only indicator on books and series when their files are not on the connected server.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.7/Quire_0.5.7_ios-unsigned.ipa",
+          "size": 5150540
+        },
         {
           "version": "0.5.6",
           "date": "2026-09-19T21:31:41.000Z",
