@@ -62,6 +62,7 @@ vi.mock('../src/components/Modal', () => ({
 }));
 vi.mock('../src/features/sync/engine', () => ({
   startSync: () => () => {},
+  subscribe: () => () => {},
   syncNow: async () => {},
 }));
 vi.mock('../src/features/sync/library', () => ({ ensureBookFile: ensure }));

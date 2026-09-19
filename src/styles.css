@@ -383,6 +383,14 @@ button.icon {
   align-items: center;
   gap: 6px;
 }
+.book-local-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--muted);
+  cursor: default;
+}
 .book-privacy-badge {
   display: inline-flex;
   align-items: center;

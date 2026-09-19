@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Show a local-only indicator on books and series when their files are not on the connected server.
+
 ## [0.5.6]
 
 - Add a device-local desktop screen capture setting under Privacy, with Windows capture exclusion, limited macOS protection, and explicit Linux availability information.

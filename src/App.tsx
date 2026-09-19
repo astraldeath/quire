@@ -6,6 +6,10 @@ import { ActionPopover, type ActionAnchor } from './components/ActionPopover';
 import { FolderNavigation } from './features/library/FolderNavigation';
 import { FolderCard } from './features/library/FolderCard';
 import {
+  LocalOnlyBadge,
+  useServerFiles,
+} from './features/library/LocalOnlyBadge';
+import {
   FolderMembershipDialog,
   type FolderChanges,
 } from './features/library/FolderMembershipDialog';
@@ -152,6 +156,7 @@ function AppContent({
   onImport?: (id: string, bytes: Uint8Array) => Promise<void>;
 } = {}) {
   const privacy = usePrivacy();
+  const serverFiles = useServerFiles();
   const wasUnlocked = useRef(false);
   const [hiddenBooks, setHiddenBooks] = useState(false);
   const webPath = useWebPath();
@@ -1536,6 +1541,10 @@ function AppContent({
                                   : 'Not started'}
                         </span>
                         <div className="book-tail">
+                          <LocalOnlyBadge
+                            books={entry.books}
+                            remote={serverFiles}
+                          />
                           {entry.books.some(
                             (b) =>
                               (privacy.state.books[b.id] ?? 'normal') !==
