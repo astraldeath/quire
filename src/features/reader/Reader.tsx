@@ -16,6 +16,7 @@ import { View } from 'foliate-js/view.js';
 import { openBook, type ReaderBook } from '../../books';
 import {
   completedChapterAt,
+  currentChapterAt,
   chapterHrefAtRange,
   inferSeriesVolume,
   type BookStructure,
@@ -369,11 +370,17 @@ export function Reader({
         href: locationHref,
         atEnd: view.renderer.atEnd,
       });
+      const currentChapter = currentChapterAt(structure, {
+        spineIndex: location.section?.current ?? -1,
+        href: locationHref,
+        atEnd: view.renderer.atEnd,
+      });
       current.current.onPosition({
         cfi: location.cfi,
         fraction,
         section: location.tocItem?.label ?? '',
         ...(completedChapter !== null ? { completedChapter } : {}),
+        ...(currentChapter !== null ? { currentChapter } : {}),
         updatedAt: Date.now(),
       });
     });
