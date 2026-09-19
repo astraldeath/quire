@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   readDesktopFile,
@@ -65,4 +66,19 @@ it('reports native file errors without attempting a read', async () => {
     }),
   ).rejects.toThrow('File missing');
   expect(mock.invoke).not.toHaveBeenCalled();
+});
+
+it('grants the startup event listener and its cleanup to the local main window on every platform', () => {
+  const capability = JSON.parse(
+    readFileSync('src-tauri/capabilities/main.json', 'utf8'),
+  );
+  expect(capability.windows).toContain('main');
+  expect(capability.platforms).toBeUndefined();
+  expect(capability.remote).toBeUndefined();
+  expect(capability.permissions).toEqual(
+    expect.arrayContaining([
+      'core:event:allow-listen',
+      'core:event:allow-unlisten',
+    ]),
+  );
 });
