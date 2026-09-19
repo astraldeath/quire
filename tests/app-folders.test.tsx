@@ -167,7 +167,7 @@ it('keeps private-only folders and counts out of the visible library', async () 
   );
   await mount('/library?folder=Shelf');
   expect(
-    host.querySelector('[aria-label="Folders"]')?.textContent,
+    host.querySelector('.books')?.textContent,
   ).not.toContain('Nested');
   expect(host.textContent).not.toContain('Book One');
   expect(host.textContent).toContain('Book Two');
@@ -190,7 +190,12 @@ it('renames descendant folders only within the selected collection', async () =>
   await mount('/library?folder=Shelf&collection=one', true);
   await act(async () =>
     host
-      .querySelector<HTMLButtonElement>('[aria-label="Rename folder"]')!
+      .querySelector<HTMLButtonElement>('[aria-label="Folder actions"]')!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll('button')]
+      .find((b) => b.textContent === 'Rename folder')!
       .click(),
   );
   await input('Renamed');
@@ -202,6 +207,57 @@ it('renames descendant folders only within the selected collection', async () =>
   });
   expect(new URLSearchParams(location.search).get('folder')).toBe('Renamed');
   expect(new URLSearchParams(location.search).get('collection')).toBe('one');
+});
+
+it('renders nested breadcrumbs with navigable ancestors and a current folder', async () => {
+  await mount('/library?folder=Shelf%2FNested&collection=one', true);
+  const nav = host.querySelector('[aria-label="Folder breadcrumbs"]')!;
+  expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe(
+    'Nested',
+  );
+  const parent = [...nav.querySelectorAll('a')].find(
+    (a) => a.textContent === 'Shelf',
+  )!;
+  expect(new URL(parent.href).searchParams.get('collection')).toBe('one');
+  await act(async () => parent.click());
+  expect(new URLSearchParams(location.search).get('folder')).toBe('Shelf');
+});
+
+it('deletes a folder and descendants without deleting books or other memberships', async () => {
+  const original = { ...books[0] };
+  Object.assign(books[0], { folders: ['Shelf/Nested', 'Favorites'] });
+  try {
+    await mount('/library?folder=Shelf');
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[aria-label="Folder actions"]')!
+        .click(),
+    );
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Delete folder')!
+        .click(),
+    );
+    expect(saveBook).not.toHaveBeenCalled();
+    await submit();
+    expect(saveBook).toHaveBeenCalledTimes(3);
+    expect(saveBook.mock.calls[0][0]).toMatchObject({
+      id: books[0].id,
+      folders: ['Favorites'],
+      folder: 'Favorites',
+      local: true,
+    });
+    expect(saveBook.mock.calls[1][0]).toMatchObject({
+      id: books[1].id,
+      folders: [],
+      folder: '',
+      local: true,
+    });
+    expect(new URLSearchParams(location.search).has('folder')).toBe(false);
+  } finally {
+    Reflect.deleteProperty(books[0], 'folders');
+    Object.assign(books[0], original);
+  }
 });
 it('adds the selected series to another folder without changing existing memberships', async () => {
   await mount('/library?q=Book');
