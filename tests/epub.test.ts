@@ -367,3 +367,49 @@ it('defers media extraction during opening and releases the archive on close', a
   await archive.close();
   await expect(archive.loadBlob('EPUB/font.woff2')).rejects.toThrow(/closed/i);
 });
+
+it('retains EPUB chapter progress despite later recaps and misnumbered entries', async () => {
+  const { detectBookStructure } = await import('../src/epub');
+  const { currentChapterAt, completedChapterAt } =
+    await import('../src/domain/book-structure');
+  const labels = [
+    '008_Before',
+    '009_Now',
+    '010_After',
+    'Chapter 3 Summary',
+    '098_Return',
+    '099_Next',
+    '114_Before',
+    '115_Next',
+    '121_Error',
+    '122_Error',
+    '118_Return',
+    '119_Next',
+  ];
+  const file = await fixture(
+    '',
+    'EPUB/chapter.xhtml',
+    {
+      'EPUB/package.opf': `<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>${labels.map((_, i) => `<item id="c${i}" href="${i}.xhtml" media-type="application/xhtml+xml"/>`).join('')}</manifest><spine>${labels.map((_, i) => `<itemref idref="c${i}"/>`).join('')}</spine></package>`,
+      'EPUB/nav.xhtml': `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc">${labels.map((label, i) => `<a href="${i}.xhtml">${label}</a>`).join('')}</nav></body></html>`,
+      ...Object.fromEntries(
+        labels.map((label, i) => [
+          `EPUB/${i}.xhtml`,
+          `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>${label}</h1></body></html>`,
+        ]),
+      ),
+    },
+    false,
+  );
+  const archive = await openArchive(new Uint8Array(await file.arrayBuffer()));
+  try {
+    const structure = detectBookStructure(archive);
+    expect(currentChapterAt(structure, { spineIndex: 1 })).toBe(9);
+    expect(completedChapterAt(structure, { spineIndex: 1 })).toBe(8);
+    expect(structure.chapters.map((c) => c.number)).toEqual([
+      8, 9, 10, 98, 99, 114, 115, 118, 119,
+    ]);
+  } finally {
+    archive.close();
+  }
+});

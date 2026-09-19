@@ -82,7 +82,7 @@ export function chapterLabel(
   } else return null;
   const rest = text.slice(consumed);
   if (/^\s+(?:hundred|thousand|million|and)\b/i.test(rest)) return null;
-  if (rest && !/^[\s:.,(\[–—-]/.test(rest)) return null;
+  if (rest && !/^[\s_:.,(\[\u2013\u2014\uFFFD-]/.test(rest)) return null;
   if (/^\s*[.\-–—/]\s*\d/.test(rest)) return null;
   if (!Number.isSafeInteger(number) || number < 1 || number > 100000)
     return null;
@@ -127,9 +127,50 @@ export function buildBookStructure(
   spine: string[],
 ): BookStructure {
   const chapters: DetectedChapter[] = [];
-  const candidates = links
+  const parsedLinks = links
     .map((link) => ({ link, parsed: chapterLabel(link.label) }))
     .filter((c) => c.parsed && spine.includes(c.link.href.split('#')[0]));
+  // A recap can mention an earlier chapter number. Ignore only an isolated
+  // regression followed by the original sequence; a Chapter 1 restart is ambiguous.
+  const withoutRecaps = parsedLinks.filter(({ parsed, link }, index) => {
+    const before = parsedLinks[index - 1]?.parsed?.number;
+    const after = parsedLinks[index + 1]?.parsed?.number;
+    return !(
+      parsed!.number > 1 &&
+      before !== undefined &&
+      after !== undefined &&
+      parsed!.number < before &&
+      after > before &&
+      (after <= before + 2 || /\b(?:summary|recap)\b/i.test(link.label))
+    );
+  });
+  // Some compilations have one or two erroneous high numbers before the
+  // sequence resumes. Require two consecutive entries to establish that return.
+  const candidates: typeof parsedLinks = [];
+  for (let index = 0; index < withoutRecaps.length; index++) {
+    const before = candidates.at(-1)?.parsed?.number;
+    let skip = 0;
+    if (before !== undefined) {
+      for (let count = 1; count <= 2; count++) {
+        const resume = withoutRecaps[index + count]?.parsed?.number;
+        const following = withoutRecaps[index + count + 1]?.parsed?.number;
+        if (
+          resume !== undefined &&
+          resume > before &&
+          resume <= before + count + 1 &&
+          following === resume + 1 &&
+          withoutRecaps
+            .slice(index, index + count)
+            .every((c) => c.parsed!.number > resume)
+        ) {
+          skip = count;
+          break;
+        }
+      }
+    }
+    index += skip;
+    if (withoutRecaps[index]) candidates.push(withoutRecaps[index]);
+  }
   for (const [index, { link, parsed }] of candidates.entries()) {
     const { number, explicit } = parsed!;
     if (!explicit && !link.semantic) {
