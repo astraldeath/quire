@@ -84,6 +84,49 @@ async function render(preferences: Partial<ReaderPreferences> = {}, count = 8) {
   );
 }
 
+it('retains mounted adjacent images and their URLs when turning back', async () => {
+  await render();
+  const current = host.querySelector('[data-page="2"] img');
+  const ahead = host.querySelector('[data-page="3"] img');
+  expect(ahead).not.toBeNull();
+  const url = current!.getAttribute('src');
+  await act(async () => navigation.current!.navigate('next'));
+  await act(async () => navigation.current!.navigate('prev'));
+  expect(host.querySelector('[data-page="2"] img')).toBe(current);
+  expect(current!.getAttribute('src')).toBe(url);
+  expect(revoked).not.toContain(url);
+  expect(host.querySelectorAll('img').length).toBeLessThanOrEqual(3);
+});
+
+it('bounds webtoon image resources even when many placeholders intersect', async () => {
+  const many = Array.from({ length: 80 }, (_, index) => ({
+    name: `${index}.png`,
+    blob: () => new Blob(['image']),
+  }));
+  await act(async () =>
+    root.render(
+      <ComicPages
+        pages={many}
+        preferences={{ ...defaults.reader, comicMode: 'webtoon' }}
+        navigationRef={navigation}
+        onPosition={position}
+        onCenterTap={center}
+        onNavigate={() => {}}
+      />,
+    ),
+  );
+  await act(async () => {
+    for (const callback of observed.values()) callback(true);
+  });
+  expect(host.querySelectorAll('img').length).toBeLessThanOrEqual(12);
+  await act(async () => navigation.current!.navigate('70.png'));
+  expect(host.querySelectorAll('img').length).toBeLessThanOrEqual(12);
+  expect(host.querySelector('[data-page="70"] img')).not.toBeNull();
+  expect(host.querySelector('[data-page="0"] img')).toBeNull();
+  await act(async () => root.unmount());
+  expect(new Set(revoked)).toEqual(new Set(created));
+});
+
 it('cancels pending page loads on navigation without creating stale object URLs', async () => {
   let finish!: (blob: Blob) => void;
   let signal!: AbortSignal;
@@ -114,15 +157,18 @@ it('cancels pending page loads on navigation without creating stale object URLs'
   );
   expect(created).toHaveLength(0);
   await act(async () => {
-    navigation.current!.navigate('next');
+    navigation.current!.navigate('4.png');
   });
   expect(signal.aborted).toBe(true);
-  expect(created).toHaveLength(1);
+  expect(created).toHaveLength(3);
   await act(async () => {
     finish(new Blob(['stale']));
   });
-  expect(created).toHaveLength(1);
-  expect(host.querySelector('img')?.alt).toBe('Page 2');
+  expect(created).toHaveLength(3);
+  expect(
+    host.querySelector<HTMLImageElement>('.comic-image:not([aria-hidden]) img')
+      ?.alt,
+  ).toBe('Page 5');
 });
 
 it('shows asynchronous extraction failures and retries them', async () => {
@@ -151,7 +197,10 @@ it('shows asynchronous extraction failures and retries them', async () => {
   await act(async () => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
   });
-  expect(host.querySelector('img')?.alt).toBe('Page 1');
+  expect(
+    host.querySelector<HTMLImageElement>('.comic-image:not([aria-hidden]) img')
+      ?.alt,
+  ).toBe('Page 1');
   expect(blob).toHaveBeenCalledTimes(2);
 });
 function gesture(start: number, end: number) {
@@ -177,14 +226,23 @@ function gesture(start: number, end: number) {
 }
 it('keeps the exact selected page through double and single mode changes', async () => {
   await render();
-  expect(host.querySelector('img')?.alt).toBe('Page 3');
+  expect(
+    host.querySelector<HTMLImageElement>('.comic-image:not([aria-hidden]) img')
+      ?.alt,
+  ).toBe('Page 3');
   await render({ comicMode: 'double' });
-  expect([...host.querySelectorAll('img')].map((image) => image.alt)).toEqual([
-    'Page 2',
-    'Page 3',
-  ]);
+  expect(
+    [
+      ...host.querySelectorAll<HTMLImageElement>(
+        '.comic-image:not([aria-hidden]) img',
+      ),
+    ].map((image) => image.alt),
+  ).toEqual(['Page 2', 'Page 3']);
   await render();
-  expect(host.querySelector('img')?.alt).toBe('Page 3');
+  expect(
+    host.querySelector<HTMLImageElement>('.comic-image:not([aria-hidden]) img')
+      ?.alt,
+  ).toBe('Page 3');
 });
 it('releases old page images through rapid navigation and closing', async () => {
   await render();
@@ -193,7 +251,10 @@ it('releases old page images through rapid navigation and closing', async () => 
     navigation.current!.navigate('next');
     navigation.current!.navigate('next');
   });
-  expect(host.querySelector('img')?.alt).toBe('Page 6');
+  expect(
+    host.querySelector<HTMLImageElement>('.comic-image:not([aria-hidden]) img')
+      ?.alt,
+  ).toBe('Page 6');
   expect(position.mock.lastCall?.[0].cfi).toBe('epubcfi(/6/12)');
   await act(async () => root.unmount());
   expect(new Set(revoked)).toEqual(new Set(created));
@@ -201,14 +262,46 @@ it('releases old page images through rapid navigation and closing', async () => 
 it('creates webtoon image URLs only near the viewport and releases them when distant', async () => {
   await render({ comicMode: 'webtoon' });
   expect(host.querySelectorAll('[data-page]')).toHaveLength(8);
-  expect(created).toHaveLength(0);
+  expect(created).toHaveLength(3);
   const slot = host.querySelector('[data-page="2"]')!;
   await act(async () => observed.get(slot)!(true));
-  expect(host.querySelector('img')?.alt).toBe('Page 3');
-  expect(created).toHaveLength(1);
+  const current = slot.querySelector('img');
+  expect(current?.alt).toBe('Page 3');
+  expect(created).toHaveLength(3);
   await act(async () => observed.get(slot)!(false));
-  expect(host.querySelector('img')).toBeNull();
-  expect(revoked).toEqual(created);
+  expect(slot.querySelector('img')).toBe(current);
+  await act(async () => navigation.current!.navigate('7.png'));
+  expect(slot.querySelector('img')).toBeNull();
+  expect(revoked).toHaveLength(3);
+});
+
+it('keeps the loaded spread visible until a distant destination is ready', async () => {
+  await render();
+  const image = host.querySelector('[data-page="2"] img')!;
+  await act(async () => image.dispatchEvent(new Event('load')));
+  await act(async () => navigation.current!.navigate('7.png'));
+  expect(host.querySelector('.comic-image:not([aria-hidden]) img')).toBe(image);
+  const next = host.querySelector('[data-page="7"] img')!;
+  await act(async () => next.dispatchEvent(new Event('load')));
+  expect(host.querySelector('.comic-image:not([aria-hidden]) img')).toBe(next);
+  expect(host.querySelectorAll('img')).toHaveLength(2);
+});
+
+it('preserves decoded images through spread and direction preferences without recording prefetch progress', async () => {
+  await render();
+  const image = host.querySelector('[data-page="2"] img')!;
+  const decode = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(image, 'decode', { value: decode });
+  await act(async () => image.dispatchEvent(new Event('load')));
+  const calls = position.mock.calls.length;
+  await act(async () =>
+    host.querySelector('[data-page="3"] img')!.dispatchEvent(new Event('load')),
+  );
+  expect(position).toHaveBeenCalledTimes(calls);
+  await render({ comicMode: 'double', comicDirection: 'rtl' });
+  await render({ comicMode: 'single' });
+  expect(host.querySelector('[data-page="2"] img')).toBe(image);
+  expect(decode).toHaveBeenCalledTimes(1);
 });
 it('reverses taps and swipes for RTL and keeps their switches independent', async () => {
   await render({ comicDirection: 'rtl', tapToTurn: false });
@@ -296,7 +389,10 @@ it('advances a tall webtoon image by a viewport step without skipping to the nex
 it('opens bookmarks created by the previous Foliate comic renderer', async () => {
   await render();
   await act(async () => navigation.current!.navigate('epubcfi(/6/12!/4/2)'));
-  expect(host.querySelector('img')?.alt).toBe('Page 6');
+  expect(
+    host.querySelector<HTMLImageElement>('.comic-image:not([aria-hidden]) img')
+      ?.alt,
+  ).toBe('Page 6');
 });
 it('finishes a tall final webtoon image only at its bottom, keeping its page locator', async () => {
   vi.useFakeTimers();
