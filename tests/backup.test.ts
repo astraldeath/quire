@@ -1,5 +1,9 @@
 import { expect, it } from 'vitest';
-import { createBackup, readBackup } from '../src/features/backup/archive';
+import {
+  createBackup,
+  createBackupBlob,
+  readBackup,
+} from '../src/features/backup/archive';
 import { mergeBook } from '../src/features/backup/merge';
 import { defaults, type Book } from '../src/domain/models';
 import { validateBook } from '../src/features/backup/validation';
@@ -196,3 +200,57 @@ it.each(['added', 'last-read', 'volume'] as const)(
     expect(restored.preferences.sort).toBe(sort);
   },
 );
+
+it('roundtrips a full backup with a book larger than 128 MB', async () => {
+  const file = new Uint8Array(128 * 1024 * 1024 + 1);
+  file[0] = 7;
+  file[file.length - 1] = 9;
+  const id = Array.from(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', file)),
+    (b) => b.toString(16).padStart(2, '0'),
+  ).join('');
+  const archive = await createBackupBlob(
+    [{ book: { ...book, id, format: 'cbz' }, file: async () => file }],
+    defaults,
+    'full',
+  );
+  expect(archive.size).toBeGreaterThan(128 * 1024 * 1024);
+  const restored = await readBackup(archive);
+  const restoredFile = restored.records[0].file!;
+  expect(restoredFile.size).toBe(file.length);
+  expect(new Uint8Array(await restoredFile.slice(0, 1).arrayBuffer())[0]).toBe(
+    7,
+  );
+  expect(new Uint8Array(await restoredFile.slice(-1).arrayBuffer())[0]).toBe(9);
+}, 60000);
+
+it('rejects a declared decompression bomb before allocating its book buffer', async () => {
+  const archive = await createBackup([{ book, file: bytes }], defaults, 'full');
+  const view = new DataView(
+    archive.buffer,
+    archive.byteOffset,
+    archive.byteLength,
+  );
+  let entries = 0;
+  for (let offset = 0; offset < archive.length - 46; offset++) {
+    if (view.getUint32(offset, true) === 0x02014b50 && ++entries === 2) {
+      view.setUint32(offset + 24, 600 * 1024 * 1024, true);
+      break;
+    }
+  }
+  expect(entries).toBe(2);
+  await expect(readBackup(archive)).rejects.toThrow('size limit');
+});
+
+it('keeps Blob-input restore files as Blobs after validating their identities', async () => {
+  const archive = await createBackupBlob(
+    [{ book, file: bytes }],
+    defaults,
+    'full',
+  );
+  const restored = await readBackup(archive);
+  expect(restored.records[0].file).not.toBeInstanceOf(Uint8Array);
+  const file = restored.records[0].file as unknown as Blob;
+  expect(file.size).toBe(bytes.length);
+  expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes);
+});

@@ -2,51 +2,86 @@ import {
   ZipReader,
   ZipWriter,
   Uint8ArrayReader,
-  Uint8ArrayWriter,
+  BlobReader,
+  BlobWriter,
   type FileEntry,
 } from '@zip.js/zip.js';
 import type { Book, Preferences } from '../../domain/models';
 import { validateActivity, type ReadingActivity } from '../statistics/model';
 import { validateBook, validatePreferences } from './validation';
 import { validatePrivacy, type SharedPrivacy } from '../privacy/shared';
-export interface BackupRecord {
+export interface BackupRecord<File = Uint8Array | Blob> {
   book: Book;
-  file?: Uint8Array;
+  file?: File;
 }
-export interface Backup {
+export interface BackupSource {
+  book: Book;
+  file?: Uint8Array | Blob | (() => Promise<Uint8Array | Blob>);
+}
+export interface Backup<File = Uint8Array | Blob> {
   createdAt: number;
   kind: 'full' | 'data';
   preferences: Preferences;
-  records: BackupRecord[];
+  records: BackupRecord<File>[];
   activities?: ReadingActivity[];
   privacy?: SharedPrivacy;
 }
-export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
+// Allow large stored archives while retaining a bounded decompression budget.
+const MAX_EXPANSION_BYTES = 512 * 1024 * 1024;
 const MANIFEST_MAX = 32 * 1024 * 1024;
 const hash = async (bytes: Uint8Array) =>
   Array.from(
-    new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice().buffer)),
+    new Uint8Array(
+      await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>),
+    ),
     (v) => v.toString(16).padStart(2, '0'),
   ).join('');
+const hashFile = (file: Uint8Array | Blob) =>
+  file instanceof Uint8Array
+    ? hash(file)
+    : file.arrayBuffer().then((buffer) => hash(new Uint8Array(buffer)));
+
+async function extractBlob(entry: FileEntry): Promise<Blob> {
+  const output = new BlobWriter();
+  const sink = output.writable.getWriter();
+  let size = 0;
+  try {
+    await entry.getData!(
+      new WritableStream<Uint8Array>({
+        write(chunk) {
+          size += chunk.length;
+          if (size > entry.uncompressedSize)
+            throw new Error('Backup exceeds the size limit.');
+          return sink.write(chunk);
+        },
+        close: () => sink.close(),
+        abort: (reason) => sink.abort(reason),
+      }),
+      { checkSignature: true },
+    );
+    if (size !== entry.uncompressedSize)
+      throw new Error('Invalid backup entry size.');
+    return await output.getData();
+  } catch (error) {
+    await sink.abort(error).catch(() => {});
+    throw error;
+  }
+}
 async function extract(entry: FileEntry, limit: number): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
+  const bytes = new Uint8Array(entry.uncompressedSize);
   let size = 0;
   await entry.getData!(
     new WritableStream<Uint8Array>({
       write(chunk) {
         size += chunk.length;
-        if (size > limit) throw new Error('Backup exceeds the size limit.');
-        chunks.push(chunk);
+        if (size > limit || size > bytes.length)
+          throw new Error('Backup exceeds the size limit.');
+        bytes.set(chunk, size - chunk.length);
       },
     }),
     { checkSignature: true },
   );
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
+  if (size !== bytes.length) throw new Error('Invalid backup entry size.');
   return bytes;
 }
 export async function createBackup(
@@ -56,6 +91,20 @@ export async function createBackup(
   activities: ReadingActivity[] = [],
   privacy?: SharedPrivacy,
 ): Promise<Uint8Array> {
+  return new Uint8Array(
+    await (
+      await createBackupBlob(records, preferences, kind, activities, privacy)
+    ).arrayBuffer(),
+  );
+}
+
+export async function createBackupBlob(
+  records: BackupSource[],
+  preferences: Preferences,
+  kind: Backup['kind'],
+  activities: ReadingActivity[] = [],
+  privacy?: SharedPrivacy,
+): Promise<Blob> {
   const files = kind === 'full' ? records.filter((r) => r.file) : [];
   const manifest = {
     format: 'quire-backup',
@@ -69,41 +118,43 @@ export async function createBackup(
     ...(privacy ? { privacy: validatePrivacy(privacy) } : {}),
   };
   const data = new TextEncoder().encode(JSON.stringify(manifest));
-  if (
-    data.length > MANIFEST_MAX ||
-    records.length > 5000 ||
-    files.reduce((sum, r) => sum + r.file!.length, data.length) >
-      MAX_BACKUP_BYTES
-  )
-    throw new Error('Backup exceeds the 512 MB limit. Try a data-only backup.');
+  if (data.length > MANIFEST_MAX || records.length > 5000)
+    throw new Error('Backup contains too much library data.');
   records.forEach((r) => validateBook(r.book));
   validatePreferences(preferences);
-  const writer = new ZipWriter(new Uint8ArrayWriter(), {
+  const writer = new ZipWriter(new BlobWriter(), {
     useWebWorkers: false,
     level: 0,
   });
   await writer.add('manifest.json', new Uint8ArrayReader(data));
-  for (const { book, file } of files) {
-    if (file!.length > 128 * 1024 * 1024 || (await hash(file!)) !== book.id)
+  for (const { book, file: source } of files) {
+    const file = typeof source === 'function' ? await source() : source!;
+    if ((await hashFile(file)) !== book.id)
       throw new Error(
         'A book file does not match its identity. Reimport that book before backing up.',
       );
     await writer.add(
       `books/${book.id}.${book.format ?? 'epub'}`,
-      new Uint8ArrayReader(file!),
+      file instanceof Uint8Array
+        ? new Uint8ArrayReader(file)
+        : new BlobReader(file),
     );
   }
-  const result = await writer.close();
-  if (result.length > MAX_BACKUP_BYTES)
-    throw new Error('Backup exceeds the 512 MB limit. Try a data-only backup.');
-  return result;
+  return writer.close();
 }
-export async function readBackup(bytes: Uint8Array): Promise<Backup> {
-  if (bytes.length > MAX_BACKUP_BYTES)
-    throw new Error('Backup exceeds the 512 MB limit.');
-  const reader = new ZipReader(new Uint8ArrayReader(bytes), {
-    useWebWorkers: false,
-  });
+export function readBackup(bytes: Uint8Array): Promise<Backup<Uint8Array>>;
+export function readBackup(bytes: Blob): Promise<Backup<Blob>>;
+export function readBackup(bytes: Uint8Array | Blob): Promise<Backup>;
+export async function readBackup(bytes: Uint8Array | Blob): Promise<Backup> {
+  const archiveSize = bytes instanceof Uint8Array ? bytes.length : bytes.size;
+  const reader = new ZipReader(
+    bytes instanceof Uint8Array
+      ? new Uint8ArrayReader(bytes)
+      : new BlobReader(bytes),
+    {
+      useWebWorkers: false,
+    },
+  );
   try {
     const entries = await reader.getEntries();
     const names = new Set<string>();
@@ -123,9 +174,10 @@ export async function readBackup(bytes: Uint8Array): Promise<Backup> {
       names.add(e.filename);
       total += e.uncompressedSize;
       if (
-        e.uncompressedSize >
-          (e.filename === 'manifest.json' ? MANIFEST_MAX : 128 * 1024 * 1024) ||
-        total > MAX_BACKUP_BYTES
+        !Number.isSafeInteger(e.uncompressedSize) ||
+        e.uncompressedSize < 0 ||
+        (e.filename === 'manifest.json' && e.uncompressedSize > MANIFEST_MAX) ||
+        total > archiveSize + MAX_EXPANSION_BYTES
       )
         throw new Error('Backup exceeds the size limit.');
     }
@@ -165,15 +217,18 @@ export async function readBackup(bytes: Uint8Array): Promise<Backup> {
     const preferences = validatePreferences(manifest.preferences);
     const records: BackupRecord[] = [];
     for (const book of books) {
-      let file: Uint8Array | undefined;
+      let file: Uint8Array | Blob | undefined;
       if (fileIds.has(book.id)) {
         const e = entries.find(
           (e) => e.filename === `books/${book.id}.${book.format ?? 'epub'}`,
         );
         if (!e || e.directory || !e.getData)
           throw new Error('A book file is missing from this backup.');
-        file = await extract(e, e.uncompressedSize);
-        if ((await hash(file)) !== book.id)
+        file =
+          bytes instanceof Uint8Array
+            ? await extract(e, e.uncompressedSize)
+            : await extractBlob(e);
+        if ((await hashFile(file)) !== book.id)
           throw new Error('A book file is damaged or has the wrong identity.');
       }
       records.push({ book: { ...book, local: !!file }, file });

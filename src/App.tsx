@@ -51,7 +51,7 @@ import { TrackingButton } from './features/tracking/TrackingButton';
 import { isTauri } from '@tauri-apps/api/core';
 import { startNativeTracking } from './features/tracking/native';
 import { BookActions } from './features/library/BookActions';
-import { createBackup, type Backup } from './features/backup/archive';
+import { createBackupBlob, type Backup } from './features/backup/archive';
 import { mergeBook } from './features/backup/merge';
 import { preserveExistingProgress } from './features/statistics/history';
 import {
@@ -622,15 +622,20 @@ function AppContent({
       const records = [];
       for (const book of saved) {
         const file =
-          kind === 'full' && book.local ? await getFile(book.id) : undefined;
-        if (kind === 'full' && book.local && !file)
-          throw new Error(`The file for ${book.title} is unavailable.`);
+          kind === 'full' && book.local
+            ? async () => {
+                const bytes = await getFile(book.id);
+                if (!bytes)
+                  throw new Error(`The file for ${book.title} is unavailable.`);
+                return bytes;
+              }
+            : undefined;
         records.push({ book, file });
       }
       await preserveExistingProgress(saved);
       const activities = await listReadingActivity();
       const protection = sharedPrivacy(privacy.current());
-      const backup = await createBackup(
+      const backup = await createBackupBlob(
         records,
         preferencesRef.current,
         kind,
