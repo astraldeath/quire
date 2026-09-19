@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0]
+
+- Read PDF books with lazy page rendering, neighboring-page preloading, page layouts, bookmarks, and saved progress. Include PDFs in server libraries, backups, and file exports.
+- Offer Quire as a desktop file handler without replacing existing defaults. Open books from your file manager, including when Quire is already running.
+- Sync the current numbered chapter to tracking services while keeping completed chapters separate for reading statistics. Recognize padded titles such as `009—My First Monster`.
+
 ## [0.5.7]
 
 - Show a local-only indicator on books and series when their files are not on the connected server.
