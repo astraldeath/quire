@@ -83,12 +83,15 @@ export function syncNow(): Promise<void> {
     report('Syncing', true);
     try {
       await syncPrivacy();
+      const multipleFolders = await transport.supportsMultipleFolders(
+        initial.account.origin,
+      );
       for (let i = 0; i < 100; i++) {
         const batch = await syncTransaction((s) => ({
           result: {
             account: s.account,
             enabled: s.enabled,
-            request: prepareBatch(s),
+            request: prepareBatch(s, multipleFolders),
           },
         }));
         if (!batch.enabled || !batch.account) return;
@@ -143,8 +146,13 @@ export function syncNow(): Promise<void> {
   return running;
 }
 export async function resolve(record: RemoteRecord, candidate: Candidate) {
-  await syncTransaction((s) => {
-    resolveConflict(s, record, candidate);
+  await syncTransaction((s, books) => {
+    resolveConflict(
+      s,
+      record,
+      candidate,
+      books.find((book) => book.id === record.bookId),
+    );
     return { result: undefined };
   });
   await syncNow();

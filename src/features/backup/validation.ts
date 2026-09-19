@@ -51,9 +51,15 @@ export function validateBook(value: unknown): Book {
           ] as const),
         }
       : {}),
-    ...(b.folder !== undefined
-      ? { folder: validFolder(b.folder) ? b.folder : fail() }
-      : {}),
+    ...(b.folders !== undefined
+      ? validFolders(b.folders)
+        ? { folders: [...b.folders], folder: b.folders[0] ?? '' }
+        : fail()
+      : b.folder !== undefined
+        ? validFolder(b.folder)
+          ? { folders: b.folder ? [b.folder] : [], folder: b.folder }
+          : fail()
+        : {}),
   };
   if (b.position !== undefined) {
     const p = obj(b.position);
@@ -160,4 +166,4 @@ export function validatePreferences(value: unknown): Preferences {
     },
   };
 }
-import { validFolder } from '../library/folders';
+import { validFolder, validFolders } from '../library/folders';

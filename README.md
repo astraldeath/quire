@@ -18,7 +18,7 @@ Supported formats: reflowable EPUB, CBZ comics, FB2 (including FBZ and FB2.ZIP),
 
 Comic reading settings offer single pages, double-page spreads, and continuous Webtoon scrolling, with left-to-right or right-to-left navigation. Taps and swipes can be enabled independently.
 
-Use **Add books > Import folder** to import supported files from a directory and retain its subfolders. Use **Move to folder** on a book or a selection to organize the library. Folders contain books; empty folders disappear. Folder assignments are included in backups and sync when a server is connected. **Export** saves the original book file.
+Use **Add books > Import folder** to import supported files from a directory and retain its subfolders. Folder cards appear alongside unfiled books; open a card to browse its contents. **Folders** in book actions or the selection toolbar lets a book belong to several folders without duplicating its file or reading progress. Empty folders disappear. Search and Reading include books inside folders. Memberships are included in backups and server sync; update Quire Server before syncing multiple-folder memberships. **Export** saves the original book file.
 
 ## iOS sideloading sources
 

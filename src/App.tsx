@@ -3,8 +3,17 @@ import {
   protectOpenBook,
 } from './features/storage/manager';
 import { ActionPopover, type ActionAnchor } from './components/ActionPopover';
+import { FolderCard } from './features/library/FolderCard';
+import {
+  FolderMembershipDialog,
+  type FolderChanges,
+} from './features/library/FolderMembershipDialog';
 import { FolderDialog } from './features/library/FolderDialog';
 import {
+  bookFolders,
+  bookInFolder,
+  bookDirectlyInFolder,
+  normalizeFolders,
   childFolders,
   folderPaths,
   folderContains,
@@ -55,7 +64,6 @@ import {
   type CSSProperties,
 } from 'react';
 import {
-  Folder,
   FolderInput,
   Pencil,
   ArrowLeft,
@@ -304,6 +312,7 @@ function AppContent({
           directory ? file.webkitRelativePath : '',
           destination,
         );
+        result.book.folders = result.book.folder ? [result.book.folder] : [];
         await enqueue(async () => {
           const book = restoreImport(
             result.book,
@@ -692,7 +701,7 @@ function AppContent({
       ? booksRef.current.filter(
           (b) =>
             b.series === entry.books[0].series &&
-            folderContains(folder, b.folder ?? '') &&
+            bookInFolder(b, folder) &&
             visibleBook(privacy.state, b.id, hiddenBooks, privacy.unlocked),
         )
       : entry.books;
@@ -742,8 +751,7 @@ function AppContent({
   );
   const folders = useMemo(() => folderPaths(scopedBooks), [scopedBooks]);
   const folderBooks = useMemo(
-    () =>
-      scopedBooks.filter((book) => folderContains(folder, book.folder ?? '')),
+    () => scopedBooks.filter((book) => bookInFolder(book, folder)),
     [scopedBooks, folder],
   );
   const goFolder = (path: string) => {
@@ -761,61 +769,103 @@ function AppContent({
       setReading(false);
     }
   };
-  const moveBooks = async (ids: string[], path: string, rename = false) => {
+  const updateBookFolders = async (
+    ids: string[],
+    update: (paths: string[]) => string[],
+  ) => {
     if (
       ids.some((id) => !privacy.access(id)) &&
       !(await privacy.authenticate())
     )
-      return;
-    path = normalizeFolder(path);
-    if (rename && path !== folder && folders.includes(path))
-      throw new Error('A folder with this name already exists.');
-    if (rename && path !== folder && folderContains(folder, path))
-      throw new Error('Choose a location outside this folder.');
-    // Validate every descendant before changing any book.
-    const destinations = new Map(
-      ids.map((id) => {
-        const book = booksRef.current.find((book) => book.id === id);
-        return [
-          id,
-          normalizeFolder(
-            rename ? path + (book?.folder ?? '').slice(folder.length) : path,
-          ),
-        ];
-      }),
-    );
+      throw new Error('Unlock private books to change their folders.');
     await enqueue(async () => {
-      for (const id of ids) {
-        if (!privacy.access(id))
-          throw new Error('Unlock private books before moving them.');
+      const updates = ids.flatMap((id) => {
         const book = booksRef.current.find((book) => book.id === id);
-        if (!book) continue;
-        const next = {
-          ...book,
-          folder: destinations.get(id)!,
-        };
-        await saveBook(next);
-        replace(next);
+        if (!book) return [];
+        if (!privacy.access(id))
+          throw new Error('Unlock private books to change their folders.');
+        const paths = normalizeFolders(update(bookFolders(book)));
+        if (JSON.stringify(paths) === JSON.stringify(bookFolders(book)))
+          return [];
+        return [{ ...book, folders: paths, folder: paths[0] ?? '' }];
+      });
+      for (const book of updates) {
+        await saveBook(book);
+        replace(book);
       }
     });
     setSelected([]);
-    if (rename) goFolder(path);
+  };
+  const setBookFolders = (ids: string[], changes: FolderChanges) =>
+    updateBookFolders(ids, (paths) => {
+      const next = paths.filter((path) => changes[path] !== false);
+      for (const [path, included] of Object.entries(changes))
+        if (included && !next.includes(path)) next.push(path);
+      return next;
+    });
+  const renameBooksFolder = async (path: string) => {
+    path = normalizeFolder(path);
+    if (!path) throw new Error('Enter a folder name.');
+    if (path !== folder && folders.includes(path))
+      throw new Error('A folder with this name already exists.');
+    if (path !== folder && folderContains(folder, path))
+      throw new Error('Choose a location outside this folder.');
+    await updateBookFolders(
+      scopedBooks
+        .filter((book) => bookInFolder(book, folder))
+        .map((book) => book.id),
+      (paths) =>
+        paths.map((current) =>
+          folderContains(folder, current)
+            ? path + current.slice(folder.length)
+            : current,
+        ),
+    );
+    goFolder(path);
   };
   const deferredQuery = useDeferredValue(query);
+  const browsingFolders =
+    !group &&
+    !reading &&
+    !deferredQuery.trim() &&
+    status === 'all' &&
+    availability === 'all';
+  const shownFolders = browsingFolders ? childFolders(folders, folder) : [];
+  const displayedBooks = useMemo(
+    () =>
+      browsingFolders
+        ? folderBooks.filter((book) => bookDirectlyInFolder(book, folder))
+        : folderBooks,
+    [folderBooks, browsingFolders, folder],
+  );
+  const folderHref = (path: string) => {
+    const params = new URLSearchParams(location.search);
+    params.delete('q');
+    if (path) params.set('folder', path);
+    else params.delete('folder');
+    return '/library' + (params.size ? '?' + params.toString() : '');
+  };
   const shelfPreferences = group
     ? { ...preferences, sort: seriesSort }
     : preferences;
   const entries = useMemo(
     () =>
-      entriesFor(folderBooks, shelfPreferences, deferredQuery, reading, group, {
-        status:
-          reading && status === 'all'
-            ? undefined
-            : (status as 'all' | 'unread' | 'reading' | 'finished'),
-        availability: availability as 'all' | 'downloaded' | 'cloud',
-      }),
+      entriesFor(
+        displayedBooks,
+        shelfPreferences,
+        deferredQuery,
+        reading,
+        group,
+        {
+          status:
+            reading && status === 'all'
+              ? undefined
+              : (status as 'all' | 'unread' | 'reading' | 'finished'),
+          availability: availability as 'all' | 'downloaded' | 'cloud',
+        },
+      ),
     [
-      folderBooks,
+      displayedBooks,
       preferences,
       seriesSort,
       deferredQuery,
@@ -951,11 +1001,13 @@ function AppContent({
         </ActionPopover>
       )}
       {moveIds && (
-        <FolderDialog
+        <FolderMembershipDialog
           paths={folders}
-          initial={folder}
+          memberships={books
+            .filter((book) => moveIds.includes(book.id))
+            .map(bookFolders)}
           onClose={() => setMoveIds(null)}
-          onSave={(path) => moveBooks(moveIds, path)}
+          onSave={(changes) => setBookFolders(moveIds, changes)}
         />
       )}
       {renameFolder && (
@@ -964,15 +1016,7 @@ function AppContent({
           paths={folders}
           initial={folder}
           onClose={() => setRenameFolder(false)}
-          onSave={(path) =>
-            moveBooks(
-              scopedBooks
-                .filter((book) => folderContains(folder, book.folder ?? ''))
-                .map((book) => book.id),
-              path,
-              true,
-            )
-          }
+          onSave={renameBooksFolder}
         />
       )}
       {opened && privacy.access(opened.book.id) ? (
@@ -1087,7 +1131,7 @@ function AppContent({
                   </span>
                 </button>
               )}
-            {!group && !reading && (folders.length > 0 || !!folder) && (
+            {!group && !reading && !!folder && (
               <section className="folder-navigation" aria-label="Folders">
                 {folder && (
                   <div className="folder-breadcrumbs">
@@ -1112,24 +1156,6 @@ function AppContent({
                     >
                       <Pencil />
                     </button>
-                  </div>
-                )}
-                {childFolders(folders, folder).length > 0 && (
-                  <div className="folder-list">
-                    {childFolders(folders, folder).map((path) => (
-                      <button key={path} onClick={() => goFolder(path)}>
-                        <Folder />
-                        <span>{path.split('/').at(-1)}</span>
-                        <span className="muted">
-                          {
-                            scopedBooks.filter((book) =>
-                              folderContains(path, book.folder ?? ''),
-                            ).length
-                          }
-                        </span>
-                        <ArrowRight />
-                      </button>
-                    ))}
                   </div>
                 )}
               </section>
@@ -1165,7 +1191,9 @@ function AppContent({
                           : 'All books')}
                 </h1>
                 <span className="muted">
-                  {entries.reduce((n, e) => n + e.books.length, 0)}
+                  {browsingFolders
+                    ? folderBooks.length
+                    : entries.reduce((n, e) => n + e.books.length, 0)}
                 </span>
               </div>
             </div>
@@ -1304,7 +1332,7 @@ function AppContent({
                   onClick={() => setMoveIds(activeIds)}
                 >
                   <FolderInput />
-                  Move
+                  Folders
                 </button>
                 <PrivacyMenu ids={activeIds} onDone={() => setSelected([])} />
                 <button
@@ -1363,7 +1391,7 @@ function AppContent({
                 <LoaderCircle className="spin" />
                 <p>Loading library</p>
               </div>
-            ) : !entries.length ? (
+            ) : !entries.length && !shownFolders.length ? (
               <div className="empty">
                 <BookOpen />
                 <h2>
@@ -1418,6 +1446,17 @@ function AppContent({
               <div
                 className={`books ${preferences.view} ${group ? 'series-volumes' : ''}`}
               >
+                {shownFolders.map((path) => (
+                  <FolderCard
+                    key={`folder:${path}`}
+                    path={path}
+                    books={scopedBooks.filter((book) =>
+                      bookInFolder(book, path),
+                    )}
+                    href={hostedWeb ? folderHref(path) : undefined}
+                    onOpen={() => goFolder(path)}
+                  />
+                ))}
                 {entries.map((entry) => {
                   const book = entry.books[0];
                   return (

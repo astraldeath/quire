@@ -15,6 +15,45 @@ import {
 } from './storage';
 
 describe('durable library lifecycle', () => {
+  it('migrates old folder records on read and save and preserves memberships during file download', async () => {
+    await listBooks();
+    const connection = await openDB('quire-library');
+    const legacy: Book = {
+      id: 'legacy-folders',
+      title: 'Legacy',
+      author: '',
+      series: '',
+      volume: null,
+      cover: '',
+      addedAt: 1,
+      local: false,
+      folder: 'Old/Folder',
+    };
+    await connection.put('books', { id: legacy.id, metadata: legacy });
+    const migrated = (await listBooks()).find((b) => b.id === legacy.id)!;
+    expect(migrated).toMatchObject({
+      folders: ['Old/Folder'],
+      folder: 'Old/Folder',
+    });
+    await saveBook({ ...migrated, folders: ['A', 'B'], folder: 'stale' });
+    expect((await connection.get('books', legacy.id)).metadata).toMatchObject({
+      folders: ['A', 'B'],
+      folder: 'A',
+    });
+    await putBook({ ...legacy, title: 'File metadata' }, new Uint8Array([1]));
+    expect((await listBooks()).find((b) => b.id === legacy.id)).toMatchObject({
+      title: 'Legacy',
+      folders: ['A', 'B'],
+      folder: 'A',
+      local: true,
+    });
+    await saveBook({ ...migrated, folders: [], folder: 'Old/Folder' });
+    expect((await listBooks()).find((b) => b.id === legacy.id)).toMatchObject({
+      folders: [],
+      folder: '',
+    });
+    connection.close();
+  });
   it('retains organization and resume data after removal and identical reimport', async () => {
     const book: Book = {
       id: 'sha256-fixture',

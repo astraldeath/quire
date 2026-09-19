@@ -13,6 +13,7 @@ import {
   type ReadingActivity,
 } from './features/statistics/model';
 import { emptySync, queueChanges, type SyncState } from './features/sync/model';
+import { migrateBookFolders } from './features/library/folders';
 interface Record {
   id: string;
   metadata: Book;
@@ -143,15 +144,19 @@ export async function listBooks(): Promise<Book[]> {
     ).select<{ metadata: string; local: number }[]>(
       'SELECT metadata, file IS NOT NULL AS local FROM books',
     );
-    return rows.map((r) => ({
-      ...JSON.parse(r.metadata),
-      local: Boolean(r.local),
-    }));
+    return rows.map((r) =>
+      migrateBookFolders({
+        ...JSON.parse(r.metadata),
+        local: Boolean(r.local),
+      }),
+    );
   }
-  return (await (await idb()).getAll('books')).map((r) => ({
-    ...r.metadata,
-    local: r.metadata.local,
-  }));
+  return (await (await idb()).getAll('books')).map((r) =>
+    migrateBookFolders({
+      ...r.metadata,
+      local: r.metadata.local,
+    }),
+  );
 }
 export async function loadSync(): Promise<SyncState> {
   if (isTauri()) {
@@ -176,6 +181,10 @@ async function commit(
   deleted: string[] = [],
   activities: ReadingActivity[] = [],
 ) {
+  writes = writes.map((write) => ({
+    ...write,
+    book: migrateBookFolders(write.book),
+  }));
   const history = uniqueActivity(activities);
   if (isTauri()) {
     if (history.length) await activitySQL();

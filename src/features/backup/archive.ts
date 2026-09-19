@@ -63,7 +63,7 @@ export async function createBackup(
     createdAt: Date.now(),
     kind,
     preferences,
-    books: records.map((r) => r.book),
+    books: records.map((r) => validateBook(r.book)),
     files: files.map((r) => r.book.id),
     activities: validateActivities(activities),
     ...(privacy ? { privacy: validatePrivacy(privacy) } : {}),

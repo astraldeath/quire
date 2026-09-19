@@ -2,6 +2,16 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { Account, SyncResponse } from './model';
 import { SyncConflictError } from './errors';
 const tokens = new Map<string, string>();
+const folderCapabilities = new Map<
+  string,
+  { supported: boolean; checkedAt: number }
+>();
+export async function supportsMultipleFolders(origin: string) {
+  const cached = folderCapabilities.get(origin);
+  if (cached && Date.now() - cached.checkedAt < 30000) return cached.supported;
+  await discover(origin);
+  return folderCapabilities.get(origin)!.supported;
+}
 export async function serverUpdatesCall(account: Account): Promise<unknown> {
   return isTauri()
     ? invoke('updates_call', {
@@ -150,6 +160,12 @@ export async function discover(origin: string) {
     typeof v?.name !== 'string'
   )
     throw new Error('This server is not compatible with Quire.');
+  folderCapabilities.set(origin, {
+    supported:
+      Array.isArray(v.capabilities) &&
+      v.capabilities.includes('multiple-folders'),
+    checkedAt: Date.now(),
+  });
   return { name: v.name.slice(0, 100), origin };
 }
 export async function login(

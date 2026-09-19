@@ -1,6 +1,42 @@
 import { it, expect } from 'vitest';
 import { validateResponse } from '../src/features/sync/validation';
 import { serverOrigin } from '../src/features/sync/transport';
+it('validates complete folder arrays before accepting remote records', () => {
+  const response = (folders: unknown) => ({
+    results: [],
+    cursor: 1,
+    hasMore: false,
+    changes: [
+      {
+        bookId: 'a'.repeat(64),
+        kind: 'book',
+        recordId: 'default',
+        revision: 1,
+        cursor: 1,
+        candidates: [
+          {
+            operationId: 'op',
+            deleted: false,
+            createdAt: 1,
+            value: { title: 'Book', folders },
+          },
+        ],
+      },
+    ],
+  });
+  for (const folders of [[], ['A', 'B/C']])
+    expect(() => validateResponse(response(folders), 0, [])).not.toThrow();
+  for (const folders of [
+    null,
+    '',
+    [''],
+    ['A', 'A'],
+    [' A '],
+    ['../B'],
+    Array.from({ length: 33 }, (_, i) => String(i)),
+  ])
+    expect(() => validateResponse(response(folders), 0, [])).toThrow();
+});
 it('rejects invalid remote data before advancing cursors or applying notes', () => {
   const good = { results: [], changes: [], cursor: 0, hasMore: false };
   expect(validateResponse(good, 0, [])).toEqual(good);

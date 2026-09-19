@@ -104,13 +104,18 @@ describe('format and folder backup transport', () => {
       await reader.close();
     }
     const restored = await readBackup(bytes);
-    expect(restored.records).toEqual(records);
+    expect(restored.records).toEqual(
+      records.map(({ book, file }) => ({
+        book: { ...book, folders: [book.folder] },
+        file,
+      })),
+    );
     const dataOnly = await readBackup(
       await createBackup(records, defaults, 'data'),
     );
     expect(dataOnly.records).toEqual(
       records.map(({ book }) => ({
-        book: { ...book, local: false },
+        book: { ...book, folders: [book.folder], local: false },
         file: undefined,
       })),
     );
@@ -185,6 +190,7 @@ describe('format and folder sync transport', () => {
       expect(metadata.value).toMatchObject({
         format,
         folder: 'Fiction/Classics',
+        folders: ['Fiction/Classics'],
       });
       const received = emptySync();
       acceptResponse(
@@ -194,11 +200,12 @@ describe('format and folder sync transport', () => {
       const [local] = applyRecords(received, [
         { ...book, folder: 'Old', title: 'Old title' },
       ]);
-      expect(local).toEqual(book);
+      expect(local).toEqual({ ...book, folders: ['Fiction/Classics'] });
       const [remote] = applyRecords(received, []);
       expect(remote).toMatchObject({
         format,
         folder: 'Fiction/Classics',
+        folders: ['Fiction/Classics'],
         local: false,
       });
     },
