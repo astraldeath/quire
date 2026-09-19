@@ -108,6 +108,7 @@ export class ReadingCollector {
     if (previous?.key === next.key && previous.size === next.size) {
       if (!['page', 'snap', 'scroll'].includes(next.reason ?? '')) {
         this.dwell = this.unflushedDwell = 0;
+        this.chapterDwell = 0;
         this.sampleEligible = false;
       }
       this.page = next;
@@ -146,7 +147,7 @@ export class ReadingCollector {
         next.fraction > previous.fraction) ||
         (next.index === previous.index + 1 && next.forwardIntent));
     if (
-      continuousBoundary &&
+      (continuousBoundary || (forward && previous.chapter !== next.chapter)) &&
       this.available &&
       now - this.interaction <= IDLE_MS &&
       this.chapterDwell >= MIN_DWELL_MS
@@ -173,10 +174,10 @@ export class ReadingCollector {
         );
         this.sampled += this.unflushedDwell;
       }
-      if (previous.chapter !== next.chapter) this.complete(previous.chapter);
     }
     if (
       previous?.chapter !== next.chapter ||
+      (previous && previous.size > 0 && !forward) ||
       (!['scroll', 'page', 'snap'].includes(next.reason ?? '') &&
         !next.forwardIntent)
     )

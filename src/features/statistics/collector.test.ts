@@ -166,3 +166,39 @@ describe('reading activity collector', () => {
     expect(records.reduce((n, r) => n + r.activeMs, 0)).toBe(120000);
   });
 });
+
+it('counts chapter dwell across pages when the final page is short', () => {
+  const c = setup();
+  c.relocate(page({ fraction: 0.8 }), 0);
+  c.relocate(page({ key: 'last', fraction: 0.9, words: 5 }), 15000);
+  c.relocate(
+    page({
+      key: 'next',
+      index: 1,
+      chapter: 1002,
+      reason: 'anchor',
+      forwardIntent: true,
+    }),
+    17000,
+  );
+  const records = c.flush(17000);
+  expect(records.flatMap((r) => r.chapters)).toEqual([1001]);
+  expect(records.reduce((n, r) => n + r.words, 0)).toBe(100);
+});
+
+it('does not carry chapter dwell through a jump to the final page', () => {
+  const c = setup();
+  c.relocate(page(), 0);
+  c.relocate(page({ key: 'last', fraction: 0.9 }), 15000);
+  c.relocate(
+    page({
+      key: 'next',
+      index: 1,
+      chapter: 1002,
+      reason: 'anchor',
+      forwardIntent: true,
+    }),
+    17000,
+  );
+  expect(c.flush(17000)[0].chapters).toEqual([]);
+});
