@@ -140,11 +140,22 @@ export async function openBook(
 ): Promise<{ publication: ReaderBook; structure: BookStructure }> {
   if (!bytes.length) throw new Error('Book is empty.');
   if (format === 'epub') {
-    const archive = await openArchive(bytes);
-    return {
-      publication: await new EPUB(archive).init(),
-      structure: detectBookStructure(archive),
-    };
+    const archive = await openArchive(bytes, { deferMedia: true });
+    let publication: ReaderBook | undefined;
+    try {
+      publication = await new EPUB(archive).init();
+      const structure = detectBookStructure(archive);
+      const destroy = publication.destroy.bind(publication);
+      publication.destroy = () => {
+        destroy();
+        void archive.close();
+      };
+      return { publication, structure };
+    } catch (error) {
+      publication?.destroy();
+      await archive.close();
+      throw error;
+    }
   }
   if (format === 'cbz')
     return { publication: await comic(bytes), structure: { chapters: [] } };

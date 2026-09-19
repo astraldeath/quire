@@ -56,8 +56,9 @@ export async function openComicArchive(bytes: Uint8Array) {
     await reader.close();
     throw error;
   }
+  const collator = new Intl.Collator('en', { numeric: true });
   const names = [...entries.keys()].sort(
-    (a, b) => a.localeCompare(b, 'en', { numeric: true }) || a.localeCompare(b),
+    (a, b) => collator.compare(a, b) || a.localeCompare(b),
   );
   const cache = new Map<string, Blob>();
   let cacheSize = 0;
