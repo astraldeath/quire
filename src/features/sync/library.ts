@@ -41,16 +41,18 @@ export function ensureBookFile(id: string): Promise<Uint8Array> {
   const existing = downloads.get(id);
   if (existing) return existing;
   const task = (async () => {
-    try {
-      const account = (await loadSync()).account;
-      if (account)
-        writePolicy(account, {
-          accessed: { ...readPolicy(account).accessed, [id]: Date.now() },
-        });
-    } catch {
-      /* Storage-policy persistence must not prevent reading. */
-    }
-    const local = await getFile(id);
+    const access = (async () => {
+      try {
+        const account = (await loadSync()).account;
+        if (account)
+          writePolicy(account, {
+            accessed: { ...readPolicy(account).accessed, [id]: Date.now() },
+          });
+      } catch {
+        /* Storage-policy persistence must not prevent reading. */
+      }
+    })();
+    const [local] = await Promise.all([getFile(id), access]);
     if (local) return local;
     const state = await loadSync();
     if (!state.enabled || !state.account)

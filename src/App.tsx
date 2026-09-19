@@ -369,7 +369,7 @@ function AppContent({
       await queue.current;
       const bytes = await ensureBookFile(book.id);
       if (!privacy.access(book.id)) return;
-      refresh(await listBooks());
+      if (!book.local) refresh(await listBooks());
       if (!bytes)
         throw new Error(
           'The local book file is unavailable. Import the same file again to restore it.',
