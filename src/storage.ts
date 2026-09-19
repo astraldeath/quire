@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import Database from '@tauri-apps/plugin-sql';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
@@ -109,7 +109,13 @@ const browser = (): Promise<IDBPDatabase<LibraryDB>> =>
 let browserPromise: ReturnType<typeof browser> | undefined;
 const idb = () => (browserPromise ??= browser());
 let nativePromise: Promise<Database> | undefined;
-const sql = () => (nativePromise ??= Database.load('sqlite:quire.db'));
+const sql = () =>
+  (nativePromise ??= invoke('prepare_library')
+    .catch((error) => {
+      nativePromise = undefined;
+      throw error;
+    })
+    .then(() => Database.load('sqlite:quire.db')));
 let queue: Promise<unknown> = Promise.resolve();
 export async function flushStorage(): Promise<void> {
   await queue;

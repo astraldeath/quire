@@ -3302,6 +3302,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-deep-link",
@@ -3312,6 +3313,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-sql",
  "tauri-plugin-updater",
+ "tempfile",
  "tokio",
 ]
 

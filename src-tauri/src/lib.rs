@@ -4,6 +4,7 @@ mod updates;
 mod epub_export;
 mod sync;
 mod tracking;
+mod migrations;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 #[cfg(desktop)]
@@ -33,13 +34,13 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![desktop::desktop_window, updates::updates_info, sync::updates_call, backup::export_backup, epub_export::export_epub, sync::sync_discover, sync::sync_login, sync::sync_call, sync::statistics_call, sync::privacy_call, sync::sync_logout, sync::sync_files, sync::sync_upload, sync::sync_download, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
+        .invoke_handler(tauri::generate_handler![migrations::prepare_library, desktop::desktop_window, updates::updates_info, sync::updates_call, backup::export_backup, epub_export::export_epub, sync::sync_discover, sync::sync_login, sync::sync_call, sync::statistics_call, sync::privacy_call, sync::sync_logout, sync::sync_files, sync::sync_upload, sync::sync_download, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
         .plugin(tauri_plugin_sql::Builder::default().add_migrations("sqlite:quire.db", vec![Migration {
             version: 1,
             description: "local library and device preferences",
-            sql: "CREATE TABLE books (id TEXT PRIMARY KEY NOT NULL, metadata TEXT NOT NULL, file TEXT); CREATE TABLE preferences (id INTEGER PRIMARY KEY CHECK (id = 1), value TEXT NOT NULL);",
+            sql: migrations::LIBRARY_SQL,
             kind: MigrationKind::Up,
-        }, Migration { version: 2, description: "atomic reading sync outbox", sql: include_str!("sync.sql"), kind: MigrationKind::Up }]).build())
+        }, Migration { version: 2, description: "atomic reading sync outbox", sql: migrations::sync_sql(), kind: MigrationKind::Up }]).build())
         .run(tauri::generate_context!())
         .expect("failed to run Quire");
 }
