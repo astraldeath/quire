@@ -4,6 +4,7 @@ import { Lock } from 'lucide-react';
 import { Switch } from '../../components/Controls';
 import { usePrivacy } from './Privacy';
 import { credential } from './model';
+import { ScreenCaptureSettings } from './ScreenCaptureSettings';
 export function PrivacySettings() {
   const p = usePrivacy();
   const [biometric, setBiometric] = useState(false);
@@ -144,6 +145,7 @@ export function PrivacySettings() {
           />
         )}
       </section>
+      <ScreenCaptureSettings />
       {error && (
         <p className="error" role="alert">
           {error}

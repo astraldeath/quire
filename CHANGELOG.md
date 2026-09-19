@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add a device-local desktop screen capture setting under Privacy, with Windows capture exclusion, limited macOS protection, and explicit Linux availability information.
+
 ## [0.5.5]
 
 - Open books faster by deferring EPUB media extraction, pipelining native file reads, and reducing library and chapter-index work.
