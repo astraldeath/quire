@@ -15,9 +15,11 @@ import {
 } from './domain/book-structure';
 import type { Book } from './domain/models';
 
-export type BookFormat = 'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3';
-export const BOOK_ACCEPT = '.epub,.cbz,.fb2,.fb2.zip,.fbz,.mobi,.azw3';
+export type BookFormat =
+  'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3' | 'pdf';
+export const BOOK_ACCEPT = '.epub,.cbz,.fb2,.fb2.zip,.fbz,.mobi,.azw3,.pdf';
 export const BOOK_MIME: Record<BookFormat, string> = {
+  pdf: 'application/pdf',
   epub: 'application/epub+zip',
   cbz: 'application/vnd.comicbook+zip',
   fb2: 'application/x-fictionbook+xml',
@@ -27,7 +29,7 @@ export const BOOK_MIME: Record<BookFormat, string> = {
 };
 export function inferBookFormat(name: string): BookFormat | undefined {
   if (/\.(?:fb2\.zip|fbz)$/i.test(name)) return 'fbz';
-  return /\.(epub|cbz|fb2|mobi|azw3)$/i.exec(name)?.[1].toLowerCase() as
+  return /\.(epub|cbz|fb2|mobi|azw3|pdf)$/i.exec(name)?.[1].toLowerCase() as
     BookFormat | undefined;
 }
 interface Section {
@@ -139,6 +141,10 @@ export async function openBook(
   format: BookFormat = 'epub',
 ): Promise<{ publication: ReaderBook; structure: BookStructure }> {
   if (!bytes.length) throw new Error('Book is empty.');
+  if (format === 'pdf') {
+    const { openPdf } = await import('./pdf');
+    return { publication: await openPdf(bytes), structure: { chapters: [] } };
+  }
   if (format === 'epub') {
     const archive = await openArchive(bytes, { deferMedia: true });
     let publication: ReaderBook | undefined;
@@ -257,7 +263,7 @@ export async function importBook(
   const format = inferBookFormat(file.name);
   if (!format)
     throw new Error(
-      'Supported formats: EPUB, CBZ, FB2, MOBI and AZW3 (DRM-free).',
+      'Supported formats: EPUB, PDF, CBZ, FB2, MOBI and AZW3 (DRM-free).',
     );
   if (format === 'epub') {
     const result = await importEpub(file);
@@ -269,7 +275,7 @@ export async function importBook(
   try {
     const title =
       publication.metadata?.title ||
-      file.name.replace(/\.(fb2\.zip|epub|cbz|fb2|fbz|mobi|azw3)$/i, '');
+      file.name.replace(/\.(fb2\.zip|epub|cbz|fb2|fbz|mobi|azw3|pdf)$/i, '');
     const authors = publication.metadata?.author;
     const author =
       typeof authors === 'string'

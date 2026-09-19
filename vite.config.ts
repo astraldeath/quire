@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { pdfAssets } from './scripts/pdf-assets.ts';
 import { hardenFoliate } from './scripts/foliate-transform.ts';
 export default defineConfig(({ mode }) => ({
   define: {
@@ -14,6 +15,7 @@ export default defineConfig(({ mode }) => ({
       transform: (code, id) => hardenFoliate(code, id, mode === 'hosted'),
     },
     react(),
+    pdfAssets(),
   ],
   optimizeDeps: { exclude: ['foliate-js'] },
   clearScreen: false,

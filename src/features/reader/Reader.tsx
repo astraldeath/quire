@@ -254,7 +254,7 @@ export function Reader({
       window.removeEventListener('pageshow', visibility);
       flushActivity();
     });
-    if (book.format === 'cbz') {
+    if (book.format === 'cbz' || book.format === 'pdf') {
       setReady(false);
       setError('');
       setComic(null);
@@ -273,7 +273,7 @@ export function Reader({
           performance.now(),
         );
       };
-      void openBook(bytes, 'cbz')
+      void openBook(bytes, book.format)
         .then((opened) => {
           epub = opened.publication;
           if (cancelled) {
@@ -289,7 +289,7 @@ export function Reader({
             setError(
               error instanceof Error
                 ? error.message
-                : 'Unable to read this comic.',
+                : 'Unable to read this book.',
             );
         });
       return () => {
@@ -533,7 +533,7 @@ export function Reader({
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         navigate(
-          book.format === 'cbz' &&
+          (book.format === 'cbz' || book.format === 'pdf') &&
             current.current.preferences.comicDirection === 'rtl'
             ? 'prev'
             : 'next',
@@ -542,7 +542,7 @@ export function Reader({
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         navigate(
-          book.format === 'cbz' &&
+          (book.format === 'cbz' || book.format === 'pdf') &&
             current.current.preferences.comicDirection === 'rtl'
             ? 'next'
             : 'prev',
@@ -554,7 +554,8 @@ export function Reader({
   }, [panel]);
   const c = colors(preferences);
   const comicRTL =
-    book.format === 'cbz' && preferences.comicDirection === 'rtl';
+    (book.format === 'cbz' || book.format === 'pdf') &&
+    preferences.comicDirection === 'rtl';
   return (
     <section
       ref={root}
@@ -675,33 +676,34 @@ export function Reader({
             </p>
           )}
           <div className="reader-pages" ref={host}>
-            {book.format === 'cbz' && comic?.comicPages && (
-              <ComicPages
-                key={book.id}
-                pages={comic.comicPages}
-                position={book.position}
-                preferences={preferences}
-                navigationRef={comicRef}
-                onCenterTap={toggleChrome}
-                onNavigate={() => {
-                  setChromeVisible(false);
-                  setContentsOpen(false);
-                  setPanel(null);
-                }}
-                onPosition={(position) => {
-                  setComicPosition(position);
-                  setFraction(position.fraction);
-                  setChapter(position.section);
-                  setActiveHref(
-                    comic.comicPages![
-                      comicPageAt(position, comic.comicPages!.length)
-                    ]?.name ?? '',
-                  );
-                  comicActivity.current?.(position, comic.comicPages!.length);
-                  current.current.onPosition(position);
-                }}
-              />
-            )}
+            {(book.format === 'cbz' || book.format === 'pdf') &&
+              comic?.comicPages && (
+                <ComicPages
+                  key={book.id}
+                  pages={comic.comicPages}
+                  position={book.position}
+                  preferences={preferences}
+                  navigationRef={comicRef}
+                  onCenterTap={toggleChrome}
+                  onNavigate={() => {
+                    setChromeVisible(false);
+                    setContentsOpen(false);
+                    setPanel(null);
+                  }}
+                  onPosition={(position) => {
+                    setComicPosition(position);
+                    setFraction(position.fraction);
+                    setChapter(position.section);
+                    setActiveHref(
+                      comic.comicPages![
+                        comicPageAt(position, comic.comicPages!.length)
+                      ]?.name ?? '',
+                    );
+                    comicActivity.current?.(position, comic.comicPages!.length);
+                    current.current.onPosition(position);
+                  }}
+                />
+              )}
           </div>
           <div className="immersive-chapter" aria-hidden="true">
             {chapter}
@@ -757,7 +759,7 @@ export function Reader({
         />
       )}
       {ready &&
-        book.format === 'cbz' &&
+        (book.format === 'cbz' || book.format === 'pdf') &&
         comic?.comicPages &&
         toolbar.current && (
           <ComicBookmarks
@@ -788,7 +790,7 @@ export function Reader({
             </button>
           </div>
           <ReadingSettings
-            comic={book.format === 'cbz'}
+            comic={book.format === 'cbz' || book.format === 'pdf'}
             preferences={preferences}
             onPreferences={onPreferences}
           />

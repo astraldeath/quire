@@ -62,7 +62,7 @@ it('indexes large CBZ archives and extracts high resolution pages only when requ
     useWebWorkers: false,
     level: 0,
   });
-  // A valid 3072 × 3072, 24-bit BMP (27 MB), stored without ZIP compression.
+  // A valid 3072 Ã— 3072, 24-bit BMP (27 MB), stored without ZIP compression.
   const page = new Uint8Array(54 + 3072 * 3072 * 3);
   const header = new DataView(page.buffer);
   page.set([0x42, 0x4d]);
@@ -120,7 +120,7 @@ it('opens zipped FB2 and rejects ambiguous archives and unsupported extensions',
     openBook(await zip({ 'a.fb2': fb2, 'b.fb2': fb2 }), 'fbz'),
   ).rejects.toThrow(/exactly one/);
   await expect(
-    importBook({ name: 'book.pdf', size: 1 } as File),
+    importBook({ name: 'book.docx', size: 1 } as File),
   ).rejects.toThrow(/Supported formats/);
 });
 it('sanitizes Kindle HTML before parsing, retaining local resources and navigation', () => {
