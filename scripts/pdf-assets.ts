@@ -4,11 +4,14 @@ import type { Plugin } from 'vite';
 
 // Keep PDF fonts and character maps local in both hosted and native builds.
 export function pdfAssets(): Plugin {
-  const assets = ['cmaps', 'standard_fonts'].flatMap((directory) =>
-    readdirSync(resolve('node_modules/pdfjs-dist', directory)).map((name) => ({
-      name: `assets/pdfjs/${directory}/${name}`,
-      path: resolve('node_modules/pdfjs-dist', directory, name),
-    })),
+  const assets = ['cmaps', 'standard_fonts', 'wasm', 'iccs'].flatMap(
+    (directory) =>
+      readdirSync(resolve('node_modules/pdfjs-dist', directory)).map(
+        (name) => ({
+          name: `assets/pdfjs/${directory}/${name}`,
+          path: resolve('node_modules/pdfjs-dist', directory, name),
+        }),
+      ),
   );
   return {
     name: 'quire-pdf-assets',
@@ -18,7 +21,12 @@ export function pdfAssets(): Plugin {
           (item) => '/' + item.name === request.url?.split('?')[0],
         );
         if (!asset) return next();
-        response.setHeader('Content-Type', 'application/octet-stream');
+        response.setHeader(
+          'Content-Type',
+          asset.name.endsWith('.js')
+            ? 'text/javascript'
+            : 'application/octet-stream',
+        );
         response.end(readFileSync(asset.path));
       });
     },

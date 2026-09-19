@@ -17,6 +17,14 @@ export async function openPdf(bytes: Uint8Array): Promise<ReaderBook> {
       location.href,
     ).href,
     cMapPacked: true,
+    wasmUrl: new URL(
+      `${import.meta.env.BASE_URL}assets/pdfjs/wasm/`,
+      location.href,
+    ).href,
+    iccUrl: new URL(
+      `${import.meta.env.BASE_URL}assets/pdfjs/iccs/`,
+      location.href,
+    ).href,
     standardFontDataUrl: new URL(
       `${import.meta.env.BASE_URL}assets/pdfjs/standard_fonts/`,
       location.href,
