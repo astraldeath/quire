@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0]
+
+- Browse folders as cover cards alongside unfiled books, with nested folders in grid and list views.
+- Add books to multiple folders without duplicating their files, progress, or annotations.
+- Manage folder memberships for individual books, series, or a selection.
+- Preserve existing folders, memberships, and reading data through backups and server sync.
+- Keep search and Reading inclusive of books inside folders, and show folder differences when resolving sync conflicts.
+- Update Quire Server before syncing books assigned to multiple folders.
+
 ## [0.4.0]
 
 - Read comics as single pages, double-page spreads, or a continuous Webtoon strip, in either reading direction.
