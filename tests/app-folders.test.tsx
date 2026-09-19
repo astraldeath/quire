@@ -166,9 +166,7 @@ it('keeps private-only folders and counts out of the visible library', async () 
     }),
   );
   await mount('/library?folder=Shelf');
-  expect(
-    host.querySelector('.books')?.textContent,
-  ).not.toContain('Nested');
+  expect(host.querySelector('.books')?.textContent).not.toContain('Nested');
   expect(host.textContent).not.toContain('Book One');
   expect(host.textContent).toContain('Book Two');
 });
