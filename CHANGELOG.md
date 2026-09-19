@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.7]
 
 - Show a local-only indicator on books and series when their files are not on the connected server.
 
