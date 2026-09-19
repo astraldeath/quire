@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useCallback,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
@@ -29,6 +30,12 @@ function ComicImage({
   dimensions,
   beforeResize,
   onLoad,
+  active,
+  hidden,
+  spreadSide,
+  onNear,
+  onSettled,
+  onReady,
 }: {
   page: Page;
   index: number;
@@ -37,9 +44,15 @@ function ComicImage({
   dimensions: Map<number, number>;
   beforeResize(): () => void;
   onLoad(): void;
+  active: boolean;
+  hidden: boolean;
+  spreadSide?: 'first' | 'last';
+  onNear(index: number, near: boolean): void;
+  onSettled(index: number): void;
+  onReady(index: number): void;
 }) {
   const element = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(!continuous);
+  const [attempt, setAttempt] = useState(0);
   const [src, setSrc] = useState('');
   const [failed, setFailed] = useState(false);
   const [ratio, setRatio] = useState(dimensions.get(index) ?? 0.7);
@@ -51,7 +64,7 @@ function ComicImage({
   useEffect(() => {
     if (!continuous) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setActive(entry.isIntersecting),
+      ([entry]) => onNear(index, entry.isIntersecting),
       {
         root: root.current,
         rootMargin: '120% 0px',
@@ -59,7 +72,7 @@ function ComicImage({
     );
     observer.observe(element.current!);
     return () => observer.disconnect();
-  }, [continuous, root]);
+  }, [continuous, root, index, onNear]);
   useEffect(() => {
     if (!active) {
       setSrc('');
@@ -75,21 +88,34 @@ function ComicImage({
         if (controller.signal.aborted) return;
         url = URL.createObjectURL(blob);
         setSrc(url);
+        onSettled(index);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
+        if (!controller.signal.aborted) {
+          setFailed(true);
+          onSettled(index);
+          onReady(index);
+        }
       });
     return () => {
       controller.abort();
       if (url) URL.revokeObjectURL(url);
     };
-  }, [active, page]);
+  }, [active, page, attempt, index, onSettled, onReady]);
   return (
     <div
       ref={element}
       className="comic-image"
       data-page={index}
-      style={continuous ? { aspectRatio: ratio } : undefined}
+      data-spread-side={spreadSide}
+      aria-hidden={hidden || undefined}
+      style={
+        hidden
+          ? { display: 'none' }
+          : continuous
+            ? { aspectRatio: ratio }
+            : undefined
+      }
     >
       {src && !failed && (
         <img
@@ -105,9 +131,24 @@ function ComicImage({
               dimensions.set(index, nextRatio);
               setRatio(nextRatio);
             }
-            onLoad();
+            // Decode while the neighboring image is still hidden, then retain
+            // that same element when it becomes the visible page.
+            void (image.decode?.() ?? Promise.resolve())
+              .then(() => {
+                if (!image.isConnected) return;
+                onLoad();
+                onReady(index);
+              })
+              .catch(() => {
+                if (!image.isConnected) return;
+                setFailed(true);
+                onReady(index);
+              });
           }}
-          onError={() => setFailed(true)}
+          onError={() => {
+            setFailed(true);
+            onReady(index);
+          }}
         />
       )}
       {failed && (
@@ -115,8 +156,7 @@ function ComicImage({
           Page {index + 1} could not load.{' '}
           <button
             onClick={() => {
-              setActive(false);
-              requestAnimationFrame(() => setActive(true));
+              setAttempt((value) => value + 1);
             }}
           >
             Retry
@@ -151,6 +191,73 @@ export function ComicPages({
   const mode = preferences.comicMode ?? 'single';
   const rtl = preferences.comicDirection === 'rtl';
   const continuous = mode === 'webtoon';
+  const [near, setNear] = useState(new Set<number>());
+  const [settled, setSettled] = useState(new Set<number>());
+  const [ready, setReady] = useState(new Set<number>());
+  const [displayed, setDisplayed] = useState(page);
+  const onNear = useCallback((index: number, value: boolean) => {
+    setNear((previous) => {
+      if (previous.has(index) === value) return previous;
+      const next = new Set(previous);
+      if (value) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+  }, []);
+  const onSettled = useCallback((index: number) => {
+    setSettled((previous) =>
+      previous.has(index) ? previous : new Set(previous).add(index),
+    );
+  }, []);
+  const onReady = useCallback((index: number) => {
+    setReady((previous) =>
+      previous.has(index) ? previous : new Set(previous).add(index),
+    );
+  }, []);
+  const targetSpread = comicSpread(page, pages.length, mode);
+  const displayedSpread = comicSpread(displayed, pages.length, mode);
+  const visiblePage =
+    targetSpread.every((index) => ready.has(index)) ||
+    !displayedSpread.every((index) => ready.has(index))
+      ? page
+      : displayed;
+  const visibleSpread = comicSpread(visiblePage, pages.length, mode);
+  useLayoutEffect(() => {
+    setDisplayed(visiblePage);
+  }, [visiblePage]);
+  const retained = new Set<number>([...targetSpread, ...visibleSpread]);
+  if (targetSpread.every((index) => settled.has(index))) {
+    for (const direction of ['next', 'prev'] as const) {
+      const neighbor = turnComicPage(page, pages.length, mode, direction);
+      for (const index of comicSpread(neighbor, pages.length, mode))
+        retained.add(index);
+    }
+  }
+  if (continuous) {
+    // A bounded viewport window, with one image on either side. Placeholder
+    // slots remain in the document so distant images never alter scroll geometry.
+    for (const index of [...near].sort(
+      (a, b) => Math.abs(a - page) - Math.abs(b - page),
+    )) {
+      for (const neighbor of [index, index - 1, index + 1]) {
+        if (retained.size < 12 && neighbor >= 0 && neighbor < pages.length)
+          retained.add(neighbor);
+      }
+      if (retained.size >= 12) break;
+    }
+  }
+  const retainedKey = [...retained].sort((a, b) => a - b).join(',');
+  useEffect(() => {
+    const keep = new Set(retainedKey.split(',').map(Number));
+    const prune = (previous: Set<number>) =>
+      [...previous].some((index) => !keep.has(index))
+        ? new Set([...previous].filter((index) => keep.has(index)))
+        : previous;
+    setSettled(prune);
+    setReady(prune);
+    for (const index of decoded.current)
+      if (!keep.has(index)) decoded.current.delete(index);
+  }, [retainedKey]);
   const [atEnd, setAtEnd] = useState(false);
   const decoded = useRef(new Set<number>());
   const completionFrame = useRef(0);
@@ -272,9 +379,7 @@ export function ComicPages({
       ref={root}
       className={`comic-pages ${continuous ? 'comic-webtoon' : 'comic-paged'}`}
       data-direction={rtl ? 'rtl' : 'ltr'}
-      data-spread={
-        !continuous && comicSpread(page, pages.length, mode).length === 2
-      }
+      data-spread={!continuous && visibleSpread.length === 2}
       onScroll={() => {
         if (!continuous || restoring.current) return;
         cancelAnimationFrame(frame.current);
@@ -337,13 +442,19 @@ export function ComicPages({
     >
       {(continuous
         ? pages.map((_, index) => index)
-        : comicSpread(page, pages.length, mode)
+        : [...retained].sort((a, b) => a - b)
       ).map((index) => (
         <ComicImage
-          key={`${continuous ? 'scroll' : 'page'}-${index}`}
+          key={index}
           page={pages[index]}
           index={index}
           continuous={continuous}
+          active={retained.has(index)}
+          hidden={!continuous && !visibleSpread.includes(index)}
+          spreadSide={index === visibleSpread[0] ? 'first' : 'last'}
+          onNear={onNear}
+          onSettled={onSettled}
+          onReady={onReady}
           root={root}
           dimensions={dimensions.current}
           beforeResize={beforeResize}

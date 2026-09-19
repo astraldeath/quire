@@ -797,18 +797,18 @@
 }
 
 .comic-paged[data-spread='true'][data-direction='ltr']
-  .comic-image:first-child
+  .comic-image[data-spread-side='first']
   img,
 .comic-paged[data-spread='true'][data-direction='rtl']
-  .comic-image:last-child
+  .comic-image[data-spread-side='last']
   img {
   object-position: right center;
 }
 .comic-paged[data-spread='true'][data-direction='ltr']
-  .comic-image:last-child
+  .comic-image[data-spread-side='last']
   img,
 .comic-paged[data-spread='true'][data-direction='rtl']
-  .comic-image:first-child
+  .comic-image[data-spread-side='first']
   img {
   object-position: left center;
 }
