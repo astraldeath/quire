@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3]
+
+- Remove the 128 MB limit for local book imports. Server upload limits remain separate.
+- Load comic pages on demand instead of unpacking the entire CBZ into memory.
+- Store new native book files separately from SQLite, with chunked transfers and compatibility with existing libraries.
+- Export large books directly from native storage and support larger backups with Blob-backed creation and restore.
+
 ## [0.5.2]
 
 - Fix libraries failing to open after updating from Windows builds with different SQL file line endings. Existing books, progress, notes, and settings are preserved.
