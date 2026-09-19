@@ -9,7 +9,7 @@ fn origin(value:&str)->Result<String,String>{
  Ok(u.origin().ascii_serialization())
 }
 fn credential(origin:&str,user:&str)->Result<keyring::Entry,String>{
- if !cfg!(any(target_os="windows",target_os="ios",target_os="macos")){return Err("Secure sync credentials are not supported on this platform.".into())}
+ if !cfg!(any(target_os="windows",target_os="ios",target_os="macos",target_os="linux")){return Err("Secure sync credentials are not supported on this platform.".into())}
  keyring::Entry::new("app.quire.reader.sync",&format!("{}@{}",user,origin)).map_err(|_|"Credential storage is unavailable.".into())
 }
 async fn request(origin:&str,path:&str,method:Method,body:Option<Value>,token:Option<String>)->Result<Value,String>{

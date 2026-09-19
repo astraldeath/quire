@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop-updater",
-  "description": "User-initiated signed reader updates on Windows",
+  "description": "User-initiated signed reader updates on Windows and Linux AppImage",
   "windows": ["main"],
-  "platforms": ["windows"],
+  "platforms": ["windows", "linux"],
   "permissions": ["updater:default", "core:resources:allow-close"]
 }

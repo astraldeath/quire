@@ -43,7 +43,8 @@ fn credential(slot: &str) -> Result<keyring::Entry, String> {
     if !cfg!(any(
         target_os = "windows",
         target_os = "ios",
-        target_os = "macos"
+        target_os = "macos",
+        target_os = "linux"
     )) {
         return Err("Secure tracking credentials are unavailable on this platform.".into());
     }
@@ -388,6 +389,9 @@ pub async fn tracking_status() -> Result<Value, String> {
 }
 #[tauri::command]
 pub async fn tracking_connect(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    app.deep_link().register_all()
+        .map_err(|_| "Could not register the MangaBaka sign-in callback.".to_string())?;
     let mut error = AUTH.lock().await;
     *error = None;
     let pending = Pending {

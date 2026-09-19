@@ -306,7 +306,8 @@ export async function installReaderUpdate(
       },
       { restartAfterInstall: true },
     );
-    // Windows exits when installation starts. Leave the pending state intact.
+    // Windows exits into its installer; AppImage replacement needs a relaunch.
+    await invoke('updates_restart');
   } catch {
     reader({
       installing: false,
