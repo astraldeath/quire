@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { Download, Upload, LoaderCircle, ArrowLeft } from 'lucide-react';
 import type { Book, Preferences } from '../../domain/models';
 import { Segments, Switch } from '../../components/Controls';
-import { readBackup, MAX_BACKUP_BYTES, type Backup } from './archive';
+import { readBackup, type Backup } from './archive';
 import { exportBackup } from './export';
 export interface BackupActions {
-  prepare(kind: Backup['kind']): Promise<Uint8Array>;
+  prepare(kind: Backup['kind']): Promise<Uint8Array | Blob>;
   restore(backup: Backup, settings: boolean): Promise<void>;
   exported(): Promise<void>;
 }
@@ -21,7 +21,7 @@ export function BackupSettings({
   onBusy(value: boolean): void;
 }) {
   const [kind, setKind] = useState<Backup['kind']>('full');
-  const [prepared, setPrepared] = useState<Uint8Array | null>(null);
+  const [prepared, setPrepared] = useState<Uint8Array | Blob | null>(null);
   const [preview, setPreview] = useState<Backup | null>(null);
   const [fileName, setFileName] = useState('');
   const [settings, setSettings] = useState(false);
@@ -81,7 +81,14 @@ export function BackupSettings({
                   <p>
                     Ready to save{' '}
                     <span className="muted">
-                      {(prepared.length / 1024 / 1024).toFixed(1)} MB
+                      {(
+                        (prepared instanceof Uint8Array
+                          ? prepared.length
+                          : prepared.size) /
+                        1024 /
+                        1024
+                      ).toFixed(1)}{' '}
+                      MB
                     </span>
                   </p>
                   <button
@@ -143,11 +150,7 @@ export function BackupSettings({
                 setPreview(null);
                 setPrepared(null);
                 setSettings(false);
-                if (file.size > MAX_BACKUP_BYTES)
-                  throw new Error('Backup exceeds the 512 MB limit.');
-                const backup = await readBackup(
-                  new Uint8Array(await file.arrayBuffer()),
-                );
+                const backup = await readBackup(file);
                 setFileName(file.name);
                 setPreview(backup);
               });

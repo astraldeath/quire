@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { BackupSettings } from '../src/features/backup/BackupSettings';
 import { createBackup } from '../src/features/backup/archive';
 import { defaults, type Book } from '../src/domain/models';
+import { Blob as NodeBlob } from 'node:buffer';
 vi.mock('../src/features/backup/export', () => ({
   exportBackup: vi.fn().mockResolvedValue(false),
 }));
@@ -46,7 +47,7 @@ it('requires preview confirmation and leaves settings opt-in', async () => {
   );
   const input = document.querySelector('input[type=file]')!;
   Object.defineProperty(input, 'files', {
-    value: [{ size: bytes.length, arrayBuffer: async () => bytes.buffer }],
+    value: [new NodeBlob([bytes])],
   });
   await act(async () =>
     input.dispatchEvent(new Event('change', { bubbles: true })),
