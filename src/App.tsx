@@ -51,6 +51,7 @@ import {
 import { BookOpenButton } from './features/library/BookOpenButton';
 import { ensureBookFile } from './features/sync/library';
 import { startSync } from './features/sync/engine';
+import { SyncNotice } from './features/sync/SyncNotice';
 import { TrackingDialog } from './features/tracking/TrackingDialog';
 import { TrackingButton } from './features/tracking/TrackingButton';
 import { isTauri } from '@tauri-apps/api/core';
@@ -1164,6 +1165,7 @@ function AppContent({
               { '--cover-size': `${preferences.coverSize}px` } as CSSProperties
             }
           >
+            <SyncNotice onOpen={() => goSettings(true, 'server')} />
             <UpdateNotice onOpen={() => goSettings(true, 'updates')} />
             {reading &&
               recent &&

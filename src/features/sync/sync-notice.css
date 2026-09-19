@@ -1,0 +1,25 @@
+.sync-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.875rem;
+}
+.sync-notice > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.sync-notice > span {
+  flex: 1;
+  min-width: 140px;
+}
+.sync-notice > button {
+  margin-left: auto;
+}
