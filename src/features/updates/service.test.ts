@@ -159,6 +159,7 @@ it('flushes library writes before explicit installation and reports download pro
   expect(update.downloadAndInstall).toHaveBeenCalledWith(expect.any(Function), {
     restartAfterInstall: true,
   });
+  expect(mocks.invoke).toHaveBeenCalledWith('updates_restart');
   expect(service.getUpdatesSnapshot().reader).toMatchObject({
     installing: true,
     progress: 100,

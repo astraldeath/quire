@@ -2,7 +2,7 @@
 
 **Quire** is pronounced **“kwire”** (/kwaɪər/), rhyming with **choir**.
 
-An offline-first book reader for Windows, Android, iOS, and the browser. The installed reader works without an account; [Quire Server](https://github.com/astraldeath/quire-server) adds shared libraries, sync, and a hosted WebUI.
+An offline-first book reader for Windows, Linux, Android, iOS, and the browser. The installed reader works without an account; [Quire Server](https://github.com/astraldeath/quire-server) adds shared libraries, sync, and a hosted WebUI.
 
 ## Features
 

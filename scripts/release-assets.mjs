@@ -29,6 +29,9 @@ export function finalizeAssets(directory) {
     `Quire_${version}_android.apk.sig`,
     `Quire_${version}_ios-unsigned.ipa`,
     `Quire_${version}_ios-unsigned.ipa.sig`,
+    `Quire_${version}_linux_x86_64.AppImage`,
+    `Quire_${version}_linux_x86_64.AppImage.sig`,
+    `Quire_${version}_linux_amd64.deb`,
     'latest.json',
   ];
   for (const name of readdirSync(directory)) {
@@ -42,6 +45,7 @@ export function finalizeAssets(directory) {
   }
   const assets = {
     'windows-x86_64': [installer, '.exe'],
+    'linux-x86_64': [`Quire_${version}_linux_x86_64.AppImage`, '.AppImage'],
     'android-universal': [`Quire_${version}_android.apk`, '.apk'],
     'ios-aarch64': [`Quire_${version}_ios-unsigned.ipa`, '.ipa'],
   };

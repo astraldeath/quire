@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Add Linux x64 AppImage and Debian packages to releases, with signed AppImage updates and desktop keyring support for sync and tracking.
+
 ## [0.5.4]
 
 - Preload neighboring comic pages and retain decoded images when turning forward or back, including double-page spreads.

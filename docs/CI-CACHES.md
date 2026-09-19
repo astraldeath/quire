@@ -11,3 +11,5 @@ Explicit Rust and Gradle saves run only in the canonical repository on non-PR ma
 The cache action is pinned to the upstream v4.3.0 commit. Clear repository Actions caches or bump the relevant `*-v1` prefix after a suspected bad cache. Actual cache hit rates and native builds require a GitHub runner; actionlint verifies workflow syntax locally.
 
 The iOS OAuth callback is checked into `src-tauri/Info.plist`, so a cached dependency build cannot remove it. Android clears the deep-link plugin build output after project generation because its build script writes the generated manifest. Other Rust dependencies remain cached.
+
+Linux release builds use an Ubuntu 22.04 / x86_64-unknown-linux-gnu cache key, separate from Android and other Linux runners. AppImages, Debian packages, signing keys, and signatures are not cached.
