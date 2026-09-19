@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { ZipWriter, Uint8ArrayWriter, TextReader } from '@zip.js/zip.js';
-import { importEpub, sanitizeDocument } from '../src/epub';
+import { importEpub, sanitizeDocument, openArchive } from '../src/epub';
 import { readFile } from 'node:fs/promises';
 
 async function fixture(
@@ -347,4 +347,23 @@ describe('readable EPUB spine boundaries', () => {
       /missing a required chapter/,
     );
   });
+});
+
+it('defers media extraction during opening and releases the archive on close', async () => {
+  const file = await fixture('', 'EPUB/chapter.xhtml', {
+    'EPUB/later.png': 'image bytes',
+    'EPUB/font.woff2': 'font bytes',
+  });
+  const archive = await openArchive(new Uint8Array(await file.arrayBuffer()), {
+    deferMedia: true,
+  });
+  expect(archive.files.get('EPUB/later.png')?.length).toBe(0);
+  expect(archive.getSize('EPUB/later.png')).toBe(11);
+  expect((await archive.loadBlob('EPUB/later.png'))?.size).toBe(11);
+  expect(archive.files.get('EPUB/later.png')?.length).toBe(0);
+  expect(await archive.loadText('EPUB/chapter.xhtml')).toContain(
+    'Original fixture',
+  );
+  await archive.close();
+  await expect(archive.loadBlob('EPUB/font.woff2')).rejects.toThrow(/closed/i);
 });

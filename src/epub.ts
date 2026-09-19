@@ -1,4 +1,4 @@
-import { ZipReader, Uint8ArrayReader } from '@zip.js/zip.js';
+import { ZipReader, Uint8ArrayReader, type FileEntry } from '@zip.js/zip.js';
 import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import type { Book } from './domain/models';
 import {
@@ -125,38 +125,26 @@ export function sanitizeDocument(text: string, html = false): string {
   return new XMLSerializer().serializeToString(doc.documentElement);
 }
 
-export async function openZip(bytes: Uint8Array) {
+async function readZip(bytes: Uint8Array, deferMedia = false) {
   const reader = new ZipReader(new Uint8ArrayReader(bytes), {
     useWebWorkers: false,
   });
   const files = new Map<string, Uint8Array>();
-  let total = 0;
-  try {
-    let count = 0;
-    let yieldedAt = performance.now();
-    for await (const entry of reader.getEntriesGenerator()) {
-      if (++count > 5000) throw new Error('EPUB has too many archive entries.');
-      localPath(entry.filename);
-      if (entry.directory) continue;
-      if (files.has(entry.filename))
-        throw new Error('EPUB has duplicate archive paths.');
-      if (entry.encrypted)
-        throw new Error(
-          'DRM or password-protected EPUBs are unsupported. Import a DRM-free EPUB.',
-        );
-      if (
-        entry.uncompressedSize > 24 * MB ||
-        total + entry.uncompressedSize > 256 * MB
-      )
-        throw new Error('EPUB expanded resources are too large.');
+  const entries = new Map<string, FileEntry>();
+  let closed = false;
+  let queue: Promise<unknown> = Promise.resolve();
+  const read = (name: string): Promise<Uint8Array | undefined> => {
+    const request = queue.then(async () => {
+      if (closed) throw new Error('EPUB archive is closed.');
+      const entry = entries.get(name);
+      if (!entry) return undefined;
       const chunks: Uint8Array[] = [];
       let size = 0;
       await entry.getData(
         new WritableStream<Uint8Array>({
           write(chunk) {
             size += chunk.length;
-            total += chunk.length;
-            if (size > 24 * MB || total > 256 * MB)
+            if (size > 24 * MB || size > entry.uncompressedSize)
               throw new Error('EPUB expanded resources are too large.');
             chunks.push(chunk);
           },
@@ -169,123 +157,187 @@ export async function openZip(bytes: Uint8Array) {
         data.set(chunk, offset);
         offset += chunk.length;
       }
-      files.set(entry.filename, data);
+      return data;
+    });
+    queue = request.catch(() => {});
+    return request;
+  };
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    await queue;
+    await reader.close();
+  };
+  try {
+    let count = 0,
+      total = 0;
+    for await (const entry of reader.getEntriesGenerator()) {
+      if (++count > 5000) throw new Error('EPUB has too many archive entries.');
+      localPath(entry.filename);
+      if (entry.directory) continue;
+      if (entries.has(entry.filename))
+        throw new Error('EPUB has duplicate archive paths.');
+      if (entry.encrypted)
+        throw new Error(
+          'DRM or password-protected EPUBs are unsupported. Import a DRM-free EPUB.',
+        );
+      total += entry.uncompressedSize;
+      if (entry.uncompressedSize > 24 * MB || total > 256 * MB)
+        throw new Error('EPUB expanded resources are too large.');
+      entries.set(entry.filename, entry);
+    }
+    let yieldedAt = performance.now();
+    for (const name of entries.keys()) {
+      // Keep presence/size metadata, but avoid inflating images and fonts that
+      // are not needed for the opening chapter. Foliate owns loaded blob URLs.
+      const deferred =
+        deferMedia &&
+        /\.(?:png|jpe?g|gif|webp|avif|bmp|ttf|otf|woff2?|mp3|mp4|ogg|wav)$/i.test(
+          name,
+        );
+      files.set(name, deferred ? new Uint8Array() : (await read(name))!);
       if (performance.now() - yieldedAt > 12) {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
         yieldedAt = performance.now();
       }
     }
+    if (!deferMedia) await close();
   } catch (error) {
+    await close();
     throw new Error(
       `Cannot open EPUB: ${error instanceof Error ? error.message : 'invalid archive'}`,
     );
-  } finally {
-    await reader.close();
-  }
-  return files;
-}
-
-export async function openArchive(bytes: Uint8Array) {
-  const files = await openZip(bytes);
-  const text = (path: string) => new TextDecoder().decode(files.get(path));
-  if (text('mimetype').trim() !== 'application/epub+zip')
-    throw new Error('This file is not a valid EPUB.');
-  if (files.has('META-INF/encryption.xml')) {
-    const enc = xml(text('META-INF/encryption.xml'));
-    for (const item of Array.from(
-      enc.getElementsByTagNameNS('*', 'EncryptionMethod'),
-    )) {
-      if (
-        ![
-          'http://www.idpf.org/2008/embedding',
-          'http://ns.adobe.com/pdf/enc#RC',
-        ].includes(item.getAttribute('Algorithm') ?? '')
-      )
-        throw new Error(
-          'DRM-protected EPUBs are unsupported. Import a DRM-free EPUB.',
-        );
-    }
-  }
-  const container = xml(text('META-INF/container.xml'));
-  const path = localPath(
-    container
-      .getElementsByTagNameNS('*', 'rootfile')[0]
-      ?.getAttribute('full-path') ?? '',
-  );
-  const opf = xml(text(path));
-  if (
-    Array.from(opf.getElementsByTagNameNS('*', 'meta')).some(
-      (x) =>
-        x.getAttribute('property') === 'rendition:layout' &&
-        x.textContent?.trim() === 'pre-paginated',
-    ) ||
-    Array.from(opf.getElementsByTagNameNS('*', 'itemref')).some((x) =>
-      x.getAttribute('properties')?.includes('rendition:layout-pre-paginated'),
-    ) ||
-    /<option[^>]*name=["']fixed-layout["'][^>]*>\s*true/i.test(
-      text('META-INF/com.apple.ibooks.display-options.xml'),
-    )
-  )
-    throw new Error(
-      'Fixed-layout EPUBs are not supported yet. Choose a reflowable EPUB edition.',
-    );
-  if (!opf.getElementsByTagNameNS('*', 'itemref').length)
-    throw new Error('EPUB has no readable chapters.');
-  const base = path.slice(0, path.lastIndexOf('/') + 1);
-  const resolve = (href: string) => {
-    const url = new URL(href, `https://epub.invalid/${base}`);
-    if (url.origin !== 'https://epub.invalid')
-      throw new Error('EPUB manifest contains a remote resource.');
-    return localPath(decodeURIComponent(url.pathname.slice(1)));
-  };
-  const manifest = Array.from(opf.getElementsByTagNameNS('*', 'item'));
-  const itemsById = new Map<string, Element>();
-  for (const item of manifest) {
-    // Match the previous find() behavior even for malformed duplicate IDs.
-    if (!itemsById.has(item.id)) itemsById.set(item.id, item);
-  }
-  const types = new Map(
-    manifest.map((item) => [
-      resolve(item.getAttribute('href') ?? ''),
-      item.getAttribute('media-type') ?? '',
-    ]),
-  );
-  for (const ref of Array.from(opf.getElementsByTagNameNS('*', 'itemref'))) {
-    const id = ref.getAttribute('idref');
-    const item = id === null ? undefined : itemsById.get(id);
-    if (!item || !files.has(resolve(item.getAttribute('href') ?? '')))
-      throw new Error('EPUB is missing a required chapter.');
-    if (
-      !['application/xhtml+xml', 'text/html'].includes(
-        item.getAttribute('media-type') ?? '',
-      )
-    )
-      throw new Error(
-        'This EPUB chapter format is unsupported. Choose a reflowable XHTML EPUB.',
-      );
   }
   return {
     files,
-    opf,
-    resolve,
-    getSize: (name: string) => files.get(name)?.length ?? 0,
-    loadText: async (name: string) => {
-      if (!files.has(name)) return null;
-      const type = types.get(name);
-      const value = text(name);
-      return ['application/xhtml+xml', 'text/html', 'image/svg+xml'].includes(
-        type ?? '',
-      )
-        ? sanitizeDocument(value, type === 'text/html')
-        : value;
-    },
-    loadBlob: async (name: string) => {
-      const data = files.get(name);
-      if (!data) return null;
-      const type = types.get(name) ?? 'application/octet-stream';
-      return new Blob([data.slice().buffer], { type });
+    close,
+    getSize: (name: string) => entries.get(name)?.uncompressedSize ?? 0,
+    read: async (name: string) => {
+      const cached = files.get(name);
+      if (!cached || cached.length || !entries.get(name)?.uncompressedSize)
+        return cached;
+      return read(name);
     },
   };
+}
+
+export async function openZip(bytes: Uint8Array) {
+  return (await readZip(bytes)).files;
+}
+
+export async function openArchive(
+  bytes: Uint8Array,
+  options: { deferMedia?: boolean } = {},
+) {
+  const zip = await readZip(bytes, options.deferMedia);
+  const { files } = zip;
+  try {
+    const text = (path: string) => new TextDecoder().decode(files.get(path));
+    if (text('mimetype').trim() !== 'application/epub+zip')
+      throw new Error('This file is not a valid EPUB.');
+    if (files.has('META-INF/encryption.xml')) {
+      const enc = xml(text('META-INF/encryption.xml'));
+      for (const item of Array.from(
+        enc.getElementsByTagNameNS('*', 'EncryptionMethod'),
+      )) {
+        if (
+          ![
+            'http://www.idpf.org/2008/embedding',
+            'http://ns.adobe.com/pdf/enc#RC',
+          ].includes(item.getAttribute('Algorithm') ?? '')
+        )
+          throw new Error(
+            'DRM-protected EPUBs are unsupported. Import a DRM-free EPUB.',
+          );
+      }
+    }
+    const container = xml(text('META-INF/container.xml'));
+    const path = localPath(
+      container
+        .getElementsByTagNameNS('*', 'rootfile')[0]
+        ?.getAttribute('full-path') ?? '',
+    );
+    const opf = xml(text(path));
+    if (
+      Array.from(opf.getElementsByTagNameNS('*', 'meta')).some(
+        (x) =>
+          x.getAttribute('property') === 'rendition:layout' &&
+          x.textContent?.trim() === 'pre-paginated',
+      ) ||
+      Array.from(opf.getElementsByTagNameNS('*', 'itemref')).some((x) =>
+        x
+          .getAttribute('properties')
+          ?.includes('rendition:layout-pre-paginated'),
+      ) ||
+      /<option[^>]*name=["']fixed-layout["'][^>]*>\s*true/i.test(
+        text('META-INF/com.apple.ibooks.display-options.xml'),
+      )
+    )
+      throw new Error(
+        'Fixed-layout EPUBs are not supported yet. Choose a reflowable EPUB edition.',
+      );
+    if (!opf.getElementsByTagNameNS('*', 'itemref').length)
+      throw new Error('EPUB has no readable chapters.');
+    const base = path.slice(0, path.lastIndexOf('/') + 1);
+    const resolve = (href: string) => {
+      const url = new URL(href, `https://epub.invalid/${base}`);
+      if (url.origin !== 'https://epub.invalid')
+        throw new Error('EPUB manifest contains a remote resource.');
+      return localPath(decodeURIComponent(url.pathname.slice(1)));
+    };
+    const manifest = Array.from(opf.getElementsByTagNameNS('*', 'item'));
+    const itemsById = new Map<string, Element>();
+    for (const item of manifest) {
+      // Match the previous find() behavior even for malformed duplicate IDs.
+      if (!itemsById.has(item.id)) itemsById.set(item.id, item);
+    }
+    const types = new Map(
+      manifest.map((item) => [
+        resolve(item.getAttribute('href') ?? ''),
+        item.getAttribute('media-type') ?? '',
+      ]),
+    );
+    for (const ref of Array.from(opf.getElementsByTagNameNS('*', 'itemref'))) {
+      const id = ref.getAttribute('idref');
+      const item = id === null ? undefined : itemsById.get(id);
+      if (!item || !files.has(resolve(item.getAttribute('href') ?? '')))
+        throw new Error('EPUB is missing a required chapter.');
+      if (
+        !['application/xhtml+xml', 'text/html'].includes(
+          item.getAttribute('media-type') ?? '',
+        )
+      )
+        throw new Error(
+          'This EPUB chapter format is unsupported. Choose a reflowable XHTML EPUB.',
+        );
+    }
+    return {
+      files,
+      opf,
+      resolve,
+      getSize: zip.getSize,
+      close: zip.close,
+      loadText: async (name: string) => {
+        if (!files.has(name)) return null;
+        const type = types.get(name);
+        const value = new TextDecoder().decode(await zip.read(name));
+        return ['application/xhtml+xml', 'text/html', 'image/svg+xml'].includes(
+          type ?? '',
+        )
+          ? sanitizeDocument(value, type === 'text/html')
+          : value;
+      },
+      loadBlob: async (name: string) => {
+        const data = await zip.read(name);
+        if (!data) return null;
+        const type = types.get(name) ?? 'application/octet-stream';
+        return new Blob([data as Uint8Array<ArrayBuffer>], { type });
+      },
+    };
+  } catch (error) {
+    await zip.close();
+    throw error;
+  }
 }
 
 /** Combine publication navigation with chapter headings in reading order. */
@@ -294,12 +346,15 @@ export function detectBookStructure(
 ): BookStructure {
   const { opf, resolve, files } = archive;
   const items = Array.from(opf.getElementsByTagNameNS('*', 'item'));
+  const itemsById = new Map<string, Element>();
+  for (const item of items)
+    if (!itemsById.has(item.id)) itemsById.set(item.id, item);
   const spine = Array.from(opf.getElementsByTagNameNS('*', 'itemref')).map(
     (ref) => {
       // Keep section indices aligned with Foliate while excluding auxiliary
       // documents that its normal next/previous navigation skips.
       if (ref.getAttribute('linear') === 'no') return '';
-      const item = items.find((item) => item.id === ref.getAttribute('idref'));
+      const item = itemsById.get(ref.getAttribute('idref') ?? '');
       return item ? resolve(item.getAttribute('href') ?? '') : '';
     },
   );
@@ -368,6 +423,13 @@ export function detectBookStructure(
       // Optional malformed navigation must not prevent opening a readable EPUB.
     }
   }
+  const navigationByPath = new Map<string, ChapterLink[]>();
+  for (const link of navigationLinks) {
+    const path = link.href.split('#')[0];
+    const group = navigationByPath.get(path) ?? [];
+    group.push(link);
+    navigationByPath.set(path, group);
+  }
   const links: ChapterLink[] = [];
   const types = (element: Element) =>
     (
@@ -377,9 +439,7 @@ export function detectBookStructure(
     ).split(/\s+/);
   for (const path of spine) {
     if (!path) continue;
-    const nav = navigationLinks.filter(
-      (link) => link.href.split('#')[0] === path,
-    );
+    const nav = navigationByPath.get(path) ?? [];
     const numbered = nav.filter((link) => chapterLabel(link.label));
     const headings: ChapterLink[] = [];
     try {
