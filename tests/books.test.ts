@@ -1,6 +1,11 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { Blob as NodeBlob } from 'node:buffer';
-import { ZipWriter, Uint8ArrayWriter, TextReader } from '@zip.js/zip.js';
+import {
+  ZipWriter,
+  Uint8ArrayWriter,
+  Uint8ArrayReader,
+  TextReader,
+} from '@zip.js/zip.js';
 import { importBook, openBook, inferBookFormat } from '../src/books';
 import { SafeBookParser } from '../src/safe-book-parser';
 
@@ -52,6 +57,39 @@ it('opens CBZ pages in natural order without inventing chapters', async () => {
   publication.destroy();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
 });
+it('indexes large CBZ archives and extracts high resolution pages only when requested', async () => {
+  const writer = new ZipWriter(new Uint8ArrayWriter(), {
+    useWebWorkers: false,
+    level: 0,
+  });
+  // A valid 3072 × 3072, 24-bit BMP (27 MB), stored without ZIP compression.
+  const page = new Uint8Array(54 + 3072 * 3072 * 3);
+  const header = new DataView(page.buffer);
+  page.set([0x42, 0x4d]);
+  header.setUint32(2, page.length, true);
+  header.setUint32(10, 54, true);
+  header.setUint32(14, 40, true);
+  header.setInt32(18, 3072, true);
+  header.setInt32(22, 3072, true);
+  header.setUint16(26, 1, true);
+  header.setUint16(28, 24, true);
+  header.setUint32(34, page.length - 54, true);
+  for (let index = 0; index < 5; index++)
+    await writer.add(`${index}.bmp`, new Uint8ArrayReader(page));
+  const bytes = await writer.close();
+  expect(bytes.length).toBeGreaterThan(128 * 1024 * 1024);
+  const { publication } = await openBook(bytes, 'cbz');
+  expect(publication.comicPages).toHaveLength(5);
+  expect((await publication.comicPages![3].blob()).size).toBe(page.length);
+  publication.destroy();
+  await expect(publication.comicPages![0].blob()).rejects.toThrow(/closed/i);
+  const imported = await importBook({
+    name: 'large.cbz',
+    size: bytes.length,
+    arrayBuffer: async () => bytes.buffer,
+  } as File);
+  expect(imported.book.format).toBe('cbz');
+}, 30000);
 it('reads FB2 text and metadata while removing remote images', async () => {
   const bytes = new TextEncoder().encode(fb2);
   const imported = await importBook({

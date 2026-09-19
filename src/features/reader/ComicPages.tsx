@@ -65,10 +65,24 @@ function ComicImage({
       setSrc('');
       return;
     }
-    const url = URL.createObjectURL(page.blob());
-    setSrc(url);
+    const controller = new AbortController();
+    let url: string | undefined;
+    setSrc('');
     setFailed(false);
-    return () => URL.revokeObjectURL(url);
+    void Promise.resolve()
+      .then(() => page.blob(controller.signal))
+      .then((blob) => {
+        if (controller.signal.aborted) return;
+        url = URL.createObjectURL(blob);
+        setSrc(url);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => {
+      controller.abort();
+      if (url) URL.revokeObjectURL(url);
+    };
   }, [active, page]);
   return (
     <div

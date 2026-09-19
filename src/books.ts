@@ -6,6 +6,7 @@ import {
   detectBookStructure,
   CSP,
 } from './epub';
+import { openComicArchive } from './comic-archive';
 import { SafeBookParser } from './safe-book-parser';
 import {
   inferSeriesVolume,
@@ -37,7 +38,10 @@ interface Section {
   size: number;
 }
 export interface ReaderBook {
-  comicPages?: { name: string; blob(): Blob }[];
+  comicPages?: {
+    name: string;
+    blob(signal?: AbortSignal): Blob | Promise<Blob>;
+  }[];
   toc?: TocItem[];
   sections?: Section[];
   metadata?: {
@@ -48,51 +52,52 @@ export interface ReaderBook {
   destroy(): void;
 }
 const MB = 1024 * 1024;
-const imageType = (name: string) =>
-  ({
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    avif: 'image/avif',
-    bmp: 'image/bmp',
-  })[name.split('.').pop()?.toLowerCase() ?? ''];
-
 async function comic(bytes: Uint8Array): Promise<ReaderBook> {
-  const files = await openZip(bytes);
-  const names = [...files.keys()]
-    .filter((name) => imageType(name) && !name.startsWith('__MACOSX/'))
-    .sort(
-      (a, b) =>
-        a.localeCompare(b, 'en', { numeric: true }) || a.localeCompare(b),
-    );
-  if (!names.length) throw new Error('CBZ has no supported image pages.');
+  const archive = await openComicArchive(bytes);
+  const { names } = archive;
   const urls = new Set<string>();
-  const blob = (name: string) =>
-    new Blob([files.get(name)!.slice().buffer], { type: imageType(name) });
+  const loaded = new Map<string, () => void>();
+  const blob = archive.blob;
   const sections = names.map((name) => {
     let page: string | undefined;
     const owned: string[] = [];
-    return {
+    let pending: Promise<string> | undefined;
+    let controller: AbortController | undefined;
+    const section = {
       id: name,
-      size: files.get(name)!.length,
+      size: archive.size(name),
       load() {
-        if (page) return page;
-        const src = URL.createObjectURL(blob(name));
-        page = URL.createObjectURL(
-          new Blob(
-            [
-              `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${CSP}"></head><body style="margin:0"><img src="${src}" alt=""></body></html>`,
-            ],
-            { type: 'text/html' },
-          ),
-        );
-        owned.push(src, page);
-        owned.forEach((url) => urls.add(url));
-        return page;
+        if (page) return Promise.resolve(page);
+        if (pending) return pending;
+        const request = new AbortController();
+        controller = request;
+        pending = (async () => {
+          const image = await blob(name, request.signal);
+          request.signal.throwIfAborted();
+          while (loaded.size >= 4) loaded.values().next().value!();
+          const src = URL.createObjectURL(image);
+          page = URL.createObjectURL(
+            new Blob(
+              [
+                `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${CSP}"></head><body style="margin:0"><img src="${src}" alt=""></body></html>`,
+              ],
+              { type: 'text/html' },
+            ),
+          );
+          owned.push(src, page);
+          owned.forEach((url) => urls.add(url));
+          loaded.set(name, () => section.unload());
+          return page;
+        })().finally(() => {
+          if (controller === request) pending = undefined;
+        });
+        return pending;
       },
       unload() {
+        controller?.abort();
+        controller = undefined;
+        pending = undefined;
+        loaded.delete(name);
         owned.forEach((url) => {
           URL.revokeObjectURL(url);
           urls.delete(url);
@@ -101,17 +106,24 @@ async function comic(bytes: Uint8Array): Promise<ReaderBook> {
         page = undefined;
       },
     };
+    return section;
   });
   return Object.assign(
     {
       sections,
-      comicPages: names.map((name) => ({ name, blob: () => blob(name) })),
+      comicPages: names.map((name) => ({
+        name,
+        blob: (signal?: AbortSignal) => blob(name, signal),
+      })),
       toc: names.map((name, index) => ({
         label: `Page ${index + 1}`,
         href: name,
       })),
       getCover: () => blob(names[0]),
-      destroy: () => urls.forEach((url) => URL.revokeObjectURL(url)),
+      destroy: () => {
+        sections.forEach((section) => section.unload());
+        archive.close();
+      },
     },
     {
       rendition: { layout: 'pre-paginated' },
@@ -126,8 +138,7 @@ export async function openBook(
   bytes: Uint8Array,
   format: BookFormat = 'epub',
 ): Promise<{ publication: ReaderBook; structure: BookStructure }> {
-  if (!bytes.length || bytes.length > 128 * MB)
-    throw new Error('Book is empty or too large (128 MB maximum).');
+  if (!bytes.length) throw new Error('Book is empty.');
   if (format === 'epub') {
     const archive = await openArchive(bytes);
     return {
@@ -232,8 +243,6 @@ export async function openBook(
 export async function importBook(
   file: File,
 ): Promise<{ bytes: Uint8Array; book: Book }> {
-  if (file.size > 128 * MB)
-    throw new Error('Book is too large (128 MB maximum).');
   const format = inferBookFormat(file.name);
   if (!format)
     throw new Error(

@@ -55,10 +55,12 @@ describe('EPUB import boundary', () => {
       importEpub(await fixture('', '../escape.xhtml')),
     ).rejects.toThrow(/path|filename/i);
   });
-  it('rejects oversized input before reading it', async () => {
-    await expect(
-      importEpub({ size: 300 * 1024 * 1024 } as File),
-    ).rejects.toThrow(/large/i);
+  it('does not impose the server upload limit on local EPUB imports', async () => {
+    const file = await fixture();
+    Object.defineProperty(file, 'size', { value: 300 * 1024 * 1024 });
+    await expect(importEpub(file)).resolves.toMatchObject({
+      book: { title: 'Metadata fixture' },
+    });
   });
   it('neutralizes active documents and applies network-denying CSP before content', () => {
     const result = sanitizeDocument(
