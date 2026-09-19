@@ -2,6 +2,8 @@
 
 Reading modes include paginated, chapter scroll, and continuous chapter transitions. In continuous mode, scrolling past a chapter boundary loads the adjacent chapter; it does not preload every chapter into a single seamless document. Side taps/clicks, swipe paging, and page animation are configurable. Animation respects the system reduced-motion preference.
 
+Text readers preload the next chapter's resources and retain adjacent sections for back navigation. EPUB resources outside that window are released; formats with publication-wide caches keep their existing close-time cleanup. Chapter frames still rebuild when crossing a chapter boundary.
+
 The reader opens with controls hidden. Tap/click the middle to toggle them, or press Escape to reveal them. Paginated touch drags track the finger and settle on release; cancelled drags return to the starting page. This hides Quire's reader controls, not the operating system status bar.
 
 Reader frame security: EPUB scripts and event attributes are removed, and every book document receives a script-denying CSP before content. The iframe retains `allow-scripts allow-same-origin` because WebKit otherwise blocks even trusted event listeners installed by Quire. No EPUB-provided script is permitted by the CSP.
@@ -36,6 +38,8 @@ The API contract is version 1. Sync edits, acknowledgements and cursor changes a
 Local imports have no fixed 128 MB file-size cap. CBZ pages are extracted on demand, with an archive cache of up to two pages and 64 MiB. The compressed book, visible images, and decoded image surfaces also use memory. Individual CBZ images retain a 128 MiB extraction limit and compression-ratio checks; EPUB resources retain their separate extraction limits. Server uploads currently remain limited to 128 MB.
 
 CBZ reading settings provide Single, Double, and Webtoon layouts. The cover stays alone in Double mode; subsequent pages form spreads. Reading direction controls spread order, side taps, horizontal swipes, and arrow keys. Webtoon navigation scrolls by a screenful, while the table of contents and bookmarks jump to a page. Layout changes keep the current page, and comic preferences are included in backups.
+
+Single and Double modes retain decoded images for the current and neighboring pages or spreads. A pending page turn keeps the previous spread visible until the destination is ready. Webtoon keeps a nearby image window capped at 12 pages. Preloading does not advance reading progress, and closing the reader releases its retained resources.
 
 **Settings / Sync** shows changes that need a choice between local and server versions, including in the hosted WebUI. A rejected edit stays local for review while unrelated books continue syncing. Selecting a version explicitly resolves that record; reloading or retrying does not discard it.
 
