@@ -39,18 +39,33 @@ export async function readNativeFile(id: string): Promise<Uint8Array> {
   if (!Number.isSafeInteger(size) || size < 0)
     throw new Error('Invalid book size.');
   const bytes = new Uint8Array(size);
-  for (let offset = 0; offset < size; offset += nativeChunkSize) {
-    const chunk = new Uint8Array(
-      await invoke<ArrayBuffer>('book_file_read', {
-        id,
-        offset,
-        length: Math.min(nativeChunkSize, size - offset),
-      }),
-    );
-    if (chunk.byteLength !== Math.min(nativeChunkSize, size - offset))
-      throw new Error('Incomplete stored book file.');
-    bytes.set(chunk, offset);
-  }
+  let nextOffset = 0;
+  let failed = false;
+  const read = async () => {
+    while (!failed && nextOffset < size) {
+      const offset = nextOffset;
+      nextOffset += nativeChunkSize;
+      const length = Math.min(nativeChunkSize, size - offset);
+      try {
+        const chunk = new Uint8Array(
+          await invoke<ArrayBuffer>('book_file_read', { id, offset, length }),
+        );
+        if (chunk.byteLength !== length)
+          throw new Error('Incomplete stored book file.');
+        bytes.set(chunk, offset);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  };
+  // Overlap IPC round trips while keeping at most four 1 MiB chunks in flight.
+  await Promise.all(
+    Array.from(
+      { length: Math.min(4, Math.ceil(size / nativeChunkSize)) },
+      read,
+    ),
+  );
   return bytes;
 }
 
