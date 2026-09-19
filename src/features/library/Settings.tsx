@@ -1,3 +1,4 @@
+import { FileHandlingSettings } from '../desktop/FileHandlingSettings';
 import { StorageSettings } from '../storage/StorageSettings';
 import { UpdateSettings } from '../updates/UpdateSettings';
 import { Download } from 'lucide-react';
@@ -148,6 +149,7 @@ export function Settings({
                   Reset library settings
                 </button>
                 <StorageSettings />
+                <FileHandlingSettings />
               </div>
             ),
           },

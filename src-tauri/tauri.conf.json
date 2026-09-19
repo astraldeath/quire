@@ -45,7 +45,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: https://cdn.mangabaka.dev; font-src 'self' data: blob:; connect-src ipc: http://ipc.localhost 'self' blob: https://en.wiktionary.org; frame-src blob: 'self'; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: https://cdn.mangabaka.dev; font-src 'self' data: blob:; connect-src ipc: http://ipc.localhost 'self' blob: https://en.wiktionary.org; frame-src blob: 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {

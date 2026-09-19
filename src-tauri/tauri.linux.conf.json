@@ -1,0 +1,69 @@
+{
+  "bundle": {
+    "fileAssociations": [
+      {
+        "ext": [
+          "epub"
+        ],
+        "name": "Quire EPUB book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/epub+zip"
+      },
+      {
+        "ext": [
+          "cbz"
+        ],
+        "name": "Quire CBZ book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.comicbook+zip"
+      },
+      {
+        "ext": [
+          "fb2"
+        ],
+        "name": "Quire FB2 book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/x-fictionbook+xml"
+      },
+      {
+        "ext": [
+          "fbz"
+        ],
+        "name": "Quire FBZ book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/x-zip-compressed-fb2"
+      },
+      {
+        "ext": [
+          "mobi"
+        ],
+        "name": "Quire MOBI book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/x-mobipocket-ebook"
+      },
+      {
+        "ext": [
+          "azw3"
+        ],
+        "name": "Quire AZW3 book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.amazon.ebook"
+      },
+      {
+        "ext": [
+          "pdf"
+        ],
+        "name": "Quire PDF book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/pdf"
+      }
+    ]
+  }
+}
