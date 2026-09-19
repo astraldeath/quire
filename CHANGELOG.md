@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1]
+
+- Navigate nested folders with clickable breadcrumbs.
+- Rename or delete folders from the folder actions menu.
+- Keep books, reading progress, and other memberships when deleting a folder and its subfolders.
+
 ## [0.5.0]
 
 - Browse folders as cover cards alongside unfiled books, with nested folders in grid and list views.
