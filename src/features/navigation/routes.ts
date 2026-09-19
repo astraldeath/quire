@@ -62,6 +62,7 @@ export function parseWebRoute(path: string): WebRoute {
           'statistics',
           'privacy',
           'updates',
+          'server',
         ].includes(parts[1]))
     )
       return { kind: 'settings', tab: parts[1] || 'appearance' };

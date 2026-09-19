@@ -8,13 +8,18 @@ import {
   emptySync,
   prepareBatch,
   queueChanges,
-  queueValue,
-  recordKey,
   type RemoteRecord,
   type Candidate,
 } from './model';
 import * as transport from './transport';
 import { validateResponse } from './validation';
+import { SyncConflictError } from './errors';
+import { recoverSyncBatch } from './recovery';
+import {
+  conflictsForReview,
+  sendableOperations,
+  resolveConflict,
+} from './model';
 let running: Promise<void> | undefined;
 let status = { busy: false, message: 'Not connected' };
 const listeners = new Set<() => void>();
@@ -87,7 +92,14 @@ export function syncNow(): Promise<void> {
           },
         }));
         if (!batch.enabled || !batch.account) return;
-        const raw = await transport.call(batch.account, batch.request);
+        let raw;
+        try {
+          raw = await transport.call(batch.account, batch.request);
+        } catch (error) {
+          if (!(error instanceof SyncConflictError)) throw error;
+          await recoverSyncBatch(batch.account, batch.request.operations);
+          continue;
+        }
         const response = validateResponse(
           raw,
           batch.request.cursor,
@@ -98,7 +110,7 @@ export function syncNow(): Promise<void> {
             return { result: false };
           acceptResponse(s, response);
           return {
-            result: response.hasMore || s.pending.length > 0,
+            result: response.hasMore || sendableOperations(s).length > 0,
             books: applyRecords(s, books),
           };
         });
@@ -106,12 +118,10 @@ export function syncNow(): Promise<void> {
           await fetchCovers(batch.account);
           await syncReadingActivity();
           const s = await loadSync();
-          const conflicts = Object.values(s.records).filter(
-            (r) => r.candidates.length > 1,
-          ).length;
+          const conflicts = conflictsForReview(s).length;
           report(
             conflicts
-              ? `${conflicts} ${conflicts === 1 ? 'conflict needs' : 'conflicts need'} your choice`
+              ? `${conflicts} ${conflicts === 1 ? 'change needs' : 'changes need'} review in Settings → Sync`
               : 'Up to date',
           );
           window.dispatchEvent(new Event('quire-synced'));
@@ -134,12 +144,7 @@ export function syncNow(): Promise<void> {
 }
 export async function resolve(record: RemoteRecord, candidate: Candidate) {
   await syncTransaction((s) => {
-    const latest = s.records[recordKey(record)];
-    if (latest?.revision !== record.revision)
-      throw new Error('This conflict changed. Review the latest choices.');
-    if (s.pending.some((p) => recordKey(p) === recordKey(record)))
-      throw new Error('Sync pending edits before resolving this conflict.');
-    queueValue(s, record, candidate.deleted ? null : candidate.value, true);
+    resolveConflict(s, record, candidate);
     return { result: undefined };
   });
   await syncNow();

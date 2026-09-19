@@ -1,5 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { Account, SyncResponse } from './model';
+import { SyncConflictError } from './errors';
 const tokens = new Map<string, string>();
 export async function serverUpdatesCall(account: Account): Promise<unknown> {
   return isTauri()
@@ -91,6 +92,8 @@ async function web(
         : 30000,
     ),
   });
+  if (response.status === 409 && path === '/v1/sync')
+    throw new SyncConflictError();
   if (!response.ok && path.startsWith('/v1/tracking')) {
     let message = 'Tracking request failed. Try again.';
     try {
@@ -206,12 +209,19 @@ export async function logout(a: Account) {
     );
 }
 export async function call(a: Account, body: unknown): Promise<SyncResponse> {
-  if (isTauri())
-    return await invoke<SyncResponse>('sync_call', {
-      server: a.origin,
-      username: a.username,
-      body,
-    });
+  if (isTauri()) {
+    try {
+      return await invoke<SyncResponse>('sync_call', {
+        server: a.origin,
+        username: a.username,
+        body,
+      });
+    } catch (error) {
+      if (String(error).includes('Sync conflict requires attention.'))
+        throw new SyncConflictError();
+      throw error;
+    }
+  }
   return web(a.origin, '/v1/sync', body, webToken(a));
 }
 export async function statsCall(a: Account, body: unknown): Promise<unknown> {

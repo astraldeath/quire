@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { usePrivacy } from '../privacy/Privacy';
+import { ConflictChoices } from './ConflictChoices';
 import {
   Cloud,
   RefreshCw,
@@ -12,7 +12,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { loadSync } from '../../storage';
-import { emptySync, recordKey, type SyncState } from './model';
+import { emptySync, type SyncState } from './model';
 import {
   connect,
   disconnect,
@@ -24,7 +24,6 @@ import {
 import { discover, serverOrigin } from './transport';
 import { isTauri } from '@tauri-apps/api/core';
 export function ServerSettings() {
-  const privacy = usePrivacy();
   const [state, setState] = useState<SyncState>(emptySync);
   const status = useSyncExternalStore(subscribe, snapshot);
   const [account, setAccount] = useState('');
@@ -77,9 +76,34 @@ export function ServerSettings() {
       setURL(state.account?.origin ?? '');
       await disconnect();
     });
-  const conflicts = Object.values(state.records).filter(
-    (r) => r.candidates.length > 1,
+  const choices = (
+    <ConflictChoices
+      state={state}
+      busy={busy || status.busy}
+      onResolve={(record, candidate) =>
+        void perform(() => resolve(record, candidate))
+      }
+    />
   );
+  if (import.meta.env.VITE_HOSTED === 'true')
+    return (
+      <div className="settings-body server-settings">
+        <section>
+          <div className="server-sync-status" role="status">
+            <span>{status.message}</span>
+          </div>
+          <button
+            disabled={busy || status.busy}
+            onClick={() => void perform(syncNow)}
+          >
+            <RefreshCw aria-hidden="true" />
+            {status.busy ? 'Syncing…' : 'Sync now'}
+          </button>
+        </section>
+        {error && <p role="alert">{error}</p>}
+        {choices}
+      </div>
+    );
   return (
     <div className="settings-body server-settings">
       <h3>
@@ -254,56 +278,7 @@ export function ServerSettings() {
         </form>
       )}
       {error && <p role="alert">{error}</p>}
-      {state.enabled && conflicts.length > 0 && (
-        <section>
-          <h3>Choose which version to keep</h3>
-          <p className="muted">
-            Changes from different devices conflict. All versions stay saved
-            until you choose.
-          </p>
-          {conflicts.map((r) =>
-            !privacy.access(r.bookId) ? (
-              <button
-                key={recordKey(r)}
-                onClick={() => void privacy.authenticate()}
-              >
-                Unlock private book to resolve conflict
-              </button>
-            ) : (
-              <div className="sync-conflict" key={recordKey(r)}>
-                <strong>
-                  {r.kind === 'position'
-                    ? 'Reading position'
-                    : r.kind === 'book'
-                      ? 'Book information'
-                      : 'Saved passage'}
-                </strong>
-                {r.candidates.map((c) => (
-                  <button
-                    key={c.operationId}
-                    disabled={busy || status.busy}
-                    onClick={() => void perform(() => resolve(r, c))}
-                  >
-                    <span>
-                      {c.deleted
-                        ? 'Keep deletion'
-                        : r.kind === 'position'
-                          ? `${c.value?.section || 'Reading position'} · ${Math.round(Number(c.value?.fraction) * 100)}%`
-                          : String(
-                              c.value?.note ||
-                                c.value?.text ||
-                                c.value?.title ||
-                                'Saved passage',
-                            )}
-                    </span>
-                    <small>Use this version</small>
-                  </button>
-                ))}
-              </div>
-            ),
-          )}
-        </section>
-      )}
+      {choices}
     </div>
   );
 }
