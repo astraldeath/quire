@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.5.5",
-      "versionDate": "2026-09-19T16:52:52.000Z",
-      "versionDescription": "- Open books faster by deferring EPUB media extraction, pipelining native file reads, and reducing library and chapter-index work.\n- Add Linux x64 AppImage and Debian packages to releases, with signed AppImage updates and desktop keyring support for sync and tracking.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.5/Quire_0.5.5_ios-unsigned.ipa",
-      "size": 5146704,
+      "version": "0.5.6",
+      "versionDate": "2026-09-19T21:31:41.000Z",
+      "versionDescription": "- Add a device-local desktop screen capture setting under Privacy, with Windows capture exclusion, limited macOS protection, and explicit Linux availability information.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.6/Quire_0.5.6_ios-unsigned.ipa",
+      "size": 5151389,
       "versions": [
+        {
+          "version": "0.5.6",
+          "date": "2026-09-19T21:31:41.000Z",
+          "localizedDescription": "- Add a device-local desktop screen capture setting under Privacy, with Windows capture exclusion, limited macOS protection, and explicit Linux availability information.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.6/Quire_0.5.6_ios-unsigned.ipa",
+          "size": 5151389
+        },
         {
           "version": "0.5.5",
           "date": "2026-09-19T16:52:52.000Z",
