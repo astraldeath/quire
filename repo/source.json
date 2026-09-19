@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.5.4",
-      "versionDate": "2026-09-19T15:55:52.000Z",
-      "versionDescription": "- Preload neighboring comic pages and retain decoded images when turning forward or back, including double-page spreads.\n- Keep the current comic spread visible while the next one loads, and bound Webtoon buffering to nearby pages.\n- Preload adjacent text chapter resources and retain the previous chapter for faster back navigation without advancing reading progress.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.4/Quire_0.5.4_ios-unsigned.ipa",
-      "size": 5149455,
+      "version": "0.5.5",
+      "versionDate": "2026-09-19T16:52:52.000Z",
+      "versionDescription": "- Open books faster by deferring EPUB media extraction, pipelining native file reads, and reducing library and chapter-index work.\n- Add Linux x64 AppImage and Debian packages to releases, with signed AppImage updates and desktop keyring support for sync and tracking.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.5/Quire_0.5.5_ios-unsigned.ipa",
+      "size": 5146704,
       "versions": [
+        {
+          "version": "0.5.5",
+          "date": "2026-09-19T16:52:52.000Z",
+          "localizedDescription": "- Open books faster by deferring EPUB media extraction, pipelining native file reads, and reducing library and chapter-index work.\n- Add Linux x64 AppImage and Debian packages to releases, with signed AppImage updates and desktop keyring support for sync and tracking.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.5.5/Quire_0.5.5_ios-unsigned.ipa",
+          "size": 5146704
+        },
         {
           "version": "0.5.4",
           "date": "2026-09-19T15:55:52.000Z",
