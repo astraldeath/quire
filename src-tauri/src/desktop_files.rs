@@ -66,9 +66,7 @@ fn enqueue(inbox: &mut Vec<Entry>, path: PathBuf) {
         .and_then(|file| {
             let meta = file.metadata()?;
             if !meta.is_file() || meta.len() == 0 {
-                return Err(std::io::Error::other(
-                    "Choose a non-empty book file.",
-                ));
+                return Err(std::io::Error::other("Choose a non-empty book file."));
             }
             Ok((file, meta.len()))
         });
@@ -107,13 +105,19 @@ pub fn arguments(app: &tauri::AppHandle, args: impl IntoIterator<Item = String>,
 fn argument_paths(args: impl IntoIterator<Item = String>, cwd: &Path) -> Vec<PathBuf> {
     args.into_iter()
         .skip(1)
-        .filter(|arg| !arg.starts_with('-') && !arg.contains("://"))
-        .map(|arg| {
+        .filter(|arg| !arg.starts_with('-'))
+        .filter_map(|arg| {
+            if arg.starts_with("file://") {
+                return tauri::Url::parse(&arg).ok()?.to_file_path().ok();
+            }
+            if arg.contains("://") {
+                return None;
+            }
             let path = PathBuf::from(arg);
             if path.is_absolute() {
-                path
+                Some(path)
             } else {
-                cwd.join(path)
+                Some(cwd.join(path))
             }
         })
         .filter(|path| supported(path))
@@ -228,6 +232,36 @@ mod tests {
         }
         assert_eq!(inbox.len(), MAX_PENDING);
         assert_eq!(inbox[0].info.name, "0.pdf");
+    }
+    #[test]
+    #[cfg(desktop)]
+    fn desktop_uri_arguments_decode_local_files_without_accepting_remote_urls() {
+        let cwd = std::env::current_dir().unwrap();
+        let path = cwd.join("a book #1.pdf");
+        let uri = tauri::Url::from_file_path(&path).unwrap().to_string();
+        assert_eq!(
+            argument_paths(
+                vec!["quire".into(), uri, "https://example.com/book.pdf".into()],
+                &cwd
+            ),
+            vec![path]
+        );
+    }
+    #[test]
+    fn linux_launchers_forward_files_and_keep_mime_registration() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.linux.conf.json")).unwrap();
+        for package in ["deb", "rpm"] {
+            assert_eq!(
+                config["bundle"]["linux"][package]["desktopTemplate"],
+                "linux/quire.desktop"
+            );
+        }
+        let template = include_str!("../linux/quire.desktop");
+        assert!(template.lines().any(|line| line == "Exec={{exec}} %U"));
+        assert!(template
+            .lines()
+            .any(|line| line == "MimeType={{mime_type}}"));
     }
     #[test]
     #[cfg(desktop)]

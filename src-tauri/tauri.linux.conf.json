@@ -1,5 +1,9 @@
 {
   "bundle": {
+    "linux": {
+      "deb": { "desktopTemplate": "linux/quire.desktop" },
+      "rpm": { "desktopTemplate": "linux/quire.desktop" }
+    },
     "fileAssociations": [
       {
         "ext": [
