@@ -32,6 +32,7 @@ import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ReadingSettings } from './ReadingSettings';
 import { ComicPages, type ComicNavigation } from './ComicPages';
 import { comicPageAt } from './comic-navigation';
+import { bufferSections } from './section-buffer';
 import { ComicBookmarks } from './ComicBookmarks';
 import { countVisibleWords, ReadingCollector } from '../statistics/collector';
 import type { ReadingActivity } from '../statistics/model';
@@ -180,6 +181,16 @@ export function Reader({
     let cancelled = false;
     let chapterLoaded = false;
     let epub: ReaderBook | undefined;
+    let sectionBuffer: ReturnType<typeof bufferSections> | undefined;
+    let publicationDisposed = false;
+    const disposeTextPublication = () => {
+      if (!epub || publicationDisposed) return;
+      publicationDisposed = true;
+      const publication = epub;
+      if (sectionBuffer)
+        void sectionBuffer.dispose().then(() => publication.destroy());
+      else publication.destroy();
+    };
     let structure: BookStructure = { chapters: [] };
     let locationHref = '';
     let forwardUntil = 0;
@@ -299,6 +310,7 @@ export function Reader({
     setError('');
     view.addEventListener('external-link', (event) => event.preventDefault());
     view.addEventListener('load', (event) => {
+      if (cancelled) return;
       chapterLoaded = true;
       const doc = (event as CustomEvent<{ doc: Document }>).detail.doc;
       observeInteractions(doc);
@@ -373,9 +385,11 @@ export function Reader({
         epub.destroy();
         return;
       }
+      sectionBuffer = bufferSections(epub.sections ?? []);
       host.current?.append(view);
       await view.open(epub);
       view.renderer.addEventListener('relocate', (event) => {
+        if (cancelled) return;
         const detail = (
           event as CustomEvent<{
             reason?: string;
@@ -385,6 +399,7 @@ export function Reader({
             size?: number;
           }>
         ).detail;
+        sectionBuffer?.relocate(detail.index);
         const { reason } = detail;
         syncAvailability();
         if (
@@ -445,7 +460,7 @@ export function Reader({
         } catch {
           /* no chapter loaded */
         }
-        epub.destroy();
+        disposeTextPublication();
         return;
       }
       applyReaderPreferences(view, current.current.preferences);
@@ -475,7 +490,7 @@ export function Reader({
         /* unopened renderer has no view */
       }
       view.remove();
-      epub?.destroy();
+      disposeTextPublication();
     };
   }, [book.id, bytes]);
   useEffect(() => {
