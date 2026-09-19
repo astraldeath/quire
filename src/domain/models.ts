@@ -42,6 +42,8 @@ export interface ReaderPreferences {
   flow: 'paginated' | 'scrolled' | 'continuous';
   tapToTurn?: boolean;
   swipeToTurn?: boolean;
+  comicMode?: 'single' | 'double' | 'webtoon';
+  comicDirection?: 'ltr' | 'rtl';
   animated?: boolean;
   publisherStyles: boolean;
 }
@@ -78,6 +80,8 @@ export const defaults: Preferences = {
     flow: 'paginated',
     tapToTurn: true,
     swipeToTurn: true,
+    comicMode: 'single',
+    comicDirection: 'ltr',
     animated: true,
     columns: 'one',
     publisherStyles: false,

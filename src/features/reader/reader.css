@@ -739,3 +739,76 @@
   height: var(--app-height, 100dvh);
   bottom: auto;
 }
+
+.comic-pages {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+}
+.comic-paged {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+.comic-paged[data-direction='rtl'] {
+  flex-direction: row-reverse;
+}
+.comic-image {
+  position: relative;
+  min-width: 0;
+}
+.comic-paged .comic-image {
+  flex: 1 1 0;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.comic-paged .comic-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.comic-webtoon {
+  overflow-y: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.comic-webtoon .comic-image {
+  width: min(100%, 1000px);
+  margin: 0 auto;
+}
+.comic-webtoon .comic-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.comic-image > p {
+  padding: 16px;
+  font-size: 13px;
+  text-align: center;
+}
+.comic-image > p button {
+  border-color: var(--line);
+}
+
+.comic-paged[data-spread='true'][data-direction='ltr']
+  .comic-image:first-child
+  img,
+.comic-paged[data-spread='true'][data-direction='rtl']
+  .comic-image:last-child
+  img {
+  object-position: right center;
+}
+.comic-paged[data-spread='true'][data-direction='ltr']
+  .comic-image:last-child
+  img,
+.comic-paged[data-spread='true'][data-direction='rtl']
+  .comic-image:first-child
+  img {
+  object-position: left center;
+}

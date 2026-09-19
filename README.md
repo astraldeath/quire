@@ -16,6 +16,8 @@ An offline-first book reader for Windows, Android, iOS, and the browser. The ins
 
 Supported formats: reflowable EPUB, CBZ comics, FB2 (including FBZ and FB2.ZIP), and DRM-free MOBI/AZW3. PDF, CBR, and fixed-layout EPUBs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
 
+Comic reading settings offer single pages, double-page spreads, and continuous Webtoon scrolling, with left-to-right or right-to-left navigation. Taps and swipes can be enabled independently.
+
 Use **Add books > Import folder** to import supported files from a directory and retain its subfolders. Use **Move to folder** on a book or a selection to organize the library. Folders contain books; empty folders disappear. Folder assignments are included in backups and sync when a server is connected. **Export** saves the original book file.
 
 ## iOS sideloading sources
