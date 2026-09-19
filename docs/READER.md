@@ -33,6 +33,8 @@ The API contract is version 1. Sync edits, acknowledgements and cursor changes a
 
 ## Library and tracking
 
+CBZ reading settings provide Single, Double, and Webtoon layouts. The cover stays alone in Double mode; subsequent pages form spreads. Reading direction controls spread order, side taps, horizontal swipes, and arrow keys. Webtoon navigation scrolls by a screenful, while the table of contents and bookmarks jump to a page. Layout changes keep the current page, and comic preferences are included in backups.
+
 **Settings / Sync** shows changes that need a choice between local and server versions, including in the hosted WebUI. A rejected edit stays local for review while unrelated books continue syncing. Selecting a version explicitly resolves that record; reloading or retrying does not discard it.
 
 Library filters cover reading status and local availability. Sort by last read, date added, title, or author; series additionally sort by volume. View controls set grid/list, cover size, and grouping. Select mode offers batch download, finished/unread status, and confirmed removal. Series continuation skips finished volumes. Book and series overflow menus are also available by hold or right-click.

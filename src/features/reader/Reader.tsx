@@ -30,6 +30,9 @@ import './reader.css';
 import { installReadingInteractions } from './interactions';
 import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ReadingSettings } from './ReadingSettings';
+import { ComicPages, type ComicNavigation } from './ComicPages';
+import { comicPageAt } from './comic-navigation';
+import { ComicBookmarks } from './ComicBookmarks';
 import { countVisibleWords, ReadingCollector } from '../statistics/collector';
 import type { ReadingActivity } from '../statistics/model';
 
@@ -108,6 +111,12 @@ export function Reader({
   const footer = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View | null>(null);
+  const comicRef = useRef<ComicNavigation>(null);
+  const comicActivity = useRef<
+    ((position: Position, count: number) => void) | null
+  >(null);
+  const [comic, setComic] = useState<ReaderBook | null>(null);
+  const [comicPosition, setComicPosition] = useState(book.position);
   const current = useRef({ preferences, onPosition, onActivity });
   current.current = { preferences, onPosition, onActivity };
   const [toc, setToc] = useState<TocItem[]>([]);
@@ -126,6 +135,7 @@ export function Reader({
   const [fraction, setFraction] = useState(book.position?.fraction ?? 0);
   const [, redraw] = useState(0);
   const navigate = async (target: 'prev' | 'next' | string) => {
+    if (comicRef.current) return comicRef.current.navigate(target);
     const view = viewRef.current;
     if (!view) return false;
     try {
@@ -233,6 +243,51 @@ export function Reader({
       window.removeEventListener('pageshow', visibility);
       flushActivity();
     });
+    if (book.format === 'cbz') {
+      setReady(false);
+      setError('');
+      setComic(null);
+      comicActivity.current = (position, count) => {
+        syncAvailability();
+        collector.relocate(
+          {
+            key: position.cfi,
+            index: comicPageAt(position, count),
+            fraction: 0,
+            size: 1,
+            words: 0,
+            chapter: null,
+            atEnd: position.fraction === 1,
+          },
+          performance.now(),
+        );
+      };
+      void openBook(bytes, 'cbz')
+        .then((opened) => {
+          epub = opened.publication;
+          if (cancelled) {
+            epub.destroy();
+            return;
+          }
+          setComic(epub);
+          setToc(epub.toc ?? []);
+          setReady(true);
+        })
+        .catch((error) => {
+          if (!cancelled)
+            setError(
+              error instanceof Error
+                ? error.message
+                : 'Unable to read this comic.',
+            );
+        });
+      return () => {
+        cancelled = true;
+        comicActivity.current = null;
+        cleanups.forEach((cleanup) => cleanup());
+        epub?.destroy();
+      };
+    }
     const view = new View();
     const next = view.next.bind(view);
     view.next = () => {
@@ -462,17 +517,29 @@ export function Reader({
         return;
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        navigate('next');
+        navigate(
+          book.format === 'cbz' &&
+            current.current.preferences.comicDirection === 'rtl'
+            ? 'prev'
+            : 'next',
+        );
       }
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        navigate('prev');
+        navigate(
+          book.format === 'cbz' &&
+            current.current.preferences.comicDirection === 'rtl'
+            ? 'next'
+            : 'prev',
+        );
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [panel]);
   const c = colors(preferences);
+  const comicRTL =
+    book.format === 'cbz' && preferences.comicDirection === 'rtl';
   return (
     <section
       ref={root}
@@ -592,7 +659,35 @@ export function Reader({
               Opening book...
             </p>
           )}
-          <div className="reader-pages" ref={host} />
+          <div className="reader-pages" ref={host}>
+            {book.format === 'cbz' && comic?.comicPages && (
+              <ComicPages
+                key={book.id}
+                pages={comic.comicPages}
+                position={book.position}
+                preferences={preferences}
+                navigationRef={comicRef}
+                onCenterTap={toggleChrome}
+                onNavigate={() => {
+                  setChromeVisible(false);
+                  setContentsOpen(false);
+                  setPanel(null);
+                }}
+                onPosition={(position) => {
+                  setComicPosition(position);
+                  setFraction(position.fraction);
+                  setChapter(position.section);
+                  setActiveHref(
+                    comic.comicPages![
+                      comicPageAt(position, comic.comicPages!.length)
+                    ]?.name ?? '',
+                  );
+                  comicActivity.current?.(position, comic.comicPages!.length);
+                  current.current.onPosition(position);
+                }}
+              />
+            )}
+          </div>
           <div className="immersive-chapter" aria-hidden="true">
             {chapter}
           </div>
@@ -606,10 +701,10 @@ export function Reader({
             aria-hidden={!chromeVisible}
           >
             <button
-              aria-label="Previous page"
-              title="Previous page"
+              aria-label={comicRTL ? 'Next page' : 'Previous page'}
+              title={comicRTL ? 'Next page' : 'Previous page'}
               disabled={!ready}
-              onClick={() => navigate('prev')}
+              onClick={() => navigate(comicRTL ? 'next' : 'prev')}
             >
               <ChevronLeft size={22} />
             </button>
@@ -621,10 +716,10 @@ export function Reader({
               <progress aria-label="Book progress" value={fraction} max={1} />
             </div>
             <button
-              aria-label="Next page"
-              title="Next page"
+              aria-label={comicRTL ? 'Previous page' : 'Next page'}
+              title={comicRTL ? 'Previous page' : 'Next page'}
               disabled={!ready}
-              onClick={() => navigate('next')}
+              onClick={() => navigate(comicRTL ? 'prev' : 'next')}
             >
               <ChevronRight size={22} />
             </button>
@@ -646,6 +741,25 @@ export function Reader({
           navigate={navigate}
         />
       )}
+      {ready &&
+        book.format === 'cbz' &&
+        comic?.comicPages &&
+        toolbar.current && (
+          <ComicBookmarks
+            book={book}
+            position={comicPosition}
+            count={comic.comicPages.length}
+            toolbar={toolbar.current}
+            visible={chromeVisible}
+            otherPanelOpen={!!panel || contentsOpen}
+            onOpen={() => {
+              setPanel(null);
+              setContentsOpen(false);
+            }}
+            onSave={onAnnotations}
+            navigate={navigate}
+          />
+        )}
       {panel && (
         <ReaderDialog label="Reading settings" onClose={() => setPanel(null)}>
           <div className="reader-panel-heading">
@@ -659,6 +773,7 @@ export function Reader({
             </button>
           </div>
           <ReadingSettings
+            comic={book.format === 'cbz'}
             preferences={preferences}
             onPreferences={onPreferences}
           />

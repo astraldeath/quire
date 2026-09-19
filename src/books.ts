@@ -37,6 +37,7 @@ interface Section {
   size: number;
 }
 export interface ReaderBook {
+  comicPages?: { name: string; blob(): Blob }[];
   toc?: TocItem[];
   sections?: Section[];
   metadata?: {
@@ -104,6 +105,7 @@ async function comic(bytes: Uint8Array): Promise<ReaderBook> {
   return Object.assign(
     {
       sections,
+      comicPages: names.map((name) => ({ name, blob: () => blob(name) })),
       toc: names.map((name, index) => ({
         label: `Page ${index + 1}`,
         href: name,

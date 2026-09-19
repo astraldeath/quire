@@ -148,6 +148,14 @@ export function validatePreferences(value: unknown): Preferences {
           : choice(r.columns, ['one', 'two'] as const),
       tapToTurn: r.tapToTurn === undefined ? true : bool(r.tapToTurn),
       swipeToTurn: r.swipeToTurn === undefined ? true : bool(r.swipeToTurn),
+      comicMode:
+        r.comicMode === undefined
+          ? 'single'
+          : choice(r.comicMode, ['single', 'double', 'webtoon'] as const),
+      comicDirection:
+        r.comicDirection === undefined
+          ? 'ltr'
+          : choice(r.comicDirection, ['ltr', 'rtl'] as const),
       animated: r.animated === undefined ? true : bool(r.animated),
     },
   };
