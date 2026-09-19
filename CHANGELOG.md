@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.2]
+
+- Fix libraries failing to open after updating from Windows builds with different SQL file line endings. Existing books, progress, notes, and settings are preserved.
+- Keep database migration checks consistent across build platforms.
+
 ## [0.5.1]
 
 - Navigate nested folders with clickable breadcrumbs.
