@@ -3,6 +3,20 @@ use tauri::ipc::{InvokeBody, Request};
 #[cfg(target_os = "ios")]
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
+use std::io::Write;
+
+enum ExportSource {
+    File(std::fs::File),
+    Bytes(std::io::Cursor<Vec<u8>>),
+}
+impl ExportSource {
+    fn copy_to(&mut self, destination: &mut impl Write) -> std::io::Result<u64> {
+        match self {
+            Self::File(file) => std::io::copy(file, destination),
+            Self::Bytes(bytes) => std::io::copy(bytes, destination),
+        }
+    }
+}
 
 fn export_name(encoded: &str) -> Result<String, String> {
     let bytes = base64::engine::general_purpose::STANDARD
@@ -33,18 +47,22 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
             .and_then(|value| value.to_str().ok())
             .ok_or("Missing book filename.")?,
     )?;
-    let bytes = match request.body() {
-        InvokeBody::Raw(bytes) if !bytes.is_empty() && bytes.len() <= 128 * 1024 * 1024 => {
-            bytes.clone()
+    let mut source = if let Some(reference) = request.headers().get("x-quire-file-reference") {
+        let reference = reference.to_str().map_err(|_| "Invalid book reference.")?;
+        let file = std::fs::File::open(crate::book_files::file_path(&app, reference)?)
+            .map_err(|_| "The book file is unavailable.")?;
+        ExportSource::File(file)
+    } else {
+        match request.body() {
+            InvokeBody::Raw(bytes) if !bytes.is_empty() => ExportSource::Bytes(std::io::Cursor::new(bytes.clone())),
+            _ => return Err("Invalid or empty book.".into()),
         }
-        _ => return Err("Invalid or oversized book.".into()),
     };
     tauri::async_runtime::spawn_blocking(move || {
         // Tauri's iOS picker exports a pre-existing Documents file. Create it
         // exclusively so an existing file can never be overwritten or removed.
         #[cfg(target_os = "ios")]
         let (name, source) = {
-            use std::io::Write;
             let directory = app
                 .path()
                 .document_dir()
@@ -63,7 +81,7 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
                     .open(&path)
                 {
                     Ok(mut file) => {
-                        if file.write_all(&bytes).is_err() {
+                        if source.copy_to(&mut file).is_err() {
                             drop(file);
                             let _ = std::fs::remove_file(&path);
                             return Err("Could not prepare book export.".into());
@@ -96,7 +114,8 @@ pub async fn export_epub(app: tauri::AppHandle, request: Request<'_>) -> Result<
                 let path = path
                     .into_path()
                     .map_err(|_| "Could not save book to this location.")?;
-                std::fs::write(path, bytes).map_err(|_| "Could not save book to this location.")?;
+                let mut destination = std::fs::File::create(path).map_err(|_| "Could not save book to this location.")?;
+                source.copy_to(&mut destination).map_err(|_| "Could not save book to this location.")?;
                 Ok(true)
             }
             None => Ok(false),
@@ -125,5 +144,18 @@ mod tests {
             assert!(name(invalid).is_err());
         }
         assert!(name(&format!("{}.epub", "x".repeat(201))).is_err());
+    }
+
+    #[test]
+    fn copies_large_local_books_without_loading_the_file_into_memory() {
+        use std::io::{Seek, SeekFrom};
+        let mut file = tempfile::tempfile().unwrap();
+        let size = 129 * 1024 * 1024;
+        file.set_len(size).unwrap();
+        file.seek(SeekFrom::Start(size - 1)).unwrap();
+        file.write_all(&[123]).unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut source = ExportSource::File(file);
+        assert_eq!(source.copy_to(&mut std::io::sink()).unwrap(), size);
     }
 }

@@ -1,3 +1,9 @@
+import {
+  deleteNativeFile,
+  nativeFileId,
+  readNativeFile,
+  writeNativeFile,
+} from './native-files';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import Database from '@tauri-apps/plugin-sql';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
@@ -17,7 +23,7 @@ import { migrateBookFolders } from './features/library/folders';
 interface Record {
   id: string;
   metadata: Book;
-  file?: Uint8Array;
+  file?: Uint8Array | Blob;
 }
 interface LibraryDB extends DBSchema {
   activity: {
@@ -33,7 +39,7 @@ interface LibraryDB extends DBSchema {
   activityCursor: { key: string; value: number };
   books: { key: string; value: Record };
   preferences: { key: string; value: Preferences | SyncState };
-  files: { key: string; value: Uint8Array };
+  files: { key: string; value: Uint8Array | Blob };
 }
 let browserName = 'quire-library';
 export const devicePrivacyKey = () => 'quire-privacy:' + browserName;
@@ -117,6 +123,15 @@ const sql = () =>
     })
     .then(() => Database.load('sqlite:quire.db')));
 let queue: Promise<unknown> = Promise.resolve();
+let activeFileReads = 0;
+const retiredFiles = new Set<string>();
+async function cleanRetiredFiles() {
+  if (activeFileReads !== 0) return;
+  for (const reference of retiredFiles) {
+    retiredFiles.delete(reference);
+    await deleteNativeFile(reference).catch(() => {});
+  }
+}
 export async function flushStorage(): Promise<void> {
   await queue;
 }
@@ -124,12 +139,6 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
   const result = queue.then(fn);
   queue = result.catch(() => {});
   return result;
-}
-function encode(bytes: Uint8Array) {
-  let text = '';
-  for (let i = 0; i < bytes.length; i += 32768)
-    text += String.fromCharCode(...bytes.subarray(i, i + 32768));
-  return btoa(text);
 }
 const mergePreferences = (p?: Partial<Preferences>): Preferences => ({
   ...defaults,
@@ -179,7 +188,7 @@ export async function loadSync(): Promise<SyncState> {
 interface Write {
   book: Book;
   fileMode: 'keep' | 'set' | 'remove';
-  file?: Uint8Array;
+  file?: Uint8Array | Blob;
 }
 async function commit(
   sync: SyncState,
@@ -194,19 +203,40 @@ async function commit(
   const history = uniqueActivity(activities);
   if (isTauri()) {
     if (history.length) await activitySQL();
-    await (
-      await sql()
-    ).execute('INSERT INTO sync_commits (payload) VALUES ($1)', [
+    const db = await sql();
+    const retired: string[] = [];
+    for (const id of new Set([
+      ...deleted,
+      ...writes.filter((w) => w.fileMode !== 'keep').map((w) => w.book.id),
+    ])) {
+      const rows = await db.select<{ file: string | null }[]>(
+        'SELECT file FROM books WHERE id = $1',
+        [id],
+      );
+      if (rows[0]?.file && nativeFileId(rows[0].file))
+        retired.push(rows[0].file);
+    }
+    const storedWrites = [];
+    for (const w of writes) {
+      storedWrites.push({
+        ...w,
+        file: w.fileMode === 'set' ? await writeNativeFile(w.file!) : undefined,
+      });
+    }
+    // A failed/ambiguous commit may leave a harmless orphan. Never delete a
+    // finalized object before knowing that its replacement committed.
+    await db.execute('INSERT INTO sync_commits (payload) VALUES ($1)', [
       JSON.stringify({
         sync,
-        writes: writes.map((w) => ({
-          ...w,
-          file: w.file ? encode(w.file) : undefined,
-        })),
+        writes: storedWrites,
         deleted,
         activities: history,
       }),
     ]);
+    // A reader may have selected the previous reference before this commit.
+    // Delay removing retired objects until all in-flight reads finish.
+    for (const reference of retired) retiredFiles.add(reference);
+    await cleanRetiredFiles();
   } else {
     const tx = (await idb()).transaction(
       ['books', 'files', 'preferences', 'activity'],
@@ -321,7 +351,7 @@ export const removeFileWhen = (
 export const deleteBooks = (ids: string[]) =>
   edit(() => ({ writes: [], deleted: ids }));
 export const restoreBooks = (
-  records: { book: Book; file?: Uint8Array }[],
+  records: { book: Book; file?: Uint8Array | Blob }[],
   activities: ReadingActivity[] = [],
 ) =>
   edit((books) => ({
@@ -351,6 +381,27 @@ export const saveReadingPosition = (id: string, position: Position) =>
 export const saveBookAnnotations = (id: string, annotations: Annotation[]) =>
   saveReadingField(id, 'annotations', annotations);
 export async function getFile(id: string): Promise<Uint8Array | undefined> {
+  activeFileReads++;
+  try {
+    return await readFile(id);
+  } finally {
+    activeFileReads--;
+    await cleanRetiredFiles();
+  }
+}
+export async function getNativeFileReference(
+  id: string,
+): Promise<string | undefined> {
+  if (!isTauri()) return undefined;
+  const rows = await (
+    await sql()
+  ).select<{ file: string | null }[]>('SELECT file FROM books WHERE id = $1', [
+    id,
+  ]);
+  const value = rows[0]?.file;
+  return value && nativeFileId(value) ? value : undefined;
+}
+async function readFile(id: string): Promise<Uint8Array | undefined> {
   if (isTauri()) {
     const rows = await (
       await sql()
@@ -358,11 +409,17 @@ export async function getFile(id: string): Promise<Uint8Array | undefined> {
       'SELECT file FROM books WHERE id = $1',
       [id],
     );
-    return rows[0]?.file == null
-      ? undefined
-      : Uint8Array.from(atob(rows[0].file), (c) => c.charCodeAt(0));
+    const value = rows[0]?.file;
+    if (value == null) return undefined;
+    const fileId = nativeFileId(value);
+    return fileId
+      ? readNativeFile(fileId)
+      : Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
   }
-  return await (await idb()).get('files', id);
+  const value = await (await idb()).get('files', id);
+  return value instanceof Blob
+    ? new Uint8Array(await value.arrayBuffer())
+    : value;
 }
 export async function loadPreferences(): Promise<Preferences> {
   if (isTauri()) {
