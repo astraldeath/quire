@@ -83,6 +83,77 @@ async function render(preferences: Partial<ReaderPreferences> = {}, count = 8) {
     ),
   );
 }
+
+it('cancels pending page loads on navigation without creating stale object URLs', async () => {
+  let finish!: (blob: Blob) => void;
+  let signal!: AbortSignal;
+  const delayed = pages.map((page, index) =>
+    index === 0
+      ? {
+          name: page.name,
+          blob: (request?: AbortSignal) => {
+            signal = request!;
+            return new Promise<Blob>((resolve) => {
+              finish = resolve;
+            });
+          },
+        }
+      : page,
+  );
+  await act(async () =>
+    root.render(
+      <ComicPages
+        pages={delayed}
+        preferences={defaults.reader}
+        navigationRef={navigation}
+        onPosition={position}
+        onCenterTap={center}
+        onNavigate={() => {}}
+      />,
+    ),
+  );
+  expect(created).toHaveLength(0);
+  await act(async () => {
+    navigation.current!.navigate('next');
+  });
+  expect(signal.aborted).toBe(true);
+  expect(created).toHaveLength(1);
+  await act(async () => {
+    finish(new Blob(['stale']));
+  });
+  expect(created).toHaveLength(1);
+  expect(host.querySelector('img')?.alt).toBe('Page 2');
+});
+
+it('shows asynchronous extraction failures and retries them', async () => {
+  const blob = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('Bad image'))
+    .mockResolvedValue(new Blob(['image']));
+  await act(async () =>
+    root.render(
+      <ComicPages
+        pages={[{ name: '1.png', blob }]}
+        preferences={defaults.reader}
+        navigationRef={navigation}
+        onPosition={position}
+        onCenterTap={center}
+        onNavigate={() => {}}
+      />,
+    ),
+  );
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+    'could not load',
+  );
+  await act(async () => {
+    host.querySelector('button')!.click();
+  });
+  await act(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+  expect(host.querySelector('img')?.alt).toBe('Page 1');
+  expect(blob).toHaveBeenCalledTimes(2);
+});
 function gesture(start: number, end: number) {
   const element = host.querySelector<HTMLElement>('.comic-pages')!;
   element.setPointerCapture = () => {};

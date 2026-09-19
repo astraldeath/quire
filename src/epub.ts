@@ -126,8 +126,6 @@ export function sanitizeDocument(text: string, html = false): string {
 }
 
 export async function openZip(bytes: Uint8Array) {
-  if (bytes.length > 128 * MB)
-    throw new Error('EPUB is too large (128 MB maximum).');
   const reader = new ZipReader(new Uint8ArrayReader(bytes), {
     useWebWorkers: false,
   });
@@ -469,8 +467,6 @@ export function detectBookStructure(
 export async function importEpub(
   file: File,
 ): Promise<{ book: Book; bytes: Uint8Array }> {
-  if (file.size > 128 * MB)
-    throw new Error('EPUB is too large (128 MB maximum).');
   const bytes = new Uint8Array(await file.arrayBuffer());
   const archive = await openArchive(bytes);
   const { opf } = archive;
