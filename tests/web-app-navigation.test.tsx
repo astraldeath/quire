@@ -170,6 +170,43 @@ it('opens a series directly, routes into its reader, and restores the series on 
   }
 });
 
+it('changes series actions between the shelf and the series page', async () => {
+  history.replaceState(null, '', '/library');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[aria-label="Actions for A/B"]')!
+        .click(),
+    );
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+      'Open series',
+    );
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+      'Start reading',
+    );
+    await act(async () => navigateWeb('/series/A%2FB'));
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[aria-label="Series actions"]')!
+        .click(),
+    );
+    expect(document.querySelector('[role="menu"]')?.textContent).not.toContain(
+      'Open series',
+    );
+    expect(host.textContent).toContain('Volume 1');
+    expect(host.textContent).toContain('Book One');
+    expect(host.textContent).toContain('Unread');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    history.replaceState(null, '', '/');
+  }
+});
+
 it('keeps details-origin removal in browser history and returns deletion to its shelf', async () => {
   const bookId = books[0].id;
   const seriesPath = '/series/A%2FB';
@@ -211,9 +248,7 @@ it('keeps details-origin removal in browser history and returns deletion to its 
     expect(location.pathname).toBe('/books/' + bookId + '/remove');
     expect(host.textContent).toContain('Remove from library?');
     await click('Cancel');
-    await vi.waitFor(() =>
-      expect(location.pathname).toBe('/books/' + bookId),
-    );
+    await vi.waitFor(() => expect(location.pathname).toBe('/books/' + bookId));
     expect(host.querySelector('.details-intro h3')?.textContent).toBe(
       'Book One',
     );
@@ -261,6 +296,7 @@ it('selects the exact number of books in a grouped series', async () => {
         .find((b) => b.textContent === 'Select')!
         .click(),
     );
+    expect(document.activeElement?.textContent).toBe('Select all');
     await act(async () =>
       host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click(),
     );
@@ -273,6 +309,14 @@ it('selects the exact number of books in a grouped series', async () => {
     expect(
       host.querySelector('[aria-label="Selected books"]')?.textContent,
     ).toContain('0 selected');
+    await act(async () =>
+      [...host.querySelectorAll<HTMLButtonElement>('button')]
+        .find((button) => button.textContent === 'Done')!
+        .click(),
+    );
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Select books',
+    );
   } finally {
     await act(async () => root.unmount());
     host.remove();
@@ -303,7 +347,7 @@ it('shows one hidden-library heading and returns to the regular shelf', async ()
         .click(),
     );
     await act(async () =>
-      [...host.querySelectorAll('button')]
+      [...document.querySelectorAll('button')]
         .find((b) => b.textContent === 'Hidden books')!
         .click(),
     );

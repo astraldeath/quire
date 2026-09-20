@@ -24,7 +24,9 @@ export function ViewOptions({
       <div className="cover-size-control">
         <div className="cover-size-heading">
           <label htmlFor={size}>Cover size</label>
-          <output htmlFor={size}>{preferences.coverSize}px</output>
+          <output className="sr-only" htmlFor={size}>
+            {preferences.coverSize} pixels
+          </output>
         </div>
         <input
           id={size}

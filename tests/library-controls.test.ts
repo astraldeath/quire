@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { continueBook, entriesFor, readingStatus } from '../src/domain/library';
+import {
+  continueBook,
+  entriesFor,
+  readingStatus,
+  readingStatusLabel,
+} from '../src/domain/library';
 import { defaults, type Book } from '../src/domain/models';
 import { validatePreferences } from '../src/features/backup/validation';
 const book = (id: string, props: Partial<Book> = {}): Book => ({
@@ -28,6 +33,13 @@ describe('library controls', () => {
     );
     expect(readingStatus(book('a', { position: position(0.999) }))).toBe(
       'finished',
+    );
+    expect(readingStatusLabel(book('a'))).toBe('Unread');
+    expect(readingStatusLabel(book('a', { position: position(0.426) }))).toBe(
+      '43% read',
+    );
+    expect(readingStatusLabel(book('a', { position: position(0.999) }))).toBe(
+      'Finished',
     );
   });
   it('filters reading by unfinished progress, with explicit status and availability overrides', () => {

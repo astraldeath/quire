@@ -106,7 +106,11 @@ export function LibraryControls({
           <Grid2X2 />
           View
         </button>
-        <button aria-pressed={selecting} onClick={onSelect}>
+        <button
+          aria-label="Select books"
+          aria-pressed={selecting}
+          onClick={onSelect}
+        >
           {selecting ? <X /> : <CheckSquare />}
           {selecting ? 'Done' : 'Select'}
         </button>

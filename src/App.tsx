@@ -108,6 +108,7 @@ import {
   entriesFor,
   restoreImport,
   readingStatus,
+  readingStatusLabel,
   continueBook,
   type LibraryEntry,
 } from './domain/library';
@@ -1438,7 +1439,11 @@ function AppContent({
                 {seriesNext && (
                   <button onClick={() => void openBook(seriesNext)}>
                     <BookOpen />
-                    Continue
+                    {seriesBooks.some(
+                      (book) => readingStatus(book) !== 'unread',
+                    )
+                      ? 'Continue reading'
+                      : 'Start reading'}
                   </button>
                 )}
                 {(hostedWeb || isTauri()) && (
@@ -1486,8 +1491,17 @@ function AppContent({
                     )
                   }
                   onDone={() => {
-                    setSelecting(false);
-                    setSelected([]);
+                    flushSync(() => {
+                      setSelecting(false);
+                      setSelected([]);
+                    });
+                    queueMicrotask(() =>
+                      document
+                        .querySelector<HTMLElement>(
+                          '[aria-label="Select books"]',
+                        )
+                        ?.focus({ preventScroll: true }),
+                    );
                   }}
                   onFolders={(origin) =>
                     openFolderMembership(activeIds, origin)
@@ -1726,11 +1740,9 @@ function AppContent({
                           </h2>
                           <p className="book-author">
                             {group
-                              ? readingStatus(book) === 'finished'
-                                ? 'Finished'
-                                : readingStatus(book) === 'reading'
-                                  ? `${Math.round(book.position!.fraction * 100)}% read`
-                                  : 'Unread'
+                              ? book.volume !== null
+                                ? book.title
+                                : book.author
                               : book.author}
                           </p>
                         </div>
@@ -1738,14 +1750,12 @@ function AppContent({
                       <div className="book-under">
                         <span>
                           {group
-                            ? ''
+                            ? readingStatusLabel(book)
                             : entry.series
                               ? `${entry.books.length} volumes`
                               : book.volume !== null
-                                ? `Volume ${book.volume}`
-                                : book.position
-                                  ? `${Math.round(book.position.fraction * 100)}%`
-                                  : 'Not started'}
+                                ? `Volume ${book.volume} · ${readingStatusLabel(book)}`
+                                : readingStatusLabel(book)}
                         </span>
                         <div className="book-tail">
                           <LocalOnlyBadge
@@ -1759,8 +1769,8 @@ function AppContent({
                           ) && (
                             <span
                               className="book-privacy-badge"
-                              title="Private book"
-                              aria-label="Private book"
+                              title={`${entry.books.some((member) => privacy.state.books[member.id] === 'hidden') ? 'Hidden' : 'Locked'} book`}
+                              aria-label={`${entry.books.some((member) => privacy.state.books[member.id] === 'hidden') ? 'Hidden' : 'Locked'} book`}
                             >
                               <LockKeyhole size={16} aria-hidden="true" />
                             </span>
@@ -1989,6 +1999,9 @@ function AppContent({
       )}
       {actions && actions.entry.books.every((b) => privacy.access(b.id)) && (
         <BookActions
+          inSeries={
+            !!group && actions.entry.series && actions.entry.title === group
+          }
           onMove={() => {
             openFolderMembership(
               actions.entry.books.map((book) => book.id),
@@ -2072,6 +2085,14 @@ function AppContent({
           }}
           key={details.id}
           book={details}
+          remoteAvailable={serverFiles?.has(details.id)}
+          privacyLabel={
+            privacy.state.books[details.id] === 'hidden'
+              ? 'Hidden book.'
+              : privacy.state.books[details.id] === 'locked'
+                ? 'Locked book.'
+                : undefined
+          }
           onClose={() => goDetails(null)}
           onRead={() => void openBook(details)}
           onImport={() => {

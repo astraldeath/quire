@@ -80,8 +80,10 @@ export function OptionsPanel({
       window.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('scroll', update);
-      if (trigger.current?.isConnected)
-        trigger.current.focus({ preventScroll: true });
+      const origin = trigger.current;
+      queueMicrotask(() => {
+        if (origin?.isConnected) origin.focus({ preventScroll: true });
+      });
     };
   }, []);
   return createPortal(

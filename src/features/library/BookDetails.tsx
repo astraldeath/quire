@@ -2,6 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, HardDriveDownload, Pencil, Trash2 } from 'lucide-react';
 import type { Book } from '../../domain/models';
+import { readingStatusLabel } from '../../domain/library';
 import { Modal } from '../../components/Modal';
 import { TaskError } from '../../components/TaskError';
 import { useDraftGuard } from '../../components/useDraftGuard';
@@ -37,6 +38,8 @@ export function BookDetails({
   onImport,
   onDelete,
   onTracking,
+  remoteAvailable,
+  privacyLabel,
 }: {
   book: Book;
   onClose: () => void;
@@ -46,6 +49,8 @@ export function BookDetails({
   onImport: () => void;
   onDelete: () => void;
   onTracking?: () => void;
+  remoteAvailable?: boolean;
+  privacyLabel?: string;
 }) {
   const [tracking, setTracking] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -216,11 +221,7 @@ export function BookDetails({
                     {book.volume !== null ? ` · Volume ${book.volume}` : ''}
                   </p>
                 )}
-                <p className="muted">
-                  {book.position
-                    ? `${Math.round(book.position.fraction * 100)}% read`
-                    : 'Not started'}
-                </p>
+                <p className="muted">{readingStatusLabel(book)}</p>
               </div>
             </div>
             <div className="book-details-primary">
@@ -255,9 +256,18 @@ export function BookDetails({
               <h3>Availability</h3>
               <p className="muted book-details-availability">
                 {book.local
-                  ? 'Downloaded for offline reading on this device.'
-                  : 'The book file is not available on this device.'}
+                  ? remoteAvailable === false
+                    ? 'Downloaded only to this device.'
+                    : 'Downloaded for offline reading on this device.'
+                  : remoteAvailable
+                    ? 'Stored on your server and downloaded when opened.'
+                    : 'Not downloaded to this device.'}
               </p>
+              {privacyLabel && (
+                <p className="muted book-details-availability">
+                  {privacyLabel} Access is unlocked for this session.
+                </p>
+              )}
               <div className="book-details-actions">
                 {book.local ? (
                   <button

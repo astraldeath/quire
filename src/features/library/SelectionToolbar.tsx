@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -40,7 +40,11 @@ export function SelectionToolbar({
 }) {
   const [menu, setMenu] = useState<'main' | 'privacy' | null>(null);
   const [anchor, setAnchor] = useState<ActionAnchor>();
+  const selectAll = useRef<HTMLButtonElement>(null);
   const count = selectedIds.length;
+  useLayoutEffect(() => {
+    selectAll.current?.focus({ preventScroll: true });
+  }, []);
   const run = (action: () => void) => {
     setMenu(null);
     action();
@@ -48,7 +52,12 @@ export function SelectionToolbar({
   return (
     <div className="selection-bar" role="region" aria-label="Selected books">
       <strong>{count} selected</strong>
-      <button type="button" disabled={!totalEligible} onClick={onSelectAll}>
+      <button
+        ref={selectAll}
+        type="button"
+        disabled={!totalEligible}
+        onClick={onSelectAll}
+      >
         {count === totalEligible && totalEligible > 0
           ? 'Deselect all'
           : 'Select all'}

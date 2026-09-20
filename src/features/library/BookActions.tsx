@@ -22,11 +22,16 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { ActionMenuItem } from '../../components/ActionMenuItem';
-import type { LibraryEntry } from '../../domain/library';
+import {
+  readingStatus,
+  readingStatusLabel,
+  type LibraryEntry,
+} from '../../domain/library';
 import { removalDescription } from './removal';
 import { useRemovalScope } from './useRemovalScope';
 export function BookActions({
   entry,
+  inSeries = false,
   anchor,
   initialRemove = false,
   onClose,
@@ -46,6 +51,7 @@ export function BookActions({
   onMove?: () => void;
   onTracking?: () => void;
   entry: LibraryEntry;
+  inSeries?: boolean;
   anchor?: ActionAnchor;
   initialRemove?: boolean;
   onClose(): void;
@@ -54,7 +60,7 @@ export function BookActions({
   onRemoveDownload(): Promise<void>;
   onDelete(): Promise<void>;
 }) {
-  const [submenu, setSubmenu] = useState<'status' | 'files' | null>(null);
+  const [submenu, setSubmenu] = useState<'files' | null>(null);
   const [tracking, setTracking] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [returnItem, setReturnItem] = useState<string>();
@@ -150,11 +156,9 @@ export function BookActions({
           ? 'Privacy'
           : submenu === 'files'
             ? 'Files and downloads'
-            : submenu === 'status'
-              ? 'Reading status'
-              : entry.series
-                ? 'Series actions'
-                : 'Book actions'
+            : entry.series
+              ? 'Series actions'
+              : 'Book actions'
       }
       onClose={() => {
         if (!busy) onClose();
@@ -175,63 +179,31 @@ export function BookActions({
             onClick={() => setSubmenu(null)}
           >
             <ArrowLeft />
-            {submenu === 'files' ? 'Files and downloads' : 'Reading status'}
+            Files and downloads
           </ActionMenuItem>
           <div className="menu-divider" role="separator" />
-          {submenu === 'status' ? (
-            onMark && (
-              <>
-                {entry.books.some(
-                  (b) => (b.position?.fraction ?? 0) < 0.999,
-                ) && (
-                  <ActionMenuItem
-                    menuId="mark-finished"
-                    disabled={busy}
-                    onClick={() => void run(() => onMark(true))}
-                  >
-                    <Check />
-                    Mark finished
-                  </ActionMenuItem>
-                )}
-                {entry.books.some((b) => !!b.position) && (
-                  <ActionMenuItem
-                    menuId="mark-unread"
-                    disabled={busy}
-                    onClick={() => void run(() => onMark(false))}
-                  >
-                    <BookOpen />
-                    Mark unread
-                  </ActionMenuItem>
-                )}
-              </>
-            )
-          ) : (
-            <>
-              {onDownload && entry.books.some((b) => !b.local) && (
-                <ActionMenuItem
-                  menuId="download"
-                  disabled={busy}
-                  onClick={() => void run(onDownload)}
-                >
-                  <Download />
-                  Download{' '}
-                  {entry.series ? `${entry.books.length} books` : 'book'}
-                </ActionMenuItem>
-              )}
-              <BookStorageActions books={entry.books} onClose={onClose} />
-              {!entry.series && (
-                <ExportBookAction book={entry.books[0]} onClose={onClose} />
-              )}
-              {entry.books.some((b) => b.local) && (
-                <ActionMenuItem
-                  menuId="remove-download"
-                  onClick={() => setConfirm('download')}
-                >
-                  <HardDriveDownload />
-                  Remove download
-                </ActionMenuItem>
-              )}
-            </>
+          {onDownload && entry.books.some((b) => !b.local) && (
+            <ActionMenuItem
+              menuId="download"
+              disabled={busy}
+              onClick={() => void run(onDownload)}
+            >
+              <Download />
+              Download {entry.series ? `${entry.books.length} books` : 'book'}
+            </ActionMenuItem>
+          )}
+          <BookStorageActions books={entry.books} onClose={onClose} />
+          {!entry.series && (
+            <ExportBookAction book={entry.books[0]} onClose={onClose} />
+          )}
+          {entry.books.some((b) => b.local) && (
+            <ActionMenuItem
+              menuId="remove-download"
+              onClick={() => setConfirm('download')}
+            >
+              <HardDriveDownload />
+              Remove download
+            </ActionMenuItem>
           )}
           {error && (
             <p className="error" role="alert">
@@ -246,20 +218,29 @@ export function BookActions({
             {entry.series && (
               <span className="muted">{entry.books.length} books</span>
             )}
+            {!entry.series && (
+              <span className="muted">
+                {readingStatusLabel(entry.books[0])}
+              </span>
+            )}
           </div>
           <div className="book-action-list">
-            <ActionMenuItem menuId="open" onClick={onOpen}>
-              {entry.series ? <FolderOpen /> : <BookOpen />}
-              {entry.series
-                ? 'Open series'
-                : entry.books[0].local
-                  ? 'Read book'
-                  : 'Download and read'}
-            </ActionMenuItem>
+            {!(entry.series && inSeries) && (
+              <ActionMenuItem menuId="open" onClick={onOpen}>
+                {entry.series ? <FolderOpen /> : <BookOpen />}
+                {entry.series
+                  ? 'Open series'
+                  : entry.books[0].local
+                    ? 'Read book'
+                    : 'Download and read'}
+              </ActionMenuItem>
+            )}
             {entry.series && onContinue && (
               <ActionMenuItem menuId="continue" onClick={onContinue}>
                 <BookOpen />
-                Continue reading
+                {entry.books.some((book) => readingStatus(book) !== 'unread')
+                  ? 'Continue reading'
+                  : 'Start reading'}
               </ActionMenuItem>
             )}
             <TrackingButton
@@ -273,19 +254,30 @@ export function BookActions({
                 Book details
               </ActionMenuItem>
             )}
-            {onMark && (
-              <ActionMenuItem
-                menuId="status"
-                onClick={() => {
-                  setReturnItem('status');
-                  setSubmenu('status');
-                }}
-              >
-                <Check />
-                Reading status
-                <ChevronRight className="menu-chevron" />
-              </ActionMenuItem>
-            )}
+            {onMark &&
+              entry.books.some(
+                (book) => readingStatus(book) !== 'finished',
+              ) && (
+                <ActionMenuItem
+                  menuId="mark-finished"
+                  disabled={busy}
+                  onClick={() => void run(() => onMark(true))}
+                >
+                  <Check />
+                  Mark finished
+                </ActionMenuItem>
+              )}
+            {onMark &&
+              entry.books.some((book) => readingStatus(book) !== 'unread') && (
+                <ActionMenuItem
+                  menuId="mark-unread"
+                  disabled={busy}
+                  onClick={() => void run(() => onMark(false))}
+                >
+                  <BookOpen />
+                  Mark unread
+                </ActionMenuItem>
+              )}
             <ActionMenuItem
               menuId="files"
               onClick={() => {

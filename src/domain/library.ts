@@ -14,6 +14,12 @@ export function readingStatus(book: Book): ReadingStatus {
   const fraction = book.position?.fraction ?? 0;
   return fraction >= 0.999 ? 'finished' : fraction > 0 ? 'reading' : 'unread';
 }
+export function readingStatusLabel(book: Book): string {
+  const status = readingStatus(book);
+  if (status === 'unread') return 'Unread';
+  if (status === 'finished') return 'Finished';
+  return `${Math.round(book.position!.fraction * 100)}% read`;
+}
 export function continueBook(books: Book[]): Book | undefined {
   const recent = books
     .filter((b) => readingStatus(b) !== 'unread')

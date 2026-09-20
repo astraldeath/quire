@@ -53,6 +53,9 @@ it('uses radio choices for immediate filters and closes only with Done', async (
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   await click('Done');
   expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.activeElement?.getAttribute('aria-label')).toBe(
+    'Filter books',
+  );
   await act(async () => root.unmount());
 });
 
@@ -77,6 +80,7 @@ it('shares precise view controls without rounding the saved cover size', async (
     max: '210',
     step: '1',
   });
+  expect(host.querySelector('output')?.className).toBe('sr-only');
   expect(host.textContent).toContain('Smaller');
   expect(host.textContent).toContain('Larger');
   await act(async () => {

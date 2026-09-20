@@ -281,4 +281,137 @@ it('offers tracking directly in a non-modal menu and supports dismissal and keyb
     await act(async () => root.unmount());
   }
 });
+
+it.each([
+  {
+    name: 'unread',
+    position: undefined,
+    shown: ['Unread', 'Mark finished'],
+    hidden: ['Reading status', 'Mark unread'],
+  },
+  {
+    name: 'reading',
+    position: { fraction: 0.42, updatedAt: 2, cfi: '', section: '' },
+    shown: ['42% read', 'Mark finished', 'Mark unread'],
+    hidden: ['Reading status'],
+  },
+  {
+    name: 'finished',
+    position: { fraction: 1, updatedAt: 2, cfi: '', section: '' },
+    shown: ['Finished', 'Mark unread'],
+    hidden: ['Reading status', 'Mark finished'],
+  },
+])(
+  'shows direct status actions for a $name book',
+  async ({ position, shown, hidden }) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const mark = vi.fn().mockResolvedValue(undefined);
+    const book = {
+      id: 'status',
+      title: 'Status book',
+      author: '',
+      series: '',
+      volume: null,
+      cover: '',
+      addedAt: 1,
+      local: true,
+      position,
+    };
+    await act(async () =>
+      root.render(
+        <BookActions
+          entry={{
+            key: book.id,
+            title: book.title,
+            series: false,
+            books: [book],
+          }}
+          onClose={() => {}}
+          onOpen={() => {}}
+          onDetails={() => {}}
+          onMark={mark}
+          onRemoveDownload={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      ),
+    );
+    const menu = document.querySelector('[role="menu"]')!;
+    for (const label of shown) expect(menu.textContent).toContain(label);
+    for (const label of hidden) expect(menu.textContent).not.toContain(label);
+    if (shown.includes('Mark finished')) {
+      await act(async () =>
+        [...menu.querySelectorAll<HTMLButtonElement>('button')]
+          .find((button) => button.textContent === 'Mark finished')!
+          .click(),
+      );
+      expect(mark).toHaveBeenCalledWith(true);
+    }
+    await act(async () => root.unmount());
+  },
+);
+
+it('uses progress-aware series actions and omits Open series on its own page', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const base = {
+    id: 'one',
+    title: 'Named volume',
+    author: '',
+    series: 'Series',
+    volume: 1,
+    cover: '',
+    addedAt: 1,
+    local: true,
+  };
+  const render = async (inSeries: boolean, reading = false) =>
+    act(async () =>
+      root.render(
+        <BookActions
+          inSeries={inSeries}
+          entry={{
+            key: 'series',
+            title: 'Series',
+            series: true,
+            books: [
+              reading
+                ? {
+                    ...base,
+                    position: {
+                      fraction: 0.2,
+                      updatedAt: 2,
+                      cfi: '',
+                      section: '',
+                    },
+                  }
+                : base,
+            ],
+          }}
+          onClose={() => {}}
+          onOpen={() => {}}
+          onContinue={() => {}}
+          onDetails={() => {}}
+          onRemoveDownload={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      ),
+    );
+  await render(false);
+  expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+    'Open series',
+  );
+  expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+    'Start reading',
+  );
+  await render(true, true);
+  expect(document.querySelector('[role="menu"]')?.textContent).not.toContain(
+    'Open series',
+  );
+  expect(document.querySelector('[role="menu"]')?.textContent).toContain(
+    'Continue reading',
+  );
+  await act(async () => root.unmount());
+});
 import 'fake-indexeddb/auto';
