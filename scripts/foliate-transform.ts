@@ -175,6 +175,47 @@ export function hardenFoliate(
         '    get index() {',
         '    get atStart() { return this.index === 0 }\n    get atEnd() { return this.#index === this.#spreads.length - 1 && (!this.#portrait || this.index === this.book.sections.length - 1) }\n    get index() {',
       ],
+      ['    #index = -1', '    #index = -1\n    #closed = false'],
+      [
+        '        const section = spread?.center',
+        '        if (!spread) return -1\n        const section = spread?.center',
+      ],
+      [
+        '        const spread = this.#spreads[index]\n        if (spread.center)',
+        `        if (this.#closed) throw new Error('Reader is closed')
+        const previous = this.#spreads[this.#index]
+        const spread = this.#spreads[index]
+        try {
+        if (spread.center)`,
+      ],
+      [
+        '        this.#index = index\n        this.#reportLocation(reason)',
+        `        if (this.#closed) throw new Error('Reader is closed')
+        for (const section of Object.values(previous ?? {})) section?.unload?.()
+        this.#index = index
+        this.#reportLocation(reason)
+        } catch (error) {
+            // A partial frame failure may already have removed the old spread.
+            // Release both sets and invalidate the index so any retry reloads it.
+            this.#root.replaceChildren()
+            this.#left = this.#right = this.#center = null
+            this.#side = null
+            for (const section of new Set([...Object.values(previous ?? {}), ...Object.values(spread)])) section?.unload?.()
+            this.#index = -1
+            throw error
+        }`,
+      ],
+      [
+        '    destroy() {\n        this.#observer.unobserve(this)',
+        `    destroy() {
+        this.#closed = true
+        this.#root.replaceChildren()
+        for (const section of Object.values(this.#spreads?.[this.#index] ?? {})) section?.unload?.()
+        this.#index = -1
+        this.#left = this.#right = this.#center = null
+        this.#side = null
+        this.#observer.unobserve(this)`,
+      ],
     ];
     let output = normalized.slice(0, start) + safe + normalized.slice(end);
     for (const [before, after] of replacements) {

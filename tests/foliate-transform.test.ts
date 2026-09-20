@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { hardenFoliate } from '../scripts/foliate-transform';
+import { bufferSections } from '../src/features/reader/section-buffer';
 const source = readFileSync('node_modules/foliate-js/paginator.js', 'utf8');
 const id = '/node_modules/foliate-js/paginator.js';
 const fixedSource = readFileSync(
@@ -9,7 +10,7 @@ const fixedSource = readFileSync(
 );
 const fixedId = '/node_modules/foliate-js/fixed-layout.js';
 
-function fixedRenderer(rtl = false) {
+function fixedRenderer(rtl = false, count = 4) {
   const transformed = hardenFoliate(fixedSource, fixedId)!;
   const start = transformed.indexOf('    async #createFrame(');
   const end = transformed.indexOf('    #render(side', start);
@@ -50,8 +51,9 @@ function fixedRenderer(rtl = false) {
     width: 400,
     height: 800,
   });
-  const sections = Array.from({ length: 4 }, (_, i) => ({
+  const sections = Array.from({ length: count }, (_, i) => ({
     load: async () => 'page' + i,
+    unload: vi.fn(),
   }));
   renderer.open({
     dir: rtl ? 'rtl' : 'ltr',
@@ -60,6 +62,80 @@ function fixedRenderer(rtl = false) {
   });
   return { renderer, sections };
 }
+
+it('releases old fixed spreads through the section buffer and releases the visible spread on close', async () => {
+  const { renderer, sections } = fixedRenderer(false, 8);
+  const unloads = sections.map((section) => section.unload);
+  const buffer = bufferSections(sections);
+  renderer.addEventListener('relocate', (event: CustomEvent) =>
+    buffer.relocate(event.detail.index),
+  );
+  await renderer.goTo({ index: 1 });
+  await renderer.goTo({ index: 5 });
+  for (let i = 0; i < 40; i++) await Promise.resolve();
+  expect(unloads[1]).toHaveBeenCalledOnce();
+  expect(unloads[2]).toHaveBeenCalledOnce();
+  expect(unloads[5]).not.toHaveBeenCalled();
+  expect(unloads[6]).not.toHaveBeenCalled();
+  renderer.destroy();
+  await buffer.dispose();
+  expect(unloads[5]).toHaveBeenCalledOnce();
+  expect(unloads[6]).toHaveBeenCalledOnce();
+});
+
+it('releases both spread pages after partial frame failure', async () => {
+  const { renderer, sections } = fixedRenderer();
+  await renderer.goTo({ index: 0 });
+  sections[2].load = async () => 'fail';
+  await expect(renderer.goTo({ index: 1 })).rejects.toThrow('failed page');
+  expect(sections[0].unload).toHaveBeenCalledOnce();
+  expect(sections[1].unload).toHaveBeenCalledOnce();
+  expect(sections[2].unload).toHaveBeenCalledOnce();
+  expect(renderer.index).toBe(-1);
+  sections[2].load = async () => 'page2';
+  await renderer.goTo({ index: 1 });
+  expect(renderer.index).toBe(1);
+  renderer.destroy();
+});
+
+it('does not retain a spread that finishes loading after close', async () => {
+  const { renderer, sections } = fixedRenderer();
+  let resolve!: (value: string) => void;
+  sections[0].load = () =>
+    new Promise<string>((done) => {
+      resolve = done;
+    });
+  const pending = renderer.goTo({ index: 0 });
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  renderer.destroy();
+  resolve('page0');
+  await expect(pending).rejects.toThrow('Reader is closed');
+  expect(sections[0].unload).toHaveBeenCalledOnce();
+  expect(renderer.index).toBe(-1);
+});
+
+it('completes when the final two-page spread is visible in landscape', async () => {
+  const { renderer } = fixedRenderer(false, 3);
+  renderer.getBoundingClientRect.mockReturnValue({ width: 1200, height: 800 });
+  await renderer.goTo({ index: 1 });
+  expect(renderer.index).toBe(1);
+  expect(renderer.atEnd).toBe(true);
+  renderer.destroy();
+});
+
+it.each([false, true])(
+  'reports start and completion for fixed page navigation (rtl=%s)',
+  async (rtl) => {
+    const { renderer } = fixedRenderer(rtl);
+    await renderer.goTo({ index: 0 });
+    expect(renderer.atStart).toBe(true);
+    expect(renderer.atEnd).toBe(false);
+    await renderer.goTo({ index: 3 });
+    expect(renderer.atStart).toBe(false);
+    expect(renderer.atEnd).toBe(true);
+    renderer.destroy();
+  },
+);
 
 it.each([false, true])(
   'restores either page in the same spread (rtl=%s)',
