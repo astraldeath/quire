@@ -8,6 +8,8 @@ mod epub_export;
 mod sync;
 mod tracking;
 mod migrations;
+#[cfg(test)]
+mod acl_tests;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 #[cfg(desktop)]

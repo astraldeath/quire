@@ -4,6 +4,7 @@
   "description": "Local library access for the application window; no remote origins.",
   "windows": ["main"],
   "permissions": [
+    "allow-reader-commands",
     "allow-folder-catalog-call",
     "core:event:allow-listen", "core:event:allow-unlisten",
     "sql:allow-load", "sql:allow-select", "sql:allow-execute",
