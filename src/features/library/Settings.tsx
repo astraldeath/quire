@@ -190,7 +190,7 @@ export function Settings({
             id: 'server',
             label: 'Sync',
             icon: Cloud,
-            content: <ServerSettings />,
+            content: <ServerSettings books={books} />,
           },
           {
             id: 'updates',

@@ -1,5 +1,6 @@
 import { usePrivacy } from '../privacy/Privacy';
-import { validFolders } from '../library/folders';
+import type { Book } from '../../domain/models';
+import { conflictFields } from './conflictPresentation';
 import {
   conflictsForReview,
   recordKey,
@@ -9,10 +10,12 @@ import {
 } from './model';
 
 export function ConflictChoices({
+  books,
   state,
   busy,
   onResolve,
 }: {
+  books: Book[];
   state: SyncState;
   busy: boolean;
   onResolve(record: RemoteRecord, candidate: Candidate): void;
@@ -20,35 +23,52 @@ export function ConflictChoices({
   const privacy = usePrivacy();
   const conflicts = conflictsForReview(state);
   if (!state.enabled || !conflicts.length) return null;
+  const groups = new Map<string, RemoteRecord[]>();
+  const locked = new Set<string>();
+  for (const record of conflicts) {
+    if (!privacy.access(record.bookId)) {
+      locked.add(record.bookId);
+      continue;
+    }
+    const records = groups.get(record.bookId) ?? [];
+    records.push(record);
+    groups.set(record.bookId, records);
+  }
   return (
-    <section>
+    <section className="sync-conflicts">
       <h3>Choose which version to keep</h3>
-      {conflicts.map((record) =>
-        !privacy.access(record.bookId) ? (
-          <button
-            key={recordKey(record)}
-            onClick={() => void privacy.authenticate()}
-          >
+      {[...groups].map(([bookId, records]) => (
+        <section className="sync-conflict-book" key={bookId}>
+          <h4>
+            {books.find((book) => book.id === bookId)?.title ||
+              'Book title unavailable'}
+          </h4>
+          {records.map((record) => (
+            <div className="sync-conflict" key={recordKey(record)}>
+              <strong>
+                {record.kind === 'position'
+                  ? 'Reading position'
+                  : record.kind === 'book'
+                    ? 'Book information'
+                    : 'Saved passage'}
+              </strong>
+              <VersionChoices
+                record={record}
+                state={state}
+                busy={busy}
+                onResolve={onResolve}
+              />
+            </div>
+          ))}
+        </section>
+      ))}
+      {[...locked].map((bookId) => (
+        <div className="sync-conflict-locked" key={bookId}>
+          <button type="button" onClick={() => void privacy.authenticate()}>
             Unlock private book to resolve conflict
           </button>
-        ) : (
-          <div className="sync-conflict" key={recordKey(record)}>
-            <strong>
-              {record.kind === 'position'
-                ? 'Reading position'
-                : record.kind === 'book'
-                  ? 'Book information'
-                  : 'Saved passage'}
-            </strong>
-            <VersionChoices
-              record={record}
-              state={state}
-              busy={busy}
-              onResolve={onResolve}
-            />
-          </div>
-        ),
-      )}
+        </div>
+      ))}
     </section>
   );
 }
@@ -68,51 +88,37 @@ function VersionChoices({
     state.pending.some((p) => p.id === c.operationId),
   );
   const remote = record.candidates.filter((c) => !local.includes(c));
-  const choice = (candidate: Candidate) => (
+  const choice = (candidate: Candidate, source: 'Local' | 'Server') => (
     <button
       key={candidate.operationId}
+      type="button"
       disabled={busy}
       onClick={() => onResolve(record, candidate)}
     >
-      <span>
-        {candidate.deleted
-          ? 'Keep deletion'
-          : record.kind === 'position'
-            ? `${candidate.value?.section || 'Reading position'} · ${Math.round(Number(candidate.value?.fraction) * 100)}%`
-            : String(
-                candidate.value?.note ||
-                  candidate.value?.text ||
-                  candidate.value?.title ||
-                  'Saved passage',
-              )}
-      </span>
-      {!candidate.deleted && record.kind === 'book' && (
-        <small>
-          {validFolders(candidate.value?.folders)
-            ? candidate.value.folders.length
-              ? `Folders: ${candidate.value.folders.join(', ')}`
-              : 'No folders'
-            : typeof candidate.value?.folder === 'string' &&
-                candidate.value.folder
-              ? `Folder: ${candidate.value.folder}`
-              : 'Keep current folders'}
-        </small>
+      <span className="sync-conflict-source">{source} version</span>
+      {candidate.deleted ? (
+        <span className="sync-conflict-deletion">Keep deletion</span>
+      ) : (
+        <span className="sync-conflict-fields">
+          {conflictFields(record.kind, candidate).map((field) => (
+            <span key={field.label}>
+              <small>{field.label}</small>
+              <span>{field.value}</span>
+            </span>
+          ))}
+        </span>
       )}
-      <small>
-        {local.includes(candidate) ? 'Use local version' : 'Use server version'}
+      <small className="sync-conflict-time">
+        {source === 'Local' && candidate.createdAt === 0
+          ? 'Unsynced change on this device'
+          : `Changed ${new Date(candidate.createdAt).toLocaleString()}`}
       </small>
     </button>
   );
   return (
-    <>
-      {local.map(choice)}
-      {remote.slice(-1).map(choice)}
-      {remote.length > 1 && (
-        <details>
-          <summary>Other versions ({remote.length - 1})</summary>
-          {remote.slice(0, -1).map(choice)}
-        </details>
-      )}
-    </>
+    <div className="sync-conflict-choices">
+      {local.map((candidate) => choice(candidate, 'Local'))}
+      {remote.map((candidate) => choice(candidate, 'Server'))}
+    </div>
   );
 }

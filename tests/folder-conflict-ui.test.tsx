@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it, vi } from 'vitest';
 import { ConflictChoices } from '../src/features/sync/ConflictChoices';
+import type { Book } from '../src/domain/models';
 import {
   emptySync,
   recordKey,
@@ -37,9 +38,28 @@ it('distinguishes folder versions of the same book in conflict choices', () => {
     ],
   };
   state.records[recordKey(record)] = record;
+  const books: Book[] = [
+    {
+      id: record.bookId,
+      title: 'Novel',
+      author: '',
+      series: '',
+      volume: null,
+      cover: '',
+      addedAt: 1,
+      local: true,
+    },
+  ];
   const markup = renderToStaticMarkup(
-    <ConflictChoices state={state} busy={false} onResolve={() => {}} />,
+    <ConflictChoices
+      books={books}
+      state={state}
+      busy={false}
+      onResolve={() => {}}
+    />,
   );
-  expect(markup).toContain('Folders: Fiction, Favorites');
-  expect(markup).toContain('No folders');
+  const host = document.createElement('div');
+  host.innerHTML = markup;
+  expect(host.textContent).toContain('FoldersFiction, Favorites');
+  expect(host.textContent).toContain('FoldersNo folders');
 });

@@ -23,7 +23,8 @@ import {
 } from './engine';
 import { discover, serverOrigin } from './transport';
 import { isTauri } from '@tauri-apps/api/core';
-export function ServerSettings() {
+import type { Book } from '../../domain/models';
+export function ServerSettings({ books }: { books: Book[] }) {
   const [state, setState] = useState<SyncState>(emptySync);
   const status = useSyncExternalStore(subscribe, snapshot);
   const [account, setAccount] = useState('');
@@ -78,6 +79,7 @@ export function ServerSettings() {
     });
   const choices = (
     <ConflictChoices
+      books={books}
       state={state}
       busy={busy || status.busy}
       onResolve={(record, candidate) =>

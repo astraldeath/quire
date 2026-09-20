@@ -1580,13 +1580,41 @@ dialog:has(.settings-tabs) .modal-body {
   flex-wrap: wrap;
   gap: 12px;
 }
+.sync-conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sync-conflicts > h3 {
+  margin-bottom: 0;
+}
+.sync-conflict-book {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.sync-conflict-book > h4 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
 .sync-conflict {
-  margin-top: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.sync-conflict button {
+.sync-conflict + .sync-conflict {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.sync-conflict-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 8px;
+}
+.sync-conflict-choices > button {
   padding: 12px;
   text-align: left;
   display: flex;
@@ -1595,13 +1623,38 @@ dialog:has(.settings-tabs) .modal-body {
   overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 8px;
+  min-width: 0;
+  background: var(--surface);
 }
-.sync-conflict button span {
-  max-height: 100px;
-  overflow: auto;
+.sync-conflict-choices > button:hover {
+  background: var(--hover);
+}
+.sync-conflict-source,
+.sync-conflict-deletion {
+  font-weight: 600;
+}
+.sync-conflict-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sync-conflict-fields > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .sync-conflict small {
   opacity: 0.65;
+}
+.sync-conflict-fields small {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sync-conflict-locked button {
+  border: 1px solid var(--line);
+  width: 100%;
 }
 
 /* Shared settings conventions: grouped content, clear actions, room for focus rings. */
