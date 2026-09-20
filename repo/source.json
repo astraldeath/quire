@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.7.1",
-      "versionDate": "2026-09-20T19:35:32.000Z",
-      "versionDescription": "- Fix native command permission errors introduced in v0.7.0, including file opening, screen capture settings, local storage, sync, tracking, and update checks.\n- If v0.7.0 cannot check for updates, download and install this release manually over your existing installation. Do not uninstall Quire or clear its app data.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.1/Quire_0.7.1_ios-unsigned.ipa",
-      "size": 7698141,
+      "version": "0.7.2",
+      "versionDate": "2026-09-20T22:00:07.000Z",
+      "versionDescription": "- Restore labeled settings tabs on mobile in two compact rows, replacing the section dropdown.\n- Keep mobile tabs visible and stationary while settings content scrolls, with keyboard navigation adapted to the layout.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.2/Quire_0.7.2_ios-unsigned.ipa",
+      "size": 7701792,
       "versions": [
+        {
+          "version": "0.7.2",
+          "date": "2026-09-20T22:00:07.000Z",
+          "localizedDescription": "- Restore labeled settings tabs on mobile in two compact rows, replacing the section dropdown.\n- Keep mobile tabs visible and stationary while settings content scrolls, with keyboard navigation adapted to the layout.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.2/Quire_0.7.2_ios-unsigned.ipa",
+          "size": 7701792
+        },
         {
           "version": "0.7.1",
           "date": "2026-09-20T19:35:32.000Z",
