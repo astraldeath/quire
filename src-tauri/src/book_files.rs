@@ -154,9 +154,58 @@ pub async fn book_file_read(
     Ok(Response::new(bytes))
 }
 
+/// Scoped staging object: failed or interrupted downloads leave no partial file.
+pub(crate) struct DownloadFile {
+    root: PathBuf,
+    id: String,
+    size: u64,
+    committed: bool,
+}
+impl DownloadFile {
+    pub(crate) fn new(app: &tauri::AppHandle) -> Result<Self, String> {
+        Self::in_root(root(app)?)
+    }
+    fn in_root(root: PathBuf) -> Result<Self, String> {
+        let id = begin(&root)?;
+        Ok(Self { root, id, size: 0, committed: false })
+    }
+    pub(crate) fn append(&mut self, bytes: &[u8]) -> Result<(), String> {
+        for chunk in bytes.chunks(CHUNK) {
+            append(&self.root, &self.id, self.size, chunk)?;
+            self.size += chunk.len() as u64;
+        }
+        Ok(())
+    }
+    pub(crate) fn finish(mut self) -> Result<String, String> {
+        finish(&self.root, &self.id, self.size)?;
+        self.committed = true;
+        Ok(format!("@quire-file:{}", self.id))
+    }
+}
+impl Drop for DownloadFile {
+    fn drop(&mut self) {
+        if !self.committed { let _ = remove(&self.root, &self.id, true); }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unfinished_downloads_are_cleaned_up_and_committed_files_survive() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let mut download = DownloadFile::in_root(dir.path().to_path_buf()).unwrap();
+            download.append(b"partial").unwrap();
+        }
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+        let mut download = DownloadFile::in_root(dir.path().to_path_buf()).unwrap();
+        download.append(b"complete").unwrap();
+        let reference = download.finish().unwrap();
+        let id = reference.strip_prefix("@quire-file:").unwrap();
+        assert_eq!(fs::read(path(dir.path(), id, false).unwrap()).unwrap(), b"complete");
+        assert!(!path(dir.path(), id, true).unwrap().exists());
+    }
     #[test]
     fn immutable_objects_validate_chunks_and_keep_previous_version() {
         let dir = tempfile::tempdir().unwrap();

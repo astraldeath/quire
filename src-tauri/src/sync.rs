@@ -48,22 +48,72 @@ pub async fn sync_logout(server:String,username:String,session:String)->Result<(
 #[tauri::command]
 pub async fn sync_files(server:String,username:String,delete:Option<String>)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;match delete{Some(id)=>{check_book_id(&id)?;request(&o,&format!("/v1/books/{id}/file"),Method::DELETE,None,Some(token)).await},None=>request(&o,"/v1/files",Method::GET,None,Some(token)).await}}
 fn check_book_id(id:&str)->Result<(),String>{if id.len()!=64||!id.bytes().all(|c|c.is_ascii_digit()||(b'a'..=b'f').contains(&c)){Err("Invalid book identity.".into())}else{Ok(())}}
-#[tauri::command]
-pub async fn sync_upload(request:tauri::ipc::Request<'_>)->Result<(),String>{
- let header=|key:&str|request.headers().get(key).and_then(|v|v.to_str().ok()).map(String::from).ok_or("Missing transfer details.");
- let o=origin(&header("x-quire-server")?)?;let username=header("x-quire-user")?;let id=header("x-quire-book")?;check_book_id(&id)?;
- let bytes=match request.body(){tauri::ipc::InvokeBody::Raw(bytes) if bytes.len()<=128*1024*1024=>bytes.clone(),_=>return Err("Invalid or oversized book file.".into())};
- let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to upload books.")?;
- let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_|"Connection unavailable.")?;
- let response=client.put(format!("{o}/v1/books/{id}/file")).bearer_auth(token).header("Content-Type","application/octet-stream").body(bytes).send().await.map_err(|_|"Upload interrupted. Try again.")?;
- if !response.status().is_success(){return Err("Upload failed. Check your session and file size, then retry.".into())}Ok(())
+const LEGACY_LIMIT: u64 = 128 * 1024 * 1024;
+const STORED_LIMIT: u64 = 8 * 1024 * 1024 * 1024;
+fn file_limits(value: &Value) -> Result<(u64, u64), String> {
+    if let Some(capabilities) = value.get("capabilities") {
+        if !capabilities.as_array().is_some_and(|values| values.iter().all(Value::is_string)) {
+            return Err("Invalid server capabilities.".into());
+        }
+    }
+    let Some(limits) = value.get("limits") else { return Ok((LEGACY_LIMIT, LEGACY_LIMIT)); };
+    let limit = |key: &str| -> Result<u64, String> {
+        limits[key].as_u64().filter(|v| *v > 0 && *v <= 9_007_199_254_740_991)
+            .map(|v| v.min(STORED_LIMIT)).ok_or_else(|| "Invalid server file limits.".into())
+    };
+    Ok((limit("maxUploadBytes")?, limit("maxDownloadBytes")?))
+}
+fn checked_size(size: u64, additional: u64, limit: u64) -> Result<u64, String> {
+    size.checked_add(additional).filter(|v| *v <= limit).ok_or_else(|| "Book file is too large.".into())
+}
+fn download_length(value: Option<&str>, limit: u64) -> Result<Option<u64>, String> {
+    value.map(|v| {
+        if v.is_empty() || !v.bytes().all(|c| c.is_ascii_digit()) { return Err("Invalid book size.".into()); }
+        let size = v.parse::<u64>().map_err(|_| "Invalid book size.")?;
+        checked_size(0, size, limit)
+    }).transpose()
+}
+fn transfer_client() -> Result<Client, String> {
+    Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_| "Connection unavailable.".into())
 }
 #[tauri::command]
-pub async fn sync_download(server:String,username:String,book:String)->Result<tauri::ipc::Response,String>{
- let o=origin(&server)?;check_book_id(&book)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to download books.")?;
- let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(300)).build().map_err(|_|"Connection unavailable.")?;
- let mut response=client.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_|"Download interrupted. Try again.")?;if !response.status().is_success(){return Err("The server book file is unavailable.".into())}
- let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Download interrupted.")?{if bytes.len()+chunk.len()>128*1024*1024{return Err("book file is too large.".into())}bytes.extend_from_slice(&chunk)}Ok(tauri::ipc::Response::new(bytes))
+pub async fn sync_upload_file(app: tauri::AppHandle, server: String, username: String, book: String, reference: String) -> Result<(), String> {
+    let o = origin(&server)?;
+    check_book_id(&book)?;
+    let limit = file_limits(&sync_discover(o.clone()).await?)?.0;
+    let token = credential(&o, &username)?.get_password().map_err(|_| "Sign in to upload books.")?;
+    // Resolve only opaque immutable book references, never a caller-supplied path.
+    let file = tokio::fs::File::open(crate::book_files::file_path(&app, &reference)?).await.map_err(|_| "Book file is unavailable.")?;
+    let size = file.metadata().await.map_err(|_| "Book file is unavailable.")?.len();
+    checked_size(0, size, limit)?;
+    let response = transfer_client()?.put(format!("{o}/v1/books/{book}/file")).bearer_auth(token)
+        .header("Content-Type", "application/octet-stream").header("Content-Length", size)
+        .body(file).send().await.map_err(|_| "Upload interrupted. Try again.")?;
+    if !response.status().is_success() { return Err("Upload failed. Check your session and file size, then retry.".into()); }
+    Ok(())
+}
+#[tauri::command]
+pub async fn sync_download_file(app: tauri::AppHandle, server: String, username: String, book: String) -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    let o = origin(&server)?;
+    check_book_id(&book)?;
+    let limit = file_limits(&sync_discover(o.clone()).await?)?.1;
+    let token = credential(&o, &username)?.get_password().map_err(|_| "Sign in to download books.")?;
+    let mut response = transfer_client()?.get(format!("{o}/v1/books/{book}/file")).bearer_auth(token).send().await.map_err(|_| "Download interrupted. Try again.")?;
+    if !response.status().is_success() { return Err("The server book file is unavailable.".into()); }
+    let length = response.headers().get("Content-Length").map(|v| v.to_str().map_err(|_| "Invalid book size.")).transpose()?;
+    let expected = download_length(length, limit)?;
+    let mut staged = crate::book_files::DownloadFile::new(&app)?;
+    let mut size = 0;
+    let mut hash = Sha256::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| "Download interrupted.")? {
+        size = checked_size(size, chunk.len() as u64, limit)?;
+        hash.update(&chunk);
+        staged.append(&chunk)?;
+    }
+    if expected.is_some_and(|expected| expected != size) { return Err("Incomplete downloaded book.".into()); }
+    if format!("{:x}", hash.finalize()) != book { return Err("Downloaded book file does not match this book.".into()); }
+    staged.finish()
 }
 
 #[tauri::command]
@@ -74,3 +124,21 @@ pub async fn sync_metadata(server:String,username:String,book:String)->Result<Va
 
 #[tauri::command]
 pub async fn updates_call(server:String,username:String)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/updates",Method::GET,None,Some(token)).await}
+#[cfg(test)]
+mod transfer_tests {
+ use super::*;
+ #[test]
+ fn discovery_limits_are_conservative_and_bounded() {
+  assert_eq!(file_limits(&json!({})).unwrap(), (134217728,134217728));
+  assert_eq!(file_limits(&json!({"limits":{"maxUploadBytes":2147483648u64,"maxDownloadBytes":9000000000u64}})).unwrap(), (2147483648,8589934592));
+  for value in [json!({"limits":null}),json!({"limits":{}}),json!({"limits":{"maxUploadBytes":-1,"maxDownloadBytes":1}}),json!({"limits":{"maxUploadBytes":1.5,"maxDownloadBytes":1}})] { assert!(file_limits(&value).is_err()); }
+ }
+ #[test]
+ fn validates_length_before_storage_and_rejects_overflow() {
+  assert!(checked_size(8,3,10).is_err());
+  assert!(checked_size(u64::MAX,1,8_589_934_592).is_err());
+  assert_eq!(checked_size(8,2,10).unwrap(),10);
+  for value in ["-1","+1","1.5","18446744073709551616","11"] { assert!(download_length(Some(value),10).is_err()); }
+  assert_eq!(download_length(Some("10"),10).unwrap(),Some(10));
+ }
+}

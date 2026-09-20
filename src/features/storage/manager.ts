@@ -1,4 +1,10 @@
-import { getFile, listBooks, loadSync, removeFileWhen } from '../../storage';
+import {
+  getNativeFileReference,
+  getFile,
+  listBooks,
+  loadSync,
+  removeFileWhen,
+} from '../../storage';
 import { syncNow } from '../sync/engine';
 import { files, upload, download } from '../sync/transport';
 import type { Account } from '../sync/model';
@@ -39,7 +45,7 @@ export async function uploadBooks(ids: string[], expected?: Account) {
   const remote = await files(account);
   for (const id of ids) {
     if (remote.some((f) => f.bookId === id)) continue;
-    const bytes = await getFile(id);
+    const bytes = (await getNativeFileReference(id)) ?? (await getFile(id));
     if (!bytes) continue;
     if (!(await current(account)))
       throw new Error('Your server account changed. Try again.');

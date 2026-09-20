@@ -5,7 +5,7 @@ import {
   putDownloadedFile,
   syncTransaction,
 } from '../../storage';
-import { download, files, metadata } from './transport';
+import { download, files, metadata, serverLimits } from './transport';
 import { assertCurrentAccount, type Account } from './model';
 import { readPolicy, writePolicy, touchBook } from '../storage/policy';
 
@@ -76,8 +76,10 @@ export async function ensureBookFile(
   const task = (async () => {
     const bytes = await download(account, id);
     assertCurrentAccount(await loadSync(), account);
-    if (bytes.byteLength > 128 * 1024 * 1024)
-      throw new Error('Book file is too large (128 MB maximum).');
+    if (
+      bytes.byteLength > (await serverLimits(account.origin)).maxDownloadBytes
+    )
+      throw new Error('Book file is too large.');
     const hash = Array.from(
       new Uint8Array(
         await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>),

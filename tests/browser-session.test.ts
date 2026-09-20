@@ -113,3 +113,51 @@ it('authenticates backup downloads and refuses oversized browser downloads', asy
     transport.downloadServerBackup(account, progress),
   ).rejects.toThrow('512 MB');
 });
+it('binds shared POST uploads to the current HttpOnly browser session', async () => {
+  const transport = await import('../src/features/sync/transport');
+  const account = {
+    origin: location.origin,
+    username: 'alice',
+    sessionId: 'session',
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            apiVersion: '1',
+            apiUrl: location.origin + '/v1',
+            name: 'Quire',
+            capabilities: ['server-assigned-upload'],
+            limits: {
+              maxUploadBytes: 2147483648,
+              maxDownloadBytes: 8589934592,
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ bookId: 'a'.repeat(64), size: 4 }), {
+          status: 201,
+        }),
+      ),
+  );
+  await transport.uploadSharedFile(
+    account,
+    'shared',
+    new File(['book'], 'book.cbz'),
+    new AbortController().signal,
+  );
+  expect(vi.mocked(fetch).mock.calls.at(-1)?.[1]).toMatchObject({
+    method: 'POST',
+    redirect: 'error',
+    credentials: 'same-origin',
+    headers: {
+      'X-Quire-Session': 'session',
+      'Content-Type': 'application/octet-stream',
+    },
+  });
+  expect(sessionStorage.length).toBe(0);
+});

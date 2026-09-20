@@ -21,7 +21,7 @@ export function TaskError({
         </details>
       )}
       {onRetry && (
-        <button disabled={busy} onClick={onRetry}>
+        <button type="button" disabled={busy} onClick={onRetry}>
           Retry
         </button>
       )}

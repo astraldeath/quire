@@ -1,8 +1,8 @@
-import { BOOK_ACCEPT } from '../../books';
+import { SharedUpload } from './SharedUpload';
 import { LibraryActions } from './LibraryActions';
 import { syncNow } from '../sync/engine';
 import { LibraryBooks } from './LibraryBooks';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Plus, RefreshCw, FolderOpen, Trash2 } from 'lucide-react';
 import type { Account } from '../sync/model';
 import { accountRequest } from '../sync/transport';
@@ -56,22 +56,39 @@ export function Management({
         skipped: number;
       }[]
     >([]);
+  const identity = JSON.stringify([
+    account.origin,
+    account.username,
+    account.sessionId,
+  ]);
+  const current = useRef(identity);
+  current.current = identity;
   async function refresh() {
     const [l, w, u, o] = await Promise.all(
       ['/libraries', '/watches', '/users', '/overview'].map((p) =>
         accountRequest(account, '/v1/admin' + p),
       ),
     );
+    if (current.current !== identity) return;
     setLibraries(l);
     setWatches(w);
     setUsers(u);
     setOverview(o);
-    setConfig(await accountRequest(account, '/v1/admin/settings'));
-    setScans(await accountRequest(account, '/v1/admin/scans'));
+    const config = await accountRequest(account, '/v1/admin/settings');
+    const scans = await accountRequest(account, '/v1/admin/scans');
+    if (current.current !== identity) return;
+    setConfig(config);
+    setScans(scans);
   }
   useEffect(() => {
-    void refresh().catch((e) => setError(e.message));
-  }, []);
+    current.current = identity;
+    void refresh().catch((e) => {
+      if (current.current === identity) setError(e.message);
+    });
+    return () => {
+      current.current = '';
+    };
+  }, [identity]);
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
     setError('');
@@ -259,34 +276,14 @@ export function Management({
                         </label>
                       ))}
                   </div>
-                  <label className="admin-upload">
-                    <span>Upload book</span>
-                    <input
-                      type="file"
-                      accept={BOOK_ACCEPT}
-                      disabled={busy}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = '';
-                        if (file)
-                          void run(async () => {
-                            const bytes = await file.arrayBuffer();
-                            if (bytes.byteLength > 128 * 1024 * 1024)
-                              throw new Error(
-                                'Book file must be smaller than 128 MB.',
-                              );
-                            const hash = Array.from(
-                              new Uint8Array(
-                                await crypto.subtle.digest('SHA-256', bytes),
-                              ),
-                              (x) => x.toString(16).padStart(2, '0'),
-                            ).join('');
-                            await uploadShared(account, l.id, hash, bytes);
-                            setNotice('Book uploaded.');
-                          });
-                      }}
-                    />
-                  </label>
+                  <SharedUpload
+                    account={account}
+                    library={l.id}
+                    onComplete={async () => {
+                      await refresh();
+                      if (current.current === identity) await syncNow();
+                    }}
+                  />
                   <LibraryBooks
                     account={account}
                     library={l.id}
@@ -437,4 +434,3 @@ export function Management({
     </>
   );
 }
-import { uploadShared } from '../sync/transport';

@@ -1,11 +1,60 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { Account, SyncResponse } from './model';
 import { SyncConflictError } from './errors';
+import {
+  deleteNativeFile,
+  nativeFileId,
+  readNativeFile,
+  writeNativeFile,
+} from '../../native-files';
 const tokens = new Map<string, string>();
 const folderCapabilities = new Map<
   string,
-  { supported: boolean; currentChapter: boolean; checkedAt: number }
+  {
+    supported: boolean;
+    currentChapter: boolean;
+    checkedAt: number;
+    limits: ServerLimits;
+  }
 >();
+const legacyFileLimit = 128 * 1024 * 1024;
+const storedFileLimit = 8 * 1024 * 1024 * 1024;
+export interface ServerLimits {
+  maxUploadBytes: number;
+  maxDownloadBytes: number;
+  serverAssignedUpload: boolean;
+}
+function limitValue(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) <= 0)
+    throw new Error('Invalid server file limits.');
+  return Math.min(value as number, storedFileLimit);
+}
+export async function serverLimits(origin: string): Promise<ServerLimits> {
+  origin = serverOrigin(origin);
+  const cached = folderCapabilities.get(origin);
+  if (cached && Date.now() - cached.checkedAt < 30000) return cached.limits;
+  await discover(origin);
+  return folderCapabilities.get(origin)!.limits;
+}
+function checkFileSize(size: number, limit: number) {
+  if (!Number.isSafeInteger(size) || size < 0 || size > limit)
+    throw new Error(
+      `Book file is too large. The limit is ${Math.floor(limit / 1048576)} MB.`,
+    );
+}
+function transferFailure(origin: string, status: number): never {
+  if (status === 413) {
+    folderCapabilities.delete(origin);
+    throw new Error(
+      'The server file limit changed. Retry to check its current limit.',
+    );
+  }
+  throw new Error(
+    status === 401
+      ? 'Sign in again; this session expired or was revoked.'
+      : 'Could not upload the book. Try again.',
+  );
+}
 export async function supportsMultipleFolders(origin: string) {
   const cached = folderCapabilities.get(origin);
   if (cached && Date.now() - cached.checkedAt < 30000) return cached.supported;
@@ -167,7 +216,26 @@ export async function discover(origin: string) {
     typeof v?.name !== 'string'
   )
     throw new Error('This server is not compatible with Quire.');
+  if (
+    v.capabilities !== undefined &&
+    (!Array.isArray(v.capabilities) ||
+      v.capabilities.some((c: unknown) => typeof c !== 'string'))
+  )
+    throw new Error('Invalid server capabilities.');
+  const limits: ServerLimits = {
+    maxUploadBytes:
+      v.limits === undefined
+        ? legacyFileLimit
+        : limitValue(v.limits?.maxUploadBytes),
+    maxDownloadBytes:
+      v.limits === undefined
+        ? legacyFileLimit
+        : limitValue(v.limits?.maxDownloadBytes),
+    serverAssignedUpload:
+      v.capabilities?.includes('server-assigned-upload') ?? false,
+  };
   folderCapabilities.set(origin, {
+    limits,
     currentChapter:
       Array.isArray(v.capabilities) &&
       v.capabilities.includes('current-chapter'),
@@ -317,17 +385,32 @@ export async function deleteUpload(a: Account, book: string) {
     'DELETE',
   );
 }
-export async function upload(a: Account, book: string, bytes: Uint8Array) {
-  if (bytes.length > 128 * 1024 * 1024)
-    throw new Error('The server accepts books up to 128 MB.');
-  if (isTauri())
-    return invoke('sync_upload', bytes, {
-      headers: {
-        'x-quire-server': a.origin,
-        'x-quire-user': a.username,
-        'x-quire-book': book,
-      },
-    });
+export async function upload(
+  a: Account,
+  book: string,
+  bytes: Uint8Array | string,
+) {
+  const limits = await serverLimits(a.origin);
+  if (typeof bytes !== 'string')
+    checkFileSize(bytes.length, limits.maxUploadBytes);
+  if (isTauri()) {
+    const reference =
+      typeof bytes === 'string' ? bytes : await writeNativeFile(bytes);
+    try {
+      return await invoke('sync_upload_file', {
+        server: a.origin,
+        username: a.username,
+        book,
+        reference,
+      });
+    } catch (error) {
+      folderCapabilities.delete(a.origin);
+      throw error;
+    } finally {
+      if (typeof bytes !== 'string') await deleteNativeFile(reference);
+    }
+  }
+  if (typeof bytes === 'string') throw new Error('Invalid browser book file.');
   const r = await fetch(`${a.origin}/v1/books/${book}/file`, {
     method: 'PUT',
     redirect: 'error',
@@ -336,20 +419,27 @@ export async function upload(a: Account, book: string, bytes: Uint8Array) {
       ...requestHeaders(webToken(a)),
       'Content-Type': 'application/octet-stream',
     },
-    body: bytes.slice().buffer,
+    body: new Blob([bytes as Uint8Array<ArrayBuffer>]),
     signal: AbortSignal.timeout(300000),
   });
-  if (!r.ok) throw new Error('Upload failed. Your local book is unchanged.');
+  if (!r.ok) transferFailure(a.origin, r.status);
 }
 export async function download(a: Account, book: string): Promise<Uint8Array> {
-  if (isTauri())
-    return new Uint8Array(
-      await invoke<ArrayBuffer>('sync_download', {
-        server: a.origin,
-        username: a.username,
-        book,
-      }),
-    );
+  const limits = await serverLimits(a.origin);
+  if (isTauri()) {
+    const reference = await invoke<string>('sync_download_file', {
+      server: a.origin,
+      username: a.username,
+      book,
+    });
+    try {
+      const id = nativeFileId(reference);
+      if (!id) throw new Error('Invalid downloaded book reference.');
+      return await readNativeFile(id, limits.maxDownloadBytes);
+    } finally {
+      await deleteNativeFile(reference);
+    }
+  }
   const r = await fetch(`${a.origin}/v1/books/${book}/file`, {
     redirect: 'error',
     credentials: credentials(a.origin),
@@ -357,6 +447,16 @@ export async function download(a: Account, book: string): Promise<Uint8Array> {
     signal: AbortSignal.timeout(300000),
   });
   if (!r.ok || !r.body) throw new Error('The server book file is unavailable.');
+  const length = r.headers.get('Content-Length');
+  if (
+    length !== null &&
+    (!/^\d+$/.test(length) ||
+      !Number.isSafeInteger(Number(length)) ||
+      Number(length) > limits.maxDownloadBytes)
+  ) {
+    await r.body.cancel();
+    throw new Error('Invalid or oversized book file size.');
+  }
   const reader = r.body.getReader();
   let size = 0;
   const parts: Uint8Array[] = [];
@@ -364,12 +464,14 @@ export async function download(a: Account, book: string): Promise<Uint8Array> {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.length;
-    if (size > 128 * 1024 * 1024) {
+    if (size > limits.maxDownloadBytes) {
       await reader.cancel();
       throw new Error('Book file is too large.');
     }
     parts.push(value);
   }
+  if (length !== null && Number(length) !== size)
+    throw new Error('Incomplete downloaded book.');
   const bytes = new Uint8Array(size);
   let at = 0;
   for (const p of parts) {
@@ -409,26 +511,67 @@ export async function accountRequest(
   return web(a.origin, path, body, webToken(a), method);
 }
 
-export async function uploadShared(
+export async function uploadSharedFile(
   a: Account,
   library: string,
-  id: string,
-  bytes: ArrayBuffer,
-) {
+  file: File,
+  signal: AbortSignal,
+): Promise<{ bookId: string; size: number }> {
+  signal.throwIfAborted();
+  checkFileSize(file.size, storedFileLimit);
+  const limits = await serverLimits(a.origin);
+  signal.throwIfAborted();
+  checkFileSize(
+    file.size,
+    limits.serverAssignedUpload
+      ? limits.maxUploadBytes
+      : Math.min(legacyFileLimit, limits.maxUploadBytes),
+  );
+  const combined = AbortSignal.any([signal, AbortSignal.timeout(300000)]);
+  let id: string | undefined;
+  let body: BodyInit = file;
+  if (!limits.serverAssignedUpload) {
+    const bytes = await file.arrayBuffer();
+    combined.throwIfAborted();
+    id = Array.from(
+      new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
+      (b) => b.toString(16).padStart(2, '0'),
+    ).join('');
+    body = bytes;
+  }
+  combined.throwIfAborted();
   const r = await fetch(
-    `${a.origin}/v1/admin/libraries/${library}/books/${id}`,
+    `${a.origin}/v1/admin/libraries/${encodeURIComponent(library)}/books${id ? '/' + id : ''}`,
     {
-      method: 'PUT',
+      method: id ? 'PUT' : 'POST',
+      redirect: 'error',
       credentials: credentials(a.origin),
       headers: {
         ...requestHeaders(webToken(a)),
         'Content-Type': 'application/octet-stream',
       },
-      body: bytes,
-      signal: AbortSignal.timeout(300000),
+      body,
+      signal: combined,
     },
   );
-  if (!r.ok) throw new Error('Could not upload the shared book.');
+  if (!r.ok) transferFailure(a.origin, r.status);
+  combined.throwIfAborted();
+  if (id) return { bookId: id, size: file.size };
+  if (r.status !== 201)
+    throw new Error(
+      'Invalid uploaded book response. Refresh the library before retrying.',
+    );
+  const result = await r.json();
+  if (
+    typeof result?.bookId !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(result.bookId) ||
+    !Number.isSafeInteger(result?.size) ||
+    result.size !== file.size
+  )
+    throw new Error(
+      'Invalid uploaded book response. Refresh the library before retrying.',
+    );
+  return { bookId: result.bookId, size: result.size };
 }
 
 export async function downloadServerBackup(

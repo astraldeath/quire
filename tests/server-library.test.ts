@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, expect, it, vi } from 'vitest';
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false }));
 vi.mock('../src/features/sync/transport', () => ({
+  serverLimits: vi.fn().mockResolvedValue({ maxDownloadBytes: 8589934592 }),
   download: vi.fn(),
   files: vi.fn(),
   metadata: vi.fn(),

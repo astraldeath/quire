@@ -34,9 +34,12 @@ export async function writeNativeFile(
   }
 }
 
-export async function readNativeFile(id: string): Promise<Uint8Array> {
+export async function readNativeFile(
+  id: string,
+  limit = 8 * 1024 * 1024 * 1024,
+): Promise<Uint8Array> {
   const size = await invoke<number>('book_file_size', { id });
-  if (!Number.isSafeInteger(size) || size < 0)
+  if (!Number.isSafeInteger(size) || size < 0 || size > limit)
     throw new Error('Invalid book size.');
   const bytes = new Uint8Array(size);
   let nextOffset = 0;

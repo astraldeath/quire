@@ -3275,3 +3275,33 @@ dialog:focus {
 .folder-navigation button:focus-visible {
   outline-offset: -3px;
 }
+
+.shared-upload-progress {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+.shared-upload-progress p {
+  margin: 0;
+}
+.shared-upload-progress p:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.shared-upload-name {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+.shared-upload-progress progress {
+  width: 100%;
+}
+.shared-upload-progress button {
+  justify-self: start;
+}
+.shared-upload :is(button, input):focus-visible {
+  outline-offset: -3px;
+}
+.shared-upload > p[role='status'] {
+  margin-block: 0.75rem;
+}

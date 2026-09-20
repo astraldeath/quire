@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   loadSync: vi.fn(),
   listBooks: vi.fn(),
   getFile: vi.fn(),
+  getNativeFileReference: vi.fn(),
   removeFileWhen: vi.fn(),
   files: vi.fn(),
   upload: vi.fn(),
