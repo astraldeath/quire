@@ -111,7 +111,7 @@ it('authenticates backup downloads and refuses oversized browser downloads', asy
   );
   await expect(
     transport.downloadServerBackup(account, progress),
-  ).rejects.toThrow('512 MB');
+  ).rejects.toThrow('512 MiB');
 });
 it('binds shared POST uploads to the current HttpOnly browser session', async () => {
   const transport = await import('../src/features/sync/transport');
