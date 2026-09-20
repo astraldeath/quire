@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link2 } from 'lucide-react';
 import { trackingSession, trackingRequest } from './client';
+import { ActionMenuItem } from '../../components/ActionMenuItem';
 export function TrackingButton({
   bookId,
   series,
@@ -34,9 +35,14 @@ export function TrackingButton({
     };
   }, [bookId, series]);
   return (
-    <button type="button" className="text-action" onClick={onClick}>
+    <ActionMenuItem
+      menuId="tracking"
+      type="button"
+      className="text-action"
+      onClick={onClick}
+    >
       <Link2 />
       {linked ? '1 tracker' : 'Tracking'}
-    </button>
+    </ActionMenuItem>
   );
 }

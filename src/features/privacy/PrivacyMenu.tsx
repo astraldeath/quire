@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, Eye, EyeOff, Lock, Shield } from 'lucide-react';
 import { usePrivacy } from './Privacy';
+import { ActionMenuItem } from '../../components/ActionMenuItem';
 import {
   ActionPopover,
   type ActionAnchor,
@@ -25,7 +26,13 @@ export function PrivacyMenu({
       <button
         disabled={!ids.length}
         onClick={(event) => {
-          setAnchor(event.currentTarget.getBoundingClientRect());
+          const rect = event.currentTarget.getBoundingClientRect();
+          setAnchor({
+            left: rect.left,
+            top: rect.top,
+            bottom: rect.bottom,
+            element: event.currentTarget,
+          });
           setOpen(true);
         }}
       >
@@ -39,7 +46,8 @@ export function PrivacyMenu({
       role="group"
       aria-label="Book privacy"
     >
-      <button
+      <ActionMenuItem
+        menuId="back"
         onClick={() => {
           setOpen(false);
           onBack?.();
@@ -47,15 +55,16 @@ export function PrivacyMenu({
       >
         <ArrowLeft />
         Privacy
-      </button>
+      </ActionMenuItem>
       {(['normal', 'locked', 'hidden'] as const).map((mode, index) => {
         const Icon = [Eye, Lock, EyeOff][index];
         const selected = ids.every(
           (id) => (privacy.state.books[id] ?? 'normal') === mode,
         );
         return (
-          <button
+          <ActionMenuItem
             key={mode}
+            menuId={mode}
             aria-pressed={selected}
             onClick={() => {
               void privacy
@@ -72,7 +81,7 @@ export function PrivacyMenu({
             <Icon />
             {['Normal', 'Locked', 'Hidden'][index]}
             {selected && <Check className="privacy-check" />}
-          </button>
+          </ActionMenuItem>
         );
       })}
       {error && <p role="alert">{error}</p>}
@@ -84,6 +93,8 @@ export function PrivacyMenu({
     <ActionPopover
       title="Privacy"
       anchor={anchor}
+      pageKey="privacy"
+      initialItem="normal"
       onClose={() => setOpen(false)}
     >
       {content}

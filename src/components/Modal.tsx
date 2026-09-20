@@ -1,14 +1,20 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { dialogPosition, safeInsets, visualBox } from './dialogPosition';
 export function Modal({
   title,
   onClose,
   children,
+  initialFocus,
+  focusKey,
+  className,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  initialFocus?: RefObject<HTMLElement | null>;
+  focusKey?: string;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
@@ -93,9 +99,13 @@ export function Modal({
       window.removeEventListener('quire-window-controls', update);
     };
   }, []);
+  useLayoutEffect(() => {
+    initialFocus?.current?.focus({ preventScroll: true });
+  }, [focusKey, initialFocus]);
   return (
     <dialog
       ref={ref}
+      className={className}
       tabIndex={-1}
       onCancel={(e) => {
         e.preventDefault();

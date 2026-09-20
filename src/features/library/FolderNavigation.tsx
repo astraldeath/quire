@@ -5,6 +5,7 @@ import {
   type ActionAnchor,
 } from '../../components/ActionPopover';
 import { Modal } from '../../components/Modal';
+import { ActionMenuItem } from '../../components/ActionMenuItem';
 
 export function FolderNavigation({
   path,
@@ -69,9 +70,15 @@ export function FolderNavigation({
           className="icon"
           aria-label="Folder actions"
           aria-haspopup="menu"
-          onClick={(event) =>
-            setAnchor(event.currentTarget.getBoundingClientRect())
-          }
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setAnchor({
+              left: rect.left,
+              top: rect.top,
+              bottom: rect.bottom,
+              element: event.currentTarget,
+            });
+          }}
         >
           <Ellipsis />
         </button>
@@ -83,7 +90,8 @@ export function FolderNavigation({
           onClose={() => setAnchor(null)}
         >
           <div className="book-action-list">
-            <button
+            <ActionMenuItem
+              menuId="rename"
               onClick={() => {
                 setAnchor(null);
                 onRename();
@@ -91,8 +99,9 @@ export function FolderNavigation({
             >
               <Pencil />
               Rename folder
-            </button>
-            <button
+            </ActionMenuItem>
+            <ActionMenuItem
+              menuId="delete"
               className="danger"
               onClick={() => {
                 setAnchor(null);
@@ -102,7 +111,7 @@ export function FolderNavigation({
             >
               <Trash2 />
               Delete folder
-            </button>
+            </ActionMenuItem>
           </div>
         </ActionPopover>
       )}

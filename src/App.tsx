@@ -30,6 +30,7 @@ import {
 import { LibraryControls } from './features/library/LibraryControls';
 import { UpdateNotice } from './features/updates/UpdateSettings';
 import { Modal } from './components/Modal';
+import { ActionMenuItem } from './components/ActionMenuItem';
 import { Wordmark } from './components/Wordmark';
 import { PrivacyProvider, usePrivacy } from './features/privacy/Privacy';
 import {
@@ -1033,7 +1034,8 @@ function AppContent({
           onClose={() => setAddAnchor(null)}
         >
           <div className="book-action-list">
-            <button
+            <ActionMenuItem
+              menuId="add-files"
               onClick={() => {
                 setAddAnchor(null);
                 input.current?.click();
@@ -1041,8 +1043,9 @@ function AppContent({
             >
               <Plus />
               Add files
-            </button>
-            <button
+            </ActionMenuItem>
+            <ActionMenuItem
+              menuId="import-folder"
               onClick={() => {
                 setAddAnchor(null);
                 directoryInput.current?.click();
@@ -1050,7 +1053,7 @@ function AppContent({
             >
               <FolderInput />
               Import folder
-            </button>
+            </ActionMenuItem>
           </div>
         </ActionPopover>
       )}
@@ -1138,9 +1141,15 @@ function AppContent({
               className="add-button"
               aria-label="Add books"
               disabled={!!busy || loading}
-              onClick={(e) =>
-                setAddAnchor(e.currentTarget.getBoundingClientRect())
-              }
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setAddAnchor({
+                  left: rect.left,
+                  top: rect.top,
+                  bottom: rect.bottom,
+                  element: e.currentTarget,
+                });
+              }}
             >
               <Plus />
               <span>Add books</span>
@@ -1270,8 +1279,9 @@ function AppContent({
                 <button
                   aria-label="Series actions"
                   aria-haspopup="menu"
-                  onClick={(e) =>
-                    showActions(
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    void showActions(
                       {
                         key: group,
                         title: group,
@@ -1279,9 +1289,14 @@ function AppContent({
                         books: seriesBooks,
                       },
                       false,
-                      e.currentTarget.getBoundingClientRect(),
-                    )
-                  }
+                      {
+                        left: rect.left,
+                        top: rect.top,
+                        bottom: rect.bottom,
+                        element: e.currentTarget,
+                      },
+                    );
+                  }}
                 >
                   <Ellipsis />
                 </button>
@@ -1624,13 +1639,16 @@ function AppContent({
                             className="icon"
                             aria-label={`Actions for ${entry.title}`}
                             aria-haspopup="menu"
-                            onClick={(e) =>
-                              showActions(
-                                entry,
-                                false,
-                                e.currentTarget.getBoundingClientRect(),
-                              )
-                            }
+                            onClick={(e) => {
+                              const rect =
+                                e.currentTarget.getBoundingClientRect();
+                              void showActions(entry, false, {
+                                left: rect.left,
+                                top: rect.top,
+                                bottom: rect.bottom,
+                                element: e.currentTarget,
+                              });
+                            }}
                           >
                             <Ellipsis />
                           </button>

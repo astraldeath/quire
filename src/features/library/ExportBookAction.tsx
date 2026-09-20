@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Download } from 'lucide-react';
 import type { Book } from '../../domain/models';
 import { exportEpub } from './epub-export';
+import { ActionMenuItem } from '../../components/ActionMenuItem';
 
 export function ExportBookAction({
   book,
@@ -28,14 +29,19 @@ export function ExportBookAction({
   }
   return (
     <>
-      <button disabled={busy} onClick={() => void run()} aria-busy={busy}>
+      <ActionMenuItem
+        menuId="export"
+        disabled={busy}
+        onClick={() => void run()}
+        aria-busy={busy}
+      >
         <Download />
         {busy
           ? book.local
             ? `Exporting ${format}…`
             : `Downloading ${format}…`
           : `Export ${format}`}
-      </button>
+      </ActionMenuItem>
       {error && (
         <p className="error" role="alert">
           {error}

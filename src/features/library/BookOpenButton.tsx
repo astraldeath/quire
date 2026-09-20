@@ -34,7 +34,12 @@ export function BookOpenButton({
         held.current = false;
         if (e.pointerType === 'mouse' || !e.isPrimary) return;
         start.current = { x: e.clientX, y: e.clientY };
-        const point = { left: e.clientX, top: e.clientY, bottom: e.clientY };
+        const point = {
+          left: e.clientX,
+          top: e.clientY,
+          bottom: e.clientY,
+          element: e.currentTarget,
+        };
         e.currentTarget.focus({ preventScroll: true });
         timer.current = setTimeout(() => {
           held.current = true;
@@ -62,7 +67,12 @@ export function BookOpenButton({
           held.current = true;
           if (touchHold) holdFeedback();
           e.currentTarget.focus({ preventScroll: true });
-          onActions({ left: e.clientX, top: e.clientY, bottom: e.clientY });
+          onActions({
+            left: e.clientX,
+            top: e.clientY,
+            bottom: e.clientY,
+            element: e.currentTarget,
+          });
         }
       }}
       onKeyDown={(e) => {
@@ -71,7 +81,13 @@ export function BookOpenButton({
           e.preventDefault();
           cancel();
           held.current = true;
-          onActions(e.currentTarget.getBoundingClientRect());
+          const rect = e.currentTarget.getBoundingClientRect();
+          onActions({
+            left: rect.left,
+            top: rect.top,
+            bottom: rect.bottom,
+            element: e.currentTarget,
+          });
         }
       }}
       onClick={(e) => {

@@ -5,6 +5,7 @@ import { loadSync } from '../../storage';
 import type { Account } from '../sync/model';
 import { readPolicy, writePolicy } from './policy';
 import { uploadBooks } from './manager';
+import { ActionMenuItem } from '../../components/ActionMenuItem';
 
 export function BookStorageActions({
   books,
@@ -36,8 +37,8 @@ export function BookStorageActions({
   return (
     <>
       {books.some((b) => b.local) && (
-        <button
-          role="menuitem"
+        <ActionMenuItem
+          menuId="upload"
           disabled={busy}
           onClick={() => {
             setBusy(true);
@@ -50,10 +51,10 @@ export function BookStorageActions({
         >
           <CloudUpload />
           {busy ? 'Uploading…' : 'Upload to server'}
-        </button>
+        </ActionMenuItem>
       )}
-      <button
-        role="menuitem"
+      <ActionMenuItem
+        menuId="pin"
         disabled={busy}
         onClick={() => {
           const ids = books.map((b) => b.id),
@@ -68,7 +69,7 @@ export function BookStorageActions({
       >
         {pinned ? <PinOff /> : <Pin />}
         {pinned ? 'Allow automatic offloading' : 'Keep downloaded'}
-      </button>
+      </ActionMenuItem>
       {error && <p role="alert">{error}</p>}
     </>
   );

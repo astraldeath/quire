@@ -1,27 +1,42 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { safeInsets, visualBox } from './dialogPosition';
+import { positionMenu, type MenuSide } from './menuPosition';
 
-export type ActionAnchor = { left: number; top: number; bottom: number };
+export type ActionAnchor = {
+  left: number;
+  top: number;
+  bottom: number;
+  element?: HTMLElement;
+};
 
 export function ActionPopover({
   title,
   anchor,
   onClose,
   children,
+  pageKey,
+  initialItem,
 }: {
   title: string;
   anchor?: ActionAnchor;
   onClose(): void;
   children: ReactNode;
+  pageKey?: string;
+  initialItem?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const origin = useRef<ActionAnchor | undefined>(undefined);
+  const trigger = useRef<HTMLElement | null>(null);
+  const side = useRef<MenuSide | undefined>(undefined);
+  const updatePosition = useRef<() => void>(() => {});
   const close = useRef(onClose);
   close.current = onClose;
   useLayoutEffect(() => {
     const panel = ref.current!;
-    const previous = document.activeElement as HTMLElement | null;
-    const origin = anchor ?? previous?.getBoundingClientRect();
+    trigger.current =
+      anchor?.element ?? (document.activeElement as HTMLElement | null);
+    origin.current = anchor ?? trigger.current?.getBoundingClientRect();
     const update = () => {
       const box = visualBox();
       const safe = safeInsets();
@@ -32,26 +47,23 @@ export function ActionPopover({
       panel.style.maxWidth = `${Math.max(0, right - left)}px`;
       panel.style.maxHeight = `${Math.max(0, bottom - top)}px`;
       const size = panel.getBoundingClientRect();
-      const below = (origin?.bottom ?? top) + 4;
-      const y =
-        below + size.height <= bottom
-          ? below
-          : (origin?.top ?? bottom) - size.height - 4;
-      panel.style.left = `${Math.max(left, Math.min(origin?.left ?? left, right - size.width))}px`;
-      panel.style.top = `${Math.max(top, Math.min(y, bottom - size.height))}px`;
+      const position = positionMenu({
+        origin: origin.current ?? { left, top, bottom: top },
+        viewport: { left, top, right, bottom },
+        size,
+        side: side.current,
+      });
+      side.current = position.side;
+      panel.style.left = `${position.left}px`;
+      panel.style.top = `${position.top}px`;
     };
-    panel
-      .querySelectorAll('button')
-      .forEach((button) => button.setAttribute('role', 'menuitem'));
+    updatePosition.current = update;
     update();
     const resize =
       typeof ResizeObserver === 'undefined'
         ? undefined
         : new ResizeObserver(update);
     resize?.observe(panel);
-    panel
-      .querySelector<HTMLButtonElement>('button:not(:disabled)')
-      ?.focus({ preventScroll: true });
     const outside = (event: PointerEvent) => {
       if (!panel.contains(event.target as Node)) close.current();
     };
@@ -68,9 +80,23 @@ export function ActionPopover({
       document.removeEventListener('scroll', scroll, true);
       window.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('resize', update);
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      if (trigger.current?.isConnected)
+        trigger.current.focus({ preventScroll: true });
     };
-  }, [anchor]);
+  }, []);
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    if (!panel) return;
+    updatePosition.current();
+    const items = [
+      ...panel.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitem"]:not(:disabled):not([hidden])',
+      ),
+    ];
+    const target =
+      items.find((item) => item.dataset.menuId === initialItem) ?? items[0];
+    target?.focus({ preventScroll: true });
+  }, [pageKey, initialItem]);
   return createPortal(
     <div
       ref={ref}
@@ -88,7 +114,7 @@ export function ActionPopover({
         event.preventDefault();
         const buttons = [
           ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
-            'button:not(:disabled)',
+            '[role="menuitem"]:not(:disabled):not([hidden])',
           ),
         ];
         const current = buttons.indexOf(

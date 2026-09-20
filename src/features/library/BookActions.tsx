@@ -21,6 +21,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
+import { ActionMenuItem } from '../../components/ActionMenuItem';
 import type { LibraryEntry } from '../../domain/library';
 export function BookActions({
   entry,
@@ -54,6 +55,7 @@ export function BookActions({
   const [submenu, setSubmenu] = useState<'status' | 'files' | null>(null);
   const [tracking, setTracking] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [returnItem, setReturnItem] = useState<string>();
   const [confirm, setConfirm] = useState<'library' | 'download' | null>(
     initialRemove ? 'library' : null,
   );
@@ -83,76 +85,146 @@ export function BookActions({
         onClose={onClose}
       />
     );
-  if (privacyOpen)
+  if (confirm)
     return (
-      <ActionPopover anchor={anchor} title="Privacy" onClose={onClose}>
+      <Modal
+        title={
+          confirm === 'download' ? 'Remove download?' : 'Remove from library?'
+        }
+        onClose={() => {
+          if (!busy) onClose();
+        }}
+      >
+        <div className="book-actions">
+          <p>
+            {confirm === 'download'
+              ? 'Book details, progress, bookmarks, highlights, and notes stay in your library.'
+              : `This deletes ${entry.series ? `all ${entry.books.length} books in this series and their` : 'this book and its'} downloads, progress, bookmarks, highlights, and notes from Quire on this device.`}
+          </p>
+          {confirm === 'library' && (
+            <p className="muted">
+              Original book files and exported backups are kept.
+            </p>
+          )}
+          <div className="button-row">
+            <button disabled={busy} onClick={() => setConfirm(null)}>
+              Cancel
+            </button>
+            <button
+              className="danger"
+              disabled={busy}
+              onClick={() =>
+                void run(confirm === 'download' ? onRemoveDownload : onDelete)
+              }
+            >
+              <Trash2 />
+              {busy
+                ? 'Removing…'
+                : confirm === 'download'
+                  ? 'Remove download'
+                  : `Remove ${entry.series ? `${entry.books.length} books` : 'from library'}`}
+            </button>
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      </Modal>
+    );
+
+  const page = privacyOpen ? 'privacy' : (submenu ?? 'main');
+  return (
+    <ActionPopover
+      anchor={anchor}
+      pageKey={page}
+      initialItem={privacyOpen ? 'normal' : submenu ? 'back' : returnItem}
+      title={
+        privacyOpen
+          ? 'Privacy'
+          : submenu === 'files'
+            ? 'Files and downloads'
+            : submenu === 'status'
+              ? 'Reading status'
+              : entry.series
+                ? 'Series actions'
+                : 'Book actions'
+      }
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+    >
+      {privacyOpen ? (
         <PrivacyMenu
           initialOpen
           ids={entry.books.map((b) => b.id)}
           onBack={() => setPrivacyOpen(false)}
           onDone={onClose}
         />
-      </ActionPopover>
-    );
-  if (submenu && !confirm)
-    return (
-      <ActionPopover
-        key={submenu}
-        anchor={anchor}
-        title={submenu === 'files' ? 'Files and downloads' : 'Reading status'}
-        onClose={onClose}
-      >
+      ) : submenu ? (
         <div className="book-action-list">
-          <button className="submenu-back" onClick={() => setSubmenu(null)}>
+          <ActionMenuItem
+            menuId="back"
+            className="submenu-back"
+            onClick={() => setSubmenu(null)}
+          >
             <ArrowLeft />
             {submenu === 'files' ? 'Files and downloads' : 'Reading status'}
-          </button>
+          </ActionMenuItem>
           <div className="menu-divider" role="separator" />
           {submenu === 'status' ? (
-            <>
-              {onMark && (
-                <>
-                  {entry.books.some(
-                    (b) => (b.position?.fraction ?? 0) < 0.999,
-                  ) && (
-                    <button
-                      disabled={busy}
-                      onClick={() => void run(() => onMark(true))}
-                    >
-                      <Check />
-                      Mark finished
-                    </button>
-                  )}
-                  {entry.books.some((b) => !!b.position) && (
-                    <button
-                      disabled={busy}
-                      onClick={() => void run(() => onMark(false))}
-                    >
-                      <BookOpen />
-                      Mark unread
-                    </button>
-                  )}
-                </>
-              )}
-            </>
+            onMark && (
+              <>
+                {entry.books.some(
+                  (b) => (b.position?.fraction ?? 0) < 0.999,
+                ) && (
+                  <ActionMenuItem
+                    menuId="mark-finished"
+                    disabled={busy}
+                    onClick={() => void run(() => onMark(true))}
+                  >
+                    <Check />
+                    Mark finished
+                  </ActionMenuItem>
+                )}
+                {entry.books.some((b) => !!b.position) && (
+                  <ActionMenuItem
+                    menuId="mark-unread"
+                    disabled={busy}
+                    onClick={() => void run(() => onMark(false))}
+                  >
+                    <BookOpen />
+                    Mark unread
+                  </ActionMenuItem>
+                )}
+              </>
+            )
           ) : (
             <>
               {onDownload && entry.books.some((b) => !b.local) && (
-                <button disabled={busy} onClick={() => void run(onDownload)}>
+                <ActionMenuItem
+                  menuId="download"
+                  disabled={busy}
+                  onClick={() => void run(onDownload)}
+                >
                   <Download />
                   Download{' '}
                   {entry.series ? `${entry.books.length} books` : 'book'}
-                </button>
+                </ActionMenuItem>
               )}
               <BookStorageActions books={entry.books} onClose={onClose} />
               {!entry.series && (
                 <ExportBookAction book={entry.books[0]} onClose={onClose} />
               )}
               {entry.books.some((b) => b.local) && (
-                <button onClick={() => setConfirm('download')}>
+                <ActionMenuItem
+                  menuId="remove-download"
+                  onClick={() => setConfirm('download')}
+                >
                   <HardDriveDownload />
                   Remove download
-                </button>
+                </ActionMenuItem>
               )}
             </>
           )}
@@ -162,79 +234,28 @@ export function BookActions({
             </p>
           )}
         </div>
-      </ActionPopover>
-    );
-  const Container = confirm ? Modal : ActionPopover;
-  return (
-    <Container
-      anchor={anchor}
-      title={
-        confirm
-          ? confirm === 'download'
-            ? 'Remove download?'
-            : 'Remove from library?'
-          : entry.series
-            ? 'Series actions'
-            : 'Book actions'
-      }
-      onClose={() => {
-        if (!busy) onClose();
-      }}
-    >
-      <div className="book-actions">
-        <div className="book-action-title">
-          <strong>{entry.title}</strong>
-          {entry.series && (
-            <span className="muted">{entry.books.length} books</span>
-          )}
-        </div>
-        {confirm ? (
-          <>
-            <p>
-              {confirm === 'download'
-                ? 'Book details, progress, bookmarks, highlights, and notes stay in your library.'
-                : `This deletes ${entry.series ? `all ${entry.books.length} books in this series and their` : 'this book and its'} downloads, progress, bookmarks, highlights, and notes from Quire on this device.`}
-            </p>
-            {confirm === 'library' && (
-              <p className="muted">
-                Original book files and exported backups are kept.
-              </p>
+      ) : (
+        <div className="book-actions">
+          <div className="book-action-title">
+            <strong>{entry.title}</strong>
+            {entry.series && (
+              <span className="muted">{entry.books.length} books</span>
             )}
-            <div className="button-row">
-              <button disabled={busy} onClick={() => setConfirm(null)}>
-                Cancel
-              </button>
-              <button
-                className="danger"
-                disabled={busy}
-                onClick={() =>
-                  void run(confirm === 'download' ? onRemoveDownload : onDelete)
-                }
-              >
-                <Trash2 />
-                {busy
-                  ? 'Removing…'
-                  : confirm === 'download'
-                    ? 'Remove download'
-                    : `Remove ${entry.series ? `${entry.books.length} books` : 'from library'}`}
-              </button>
-            </div>
-          </>
-        ) : (
+          </div>
           <div className="book-action-list">
-            <button onClick={onOpen}>
+            <ActionMenuItem menuId="open" onClick={onOpen}>
               {entry.series ? <FolderOpen /> : <BookOpen />}
               {entry.series
                 ? 'Open series'
                 : entry.books[0].local
                   ? 'Read book'
                   : 'Download and read'}
-            </button>
+            </ActionMenuItem>
             {entry.series && onContinue && (
-              <button onClick={onContinue}>
+              <ActionMenuItem menuId="continue" onClick={onContinue}>
                 <BookOpen />
                 Continue reading
-              </button>
+              </ActionMenuItem>
             )}
             <TrackingButton
               bookId={entry.books[0].id}
@@ -242,47 +263,69 @@ export function BookActions({
               onClick={() => (onTracking ? onTracking() : setTracking(true))}
             />
             {!entry.series && (
-              <button onClick={onDetails}>
+              <ActionMenuItem menuId="details" onClick={onDetails}>
                 <Info />
                 Book details
-              </button>
+              </ActionMenuItem>
             )}
             {onMark && (
-              <button onClick={() => setSubmenu('status')}>
+              <ActionMenuItem
+                menuId="status"
+                onClick={() => {
+                  setReturnItem('status');
+                  setSubmenu('status');
+                }}
+              >
                 <Check />
                 Reading status
                 <ChevronRight className="menu-chevron" />
-              </button>
+              </ActionMenuItem>
             )}
-            <button onClick={() => setSubmenu('files')}>
+            <ActionMenuItem
+              menuId="files"
+              onClick={() => {
+                setReturnItem('files');
+                setSubmenu('files');
+              }}
+            >
               <FolderOpen />
               Files and downloads
               <ChevronRight className="menu-chevron" />
-            </button>
+            </ActionMenuItem>
             {onMove && (
-              <button onClick={onMove}>
+              <ActionMenuItem menuId="folders" onClick={onMove}>
                 <FolderOpen />
                 Folders
-              </button>
+              </ActionMenuItem>
             )}
-            <button onClick={() => setPrivacyOpen(true)}>
+            <ActionMenuItem
+              menuId="privacy"
+              onClick={() => {
+                setReturnItem('privacy');
+                setPrivacyOpen(true);
+              }}
+            >
               <Shield />
               Privacy
               <ChevronRight className="menu-chevron" />
-            </button>
+            </ActionMenuItem>
             <div className="menu-divider" role="separator" />
-            <button className="danger" onClick={() => setConfirm('library')}>
+            <ActionMenuItem
+              menuId="remove"
+              className="danger"
+              onClick={() => setConfirm('library')}
+            >
               <Trash2 />
               Remove from library
-            </button>
+            </ActionMenuItem>
           </div>
-        )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-    </Container>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+    </ActionPopover>
   );
 }

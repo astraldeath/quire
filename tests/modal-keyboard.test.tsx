@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { Modal } from '../src/components/Modal';
@@ -34,6 +34,69 @@ it('Escape closes only the innermost dialog', async () => {
     );
     expect(child).toHaveBeenCalledOnce();
     expect(parent).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    if (show) HTMLDialogElement.prototype.showModal = show;
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  }
+});
+it('moves initial focus only when the focus key changes', async () => {
+  const show = HTMLDialogElement.prototype.showModal;
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const requested = createRef<HTMLInputElement>();
+  try {
+    await act(async () =>
+      root.render(
+        <Modal
+          title="Edit"
+          onClose={() => {}}
+          initialFocus={requested}
+          focusKey="first"
+        >
+          <input ref={requested} aria-label="Requested" />
+          <input aria-label="Working" />
+        </Modal>,
+      ),
+    );
+    expect(document.activeElement).toBe(requested.current);
+    const working = host.querySelector<HTMLInputElement>(
+      '[aria-label="Working"]',
+    )!;
+    working.focus();
+    await act(async () =>
+      root.render(
+        <Modal
+          title="Edit"
+          onClose={() => {}}
+          initialFocus={requested}
+          focusKey="first"
+        >
+          <input ref={requested} aria-label="Requested" />
+          <input aria-label="Working" />
+        </Modal>,
+      ),
+    );
+    expect(document.activeElement).toBe(working);
+    await act(async () =>
+      root.render(
+        <Modal
+          title="Edit"
+          onClose={() => {}}
+          initialFocus={requested}
+          focusKey="second"
+        >
+          <input ref={requested} aria-label="Requested" />
+          <input aria-label="Working" />
+        </Modal>,
+      ),
+    );
+    expect(document.activeElement).toBe(requested.current);
   } finally {
     await act(async () => root.unmount());
     host.remove();
