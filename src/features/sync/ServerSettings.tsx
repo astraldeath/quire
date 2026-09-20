@@ -1,11 +1,12 @@
+import { TaskError } from '../../components/TaskError';
+import { SyncStatus } from './SyncStatus';
+import { useDraftGuard } from '../../components/useDraftGuard';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { ConflictChoices } from './ConflictChoices';
 import {
   Cloud,
-  RefreshCw,
   LogOut,
   Check,
-  ChevronDown,
   ArrowRight,
   Search,
   LoaderCircle,
@@ -37,6 +38,10 @@ export function ServerSettings({ books }: { books: Book[] }) {
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const guard = useDraftGuard({
+    dirty: !state.enabled && !!(account || url || password),
+    busy,
+  });
   useEffect(() => {
     const refresh = () => {
       void loadSync()
@@ -53,7 +58,14 @@ export function ServerSettings({ books }: { books: Book[] }) {
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : '';
+      setError(
+        /^(Sign in|Invalid username|Incorrect|Enter |Account |Session )/.test(
+          message,
+        ) && !message.includes(password || '\u0000')
+          ? message
+          : 'Could not connect to the server. Check the address and try again.',
+      );
     } finally {
       setBusy(false);
     }
@@ -65,9 +77,16 @@ export function ServerSettings({ books }: { books: Book[] }) {
       const host = split > 0 ? account.slice(split + 1) : '';
       if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(username))
         throw new Error(
-          'Enter your account name, such as alice@books.example.com.',
+          'Enter your username, such as alice. You can also use alice@books.example.com.',
         );
-      const origin = serverOrigin(url || `https://${host}`);
+      let origin: string;
+      try {
+        origin = serverOrigin(url || `https://${host}`);
+      } catch {
+        throw new Error(
+          'Enter a valid server origin, such as https://books.example.com.',
+        );
+      }
       setServer({ ...(await discover(origin)), username });
     });
   const needsLogin = status.message.startsWith('Sign in');
@@ -90,19 +109,14 @@ export function ServerSettings({ books }: { books: Book[] }) {
   if (import.meta.env.VITE_HOSTED === 'true')
     return (
       <div className="settings-body server-settings">
-        <section>
-          <div className="server-sync-status" role="status">
-            <span>{status.message}</span>
-          </div>
-          <button
-            disabled={busy || status.busy}
-            onClick={() => void perform(syncNow)}
-          >
-            <RefreshCw aria-hidden="true" />
-            {status.busy ? 'Syncing…' : 'Sync now'}
-          </button>
-        </section>
-        {error && <p role="alert">{error}</p>}
+        <SyncStatus
+          message={status.message}
+          busy={busy || status.busy}
+          pending={state.pending.length}
+          lastSync={state.lastSync}
+          onSync={() => void perform(syncNow)}
+          error={error}
+        />
         {choices}
       </div>
     );
@@ -126,36 +140,13 @@ export function ServerSettings({ books }: { books: Book[] }) {
                 {needsLogin ? 'Session expired' : 'Connected'}
               </span>
             </div>
-            <div className="server-sync-status" role="status">
-              {status.busy ? (
-                <LoaderCircle className="server-spinner" aria-hidden="true" />
-              ) : (
-                <RefreshCw aria-hidden="true" />
-              )}
-              <div>
-                <strong>{status.message}</strong>
-                <span className="muted">
-                  {state.lastSync
-                    ? `Last synced ${new Date(state.lastSync).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                    : 'Ready to sync'}
-                  {state.pending.length > 0
-                    ? ` · ${state.pending.length} pending changes`
-                    : ''}
-                </span>
-              </div>
-            </div>
-            <button
-              className="primary server-connect"
-              disabled={busy || status.busy}
-              onClick={() => void (needsLogin ? reconnect() : perform(syncNow))}
-            >
-              <RefreshCw aria-hidden="true" />
-              {needsLogin
-                ? 'Sign in again'
-                : status.busy
-                  ? 'Syncing…'
-                  : 'Sync now'}
-            </button>
+            <SyncStatus
+              message={status.message}
+              busy={busy || status.busy}
+              pending={state.pending.length}
+              lastSync={state.lastSync}
+              onSync={() => void (needsLogin ? reconnect() : perform(syncNow))}
+            />
           </section>
           <section className="server-library-info">
             <h3>Downloads</h3>
@@ -198,7 +189,7 @@ export function ServerSettings({ books }: { books: Book[] }) {
           }}
         >
           <label>
-            Account
+            Username
             <input
               autoCapitalize="none"
               autoCorrect="off"
@@ -212,27 +203,22 @@ export function ServerSettings({ books }: { books: Book[] }) {
               }}
             />
           </label>
-          <details className="server-advanced">
-            <summary>
-              <span>Advanced server address</span>
-              <ChevronDown aria-hidden="true" />
-            </summary>
-            <div className="server-advanced-content">
-              <label>
-                Server URL
-                <input
-                  type="url"
-                  placeholder="https://books.example.com:8443"
-                  value={url}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setURL(e.target.value);
-                    setServer(null);
-                  }}
-                />
-              </label>
-            </div>
-          </details>
+          <label>
+            Server URL
+            <input
+              type="url"
+              placeholder="https://books.example.com"
+              value={url}
+              disabled={busy}
+              onChange={(e) => {
+                setURL(e.target.value);
+                setServer(null);
+              }}
+            />
+          </label>
+          <p className="settings-note">
+            You can also enter username@server in Username.
+          </p>
           {server && (
             <>
               <p>
@@ -279,7 +265,15 @@ export function ServerSettings({ books }: { books: Book[] }) {
           )}
         </form>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <TaskError
+          summary={error}
+          detail=""
+          onRetry={() => void (state.enabled ? perform(syncNow) : check())}
+          busy={busy}
+        />
+      )}
+      {guard.confirmation}
       {choices}
     </div>
   );

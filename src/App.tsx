@@ -1,3 +1,4 @@
+import { ViewOptions } from './features/library/ViewOptions';
 import { LibraryDestination } from './features/library/LibraryDestination';
 import {
   emptyFolderCatalog,
@@ -172,6 +173,7 @@ function AppContent({
   const privacy = usePrivacy();
   const serverFiles = useServerFiles();
   const wasUnlocked = useRef(false);
+  const [viewOptions, setViewOptions] = useState(false);
   const [hiddenBooks, setHiddenBooks] = useState(false);
   const webPath = useWebPath();
   const route = parseWebRoute(webPath);
@@ -1855,8 +1857,21 @@ function AppContent({
           </button>
         </div>
       )}
+      {viewOptions && (
+        <Modal title="View options" onClose={() => setViewOptions(false)}>
+          <ViewOptions preferences={preferences} onChange={changePreferences} />
+        </Modal>
+      )}
       {settings && (
         <Settings
+          onViewOptions={() => {
+            goSettings(false);
+            setViewOptions(true);
+          }}
+          onLibrary={() => {
+            goSettings(false);
+            goLibrary(false);
+          }}
           beforeUpdate={async () => {
             await queue.current;
           }}

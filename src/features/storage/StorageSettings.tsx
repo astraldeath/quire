@@ -5,7 +5,7 @@ import type { Account } from '../sync/model';
 import { readPolicy, writePolicy, type StoragePolicy } from './policy';
 import { storageMessage } from './manager';
 
-export function StorageSettings() {
+export function StorageSettings({ onConnect }: { onConnect(): void }) {
   const [account, setAccount] = useState<Account>();
   const [policy, setPolicy] = useState<StoragePolicy>();
   const [message, setMessage] = useState('');
@@ -42,9 +42,12 @@ export function StorageSettings() {
     <section className="storage-settings">
       <h3>Storage</h3>
       {!account || !policy ? (
-        <p className="muted">
-          Connect to a server to use automatic uploads and offloading.
-        </p>
+        <>
+          <p className="muted">
+            Connect to a server to use automatic uploads and offloading.
+          </p>
+          <button onClick={onConnect}>Connect server</button>
+        </>
       ) : (
         <>
           <Switch

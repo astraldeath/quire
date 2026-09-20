@@ -342,7 +342,7 @@ it('shows one hidden-library heading and returns to the regular shelf', async ()
     await act(async () =>
       host
         .querySelector<HTMLButtonElement>(
-          '[aria-label="Library view options"]',
+          '[aria-label="Current library: All books"]',
         )!
         .click(),
     );

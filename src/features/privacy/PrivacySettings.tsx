@@ -1,3 +1,4 @@
+import { useDraftGuard } from '../../components/useDraftGuard';
 import { TaskError } from '../../components/TaskError';
 import { useEffect, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
@@ -18,6 +19,7 @@ export function PrivacySettings({
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const guard = useDraftGuard({ dirty: change && !!(code || confirm), busy });
   const cancel = () => {
     setChange(false);
     setCode('');
@@ -187,6 +189,7 @@ export function PrivacySettings({
         )}
       </section>
       <ScreenCaptureSettings />
+      {guard.confirmation}
       {error && <TaskError summary={error} detail="" />}
     </div>
   );

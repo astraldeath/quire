@@ -21,7 +21,7 @@ import { defaults, type Book, type Preferences } from '../../domain/models';
 import { Modal } from '../../components/Modal';
 import { SettingsTabs } from '../../components/SettingsTabs';
 import { ThemePicker, ColorControl } from '../../components/Controls';
-import { ViewOptions } from './ViewOptions';
+import { requestNavigation } from '../navigation/blockers';
 export function Settings({
   preferences: p,
   books,
@@ -31,7 +31,11 @@ export function Settings({
   activeTab,
   onTabChange,
   beforeUpdate,
+  onViewOptions,
+  onLibrary,
 }: {
+  onViewOptions(): void;
+  onLibrary(): void;
   beforeUpdate?: () => Promise<void>;
   activeTab?: string;
   onTabChange?: (id: string) => void;
@@ -41,8 +45,14 @@ export function Settings({
   onChange(p: Preferences): void;
   onClose(): void;
 }) {
+  const [localTab, setLocalTab] = useState('appearance');
+  const changeTab = (id: string) => {
+    setLocalTab(id);
+    onTabChange?.(id);
+  };
   const [working, setWorking] = useState(false);
   const privacy = usePrivacy();
+  void onLibrary;
   const [connected, setConnected] = useState(
     import.meta.env.VITE_HOSTED === 'true',
   );
@@ -66,12 +76,13 @@ export function Settings({
     <Modal
       title="Settings"
       onClose={() => {
-        if (!working) onClose();
+        if (!working) requestNavigation(onClose);
       }}
     >
       <SettingsTabs
-        active={activeTab}
-        onActiveChange={onTabChange}
+        layout="settings"
+        active={activeTab ?? localTab}
+        onActiveChange={changeTab}
         label="Settings sections"
         disabled={working}
         tabs={[
@@ -138,7 +149,7 @@ export function Settings({
             icon: Library,
             content: (
               <div className="settings-body">
-                <ViewOptions preferences={p} onChange={onChange} />
+                <button onClick={onViewOptions}>View options</button>
                 <button
                   className="text-action"
                   onClick={() =>
@@ -152,7 +163,9 @@ export function Settings({
                 >
                   Reset library settings
                 </button>
-                <StorageSettings />
+                <StorageSettings
+                  onConnect={() => requestNavigation(() => changeTab('server'))}
+                />
                 <FileHandlingSettings />
               </div>
             ),

@@ -1,3 +1,4 @@
+import { requestNavigation } from '../features/navigation/blockers';
 import {
   useId,
   useRef,
@@ -18,7 +19,9 @@ export function SettingsTabs({
   disabled = false,
   active: controlled,
   onActiveChange,
+  layout = 'tabs',
 }: {
+  layout?: 'tabs' | 'settings';
   tabs: Tab[];
   label: string;
   disabled?: boolean;
@@ -28,8 +31,13 @@ export function SettingsTabs({
   const [localActive, setLocalActive] = useState(tabs[0].id);
   const active = controlled ?? localActive;
   const setActive = (id: string) => {
-    setLocalActive(id);
-    onActiveChange?.(id);
+    if (disabled || id === active) return;
+    const change = () => {
+      setLocalActive(id);
+      onActiveChange?.(id);
+    };
+    if (layout === 'settings') requestNavigation(change);
+    else change();
   };
   const id = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
@@ -49,8 +57,32 @@ export function SettingsTabs({
     }
   }, [active]);
   return (
-    <div className="settings-tabs">
-      <div className="settings-tablist" role="tablist" aria-label={label}>
+    <div
+      className={`settings-tabs${layout === 'settings' ? ' settings-layout' : ''}`}
+    >
+      {layout === 'settings' && (
+        <label className="settings-section-selector">
+          Section
+          <select
+            aria-label={label}
+            disabled={disabled}
+            value={active}
+            onChange={(e) => setActive(e.target.value)}
+          >
+            {tabs.map((tab) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div
+        className="settings-tablist"
+        role="tablist"
+        aria-label={label}
+        aria-orientation={layout === 'settings' ? 'vertical' : 'horizontal'}
+      >
         {tabs.map((tab, index) => (
           <button
             key={tab.id}
@@ -69,9 +101,9 @@ export function SettingsTabs({
             onClick={() => setActive(tab.id)}
             onKeyDown={(e) => {
               const next =
-                e.key === 'ArrowRight'
+                e.key === (layout === 'settings' ? 'ArrowDown' : 'ArrowRight')
                   ? (index + 1) % tabs.length
-                  : e.key === 'ArrowLeft'
+                  : e.key === (layout === 'settings' ? 'ArrowUp' : 'ArrowLeft')
                     ? (index + tabs.length - 1) % tabs.length
                     : e.key === 'Home'
                       ? 0
@@ -92,18 +124,20 @@ export function SettingsTabs({
         ))}
       </div>
       <div ref={panels} className="settings-panels">
-        {tabs.map((tab) => (
-          <section
-            key={tab.id}
-            id={`${id}-${tab.id}-panel`}
-            role="tabpanel"
-            aria-labelledby={`${id}-${tab.id}-tab`}
-            hidden={active !== tab.id}
-            tabIndex={0}
-          >
-            {tab.content}
-          </section>
-        ))}
+        {tabs
+          .filter((tab) => layout !== 'settings' || tab.id === active)
+          .map((tab) => (
+            <section
+              key={tab.id}
+              id={`${id}-${tab.id}-panel`}
+              role="tabpanel"
+              aria-labelledby={`${id}-${tab.id}-tab`}
+              hidden={active !== tab.id}
+              tabIndex={0}
+            >
+              {tab.content}
+            </section>
+          ))}
       </div>
     </div>
   );

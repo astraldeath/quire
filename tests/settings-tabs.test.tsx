@@ -48,3 +48,93 @@ it('switches sections with keyboard navigation and preserves inactive content', 
   await act(async () => root.unmount());
   host.remove();
 });
+
+it('settings layout mounts only active content, offers selector, and uses vertical keys', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () =>
+    root.render(
+      <SettingsTabs
+        layout="settings"
+        label="Sections"
+        tabs={Array.from({ length: 7 }, (_, i) => ({
+          id: String(i),
+          label: `Section ${i}`,
+          icon: Palette,
+          content: <input aria-label={`Input ${i}`} />,
+        }))}
+      />,
+    ),
+  );
+  expect(host.querySelectorAll('input')).toHaveLength(1);
+  expect(host.querySelectorAll('option')).toHaveLength(7);
+  expect(
+    host.querySelector('[role=tablist]')?.getAttribute('aria-orientation'),
+  ).toBe('vertical');
+  const first = host.querySelector('button')!;
+  await act(async () =>
+    first.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+    ),
+  );
+  expect(host.querySelector('input')?.getAttribute('aria-label')).toBe(
+    'Input 1',
+  );
+  await act(async () => root.unmount());
+  host.remove();
+});
+
+it('guards section changes before unmounting and keeps controlled selection until accepted', async () => {
+  const { registerNavigationBlocker } =
+    await import('../src/features/navigation/blockers');
+  let resume: (() => void) | undefined;
+  const unregister = registerNavigationBlocker((action) => {
+    resume = action;
+  });
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const changes: string[] = [];
+  const tabs = [
+    { id: 'one', label: 'One', icon: Palette, content: <input /> },
+    { id: 'two', label: 'Two', icon: Archive, content: <p>Second</p> },
+  ];
+  await act(async () =>
+    root.render(
+      <SettingsTabs
+        layout="settings"
+        label="Sections"
+        active="one"
+        onActiveChange={(id) => changes.push(id)}
+        tabs={tabs}
+      />,
+    ),
+  );
+  await act(async () => host.querySelectorAll('button')[1].click());
+  expect(changes).toEqual([]);
+  expect(host.querySelector('input')).not.toBeNull();
+  await act(async () => resume!());
+  expect(changes).toEqual(['two']);
+  expect(host.querySelector('[aria-selected=true]')?.textContent).toBe('One');
+  unregister();
+  await act(async () =>
+    root.render(
+      <SettingsTabs
+        layout="settings"
+        label="Sections"
+        disabled
+        active="one"
+        onActiveChange={(id) => changes.push(id)}
+        tabs={tabs}
+      />,
+    ),
+  );
+  expect((host.querySelector('select') as HTMLSelectElement).disabled).toBe(
+    true,
+  );
+  await act(async () => host.querySelectorAll('button')[1].click());
+  expect(changes).toHaveLength(1);
+  await act(async () => root.unmount());
+  host.remove();
+});
