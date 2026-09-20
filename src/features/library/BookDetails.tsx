@@ -59,6 +59,7 @@ export function BookDetails({
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const saving = useRef(false);
   const titleInput = useRef<HTMLInputElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const dirty = editing && !sameMetadata(draft, baseline);
@@ -77,6 +78,8 @@ export function BookDetails({
     setError('');
   };
   const save = async () => {
+    if (saving.current) return;
+    saving.current = true;
     const next = savedMetadata(draft);
     setBusy(true);
     setError('');
@@ -92,6 +95,7 @@ export function BookDetails({
           : 'The details could not be saved.',
       );
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   };
@@ -132,7 +136,12 @@ export function BookDetails({
               if (dirty && draft.title.trim()) void save();
             }}
           >
-            <div className="form-grid">
+            <fieldset
+              className="form-grid"
+              aria-label="Book metadata"
+              disabled={busy}
+              style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+            >
               <label className="wide">
                 Title
                 <input
@@ -187,7 +196,7 @@ export function BookDetails({
                   }
                 />
               </label>
-            </div>
+            </fieldset>
             {error && (
               <TaskError summary="Could not save details." detail={error} />
             )}

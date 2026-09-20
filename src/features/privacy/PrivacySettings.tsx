@@ -1,6 +1,6 @@
 import { useDraftGuard } from '../../components/useDraftGuard';
 import { TaskError } from '../../components/TaskError';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { Lock } from 'lucide-react';
 import { Switch } from '../../components/Controls';
@@ -15,6 +15,7 @@ export function PrivacySettings({
   const p = usePrivacy();
   const [biometric, setBiometric] = useState(false);
   const [change, setChange] = useState(false);
+  const newPasscode = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -29,6 +30,9 @@ export function PrivacySettings({
   useEffect(() => {
     if (!p.unlocked) cancel();
   }, [p.unlocked]);
+  useEffect(() => {
+    if (change) newPasscode.current?.focus();
+  }, [change]);
   useEffect(() => {
     if (isTauri())
       void invoke<boolean>('plugin:privacy|available')
@@ -87,7 +91,7 @@ export function PrivacySettings({
                   return;
                 }
                 if (!/^\d{6,12}$/.test(code)) {
-                  setError('Use 6�12 digits.');
+                  setError('Use 6 to 12 digits.');
                   return;
                 }
                 const nextCredential = await credential(code);
@@ -109,6 +113,7 @@ export function PrivacySettings({
             <label>
               New passcode
               <input
+                ref={newPasscode}
                 type="password"
                 inputMode="numeric"
                 autoComplete="off"
@@ -129,7 +134,7 @@ export function PrivacySettings({
               />
             </label>
             <button className="primary" disabled={busy}>
-              {busy ? 'Saving�' : 'Save passcode'}
+              {busy ? 'Saving…' : 'Save passcode'}
             </button>
             <button type="button" disabled={busy} onClick={cancel}>
               Cancel

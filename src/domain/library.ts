@@ -99,8 +99,8 @@ export function entriesFor(
   const direction = preferences.sortDirection ?? naturalSortDirection(sort);
   const factor = direction === 'asc' ? 1 : -1;
   const compareNumber = (a?: number, b?: number) => {
-    const aMissing = a === undefined || a <= 0;
-    const bMissing = b === undefined || b <= 0;
+    const aMissing = a === undefined;
+    const bMissing = b === undefined;
     if (aMissing || bMissing)
       return aMissing === bMissing ? 0 : aMissing ? 1 : -1;
     return (a - b) * factor;

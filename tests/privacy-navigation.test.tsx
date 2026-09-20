@@ -62,6 +62,21 @@ it('offers destinations without protected counts or titles', async () => {
   expect(hidden).toHaveBeenCalledOnce();
   await t.close();
 });
+it('focuses the new passcode once after authentication without stealing later focus', async () => {
+  const t = await fixture(<PrivacySettings />);
+  try {
+    await act(async () => button(t.host, 'Change passcode').click());
+    const fields = t.host.querySelectorAll<HTMLInputElement>(
+      'input[type=password]',
+    );
+    expect(document.activeElement).toBe(fields[0]);
+    fields[1].focus();
+    await act(async () => t.root.render(<PrivacySettings connected />));
+    expect(document.activeElement).toBe(fields[1]);
+  } finally {
+    await t.close();
+  }
+});
 it('uses local copy, generic biometrics and clears edits on cancel and lock', async () => {
   const t = await fixture(<PrivacySettings connected={false} />);
   expect(t.host.textContent).toContain('Connect a server');

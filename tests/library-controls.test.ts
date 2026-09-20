@@ -197,6 +197,28 @@ describe('library controls', () => {
       'Missing',
     ]);
   });
+  it('sorts volume zero as a real volume and leaves unknown volumes last', () => {
+    const books = [
+      book('Unknown'),
+      book('Two', { volume: 2 }),
+      book('Zero', { volume: 0 }),
+      book('One', { volume: 1 }),
+    ];
+    for (const [direction, expected] of [
+      ['asc', ['Zero', 'One', 'Two', 'Unknown']],
+      ['desc', ['Two', 'One', 'Zero', 'Unknown']],
+    ] as const) {
+      expect(
+        entriesFor(
+          books,
+          { ...defaults, sort: 'volume', sortDirection: direction },
+          '',
+          false,
+          null,
+        ).map((entry) => entry.title),
+      ).toEqual(expected);
+    }
+  });
   it('keeps old preference directions natural and validates optional direction', () => {
     expect(
       entriesFor(

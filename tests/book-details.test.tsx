@@ -145,3 +145,101 @@ it('guards a changed edit and retains the draft after a failed save', async () =
   ).toBe('Draft title');
   await act(async () => root.unmount());
 });
+
+it.each(['success', 'failure'])(
+  'freezes submitted metadata and ignores duplicate submits during a deferred save (%s)',
+  async (outcome) => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const pending = new Promise<void>((yes, no) => {
+      resolve = yes;
+      reject = no;
+    });
+    const save = vi.fn((_next: Book) => pending);
+    const close = vi.fn();
+    function Harness() {
+      const [current, setCurrent] = useState(book);
+      return (
+        <BookDetails
+          book={current}
+          onClose={close}
+          onSave={async (next) => {
+            await save(next);
+            setCurrent(next);
+          }}
+          onRemove={async () => {}}
+          onRead={() => {}}
+          onImport={() => {}}
+          onDelete={() => {}}
+        />
+      );
+    }
+    try {
+      await act(async () => root.render(<Harness />));
+      await act(async () =>
+        [...host.querySelectorAll('button')]
+          .find((button) => button.textContent === 'Edit details')!
+          .click(),
+      );
+      const title = host.querySelector<HTMLInputElement>(
+        'input[name="title"]',
+      )!;
+      expect(document.activeElement).toBe(title);
+      await act(async () => setInput(title, 'Submitted title'));
+      const form = host.querySelector('form')!;
+      await act(async () => {
+        // Both events arrive before React renders busy state; a ref must gate the mutation.
+        form.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+        form.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+      });
+      expect(
+        [...host.querySelectorAll('input')].every((input) =>
+          input.matches(':disabled'),
+        ),
+      ).toBe(true);
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save).toHaveBeenCalledWith({ ...book, title: 'Submitted title' });
+      expect(host.querySelector('form')).not.toBeNull();
+      if (outcome === 'failure') {
+        await act(async () => reject(new Error('Disk unavailable')));
+        expect(
+          host.querySelector<HTMLInputElement>('input[name="title"]')?.value,
+        ).toBe('Submitted title');
+        expect(
+          [...host.querySelectorAll('input')].every(
+            (input) => !input.matches(':disabled'),
+          ),
+        ).toBe(true);
+        expect(host.textContent).toContain('Could not save details.');
+        // Failure clears the in-flight guard so the same draft can be retried.
+        await act(async () =>
+          form.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+          ),
+        );
+        expect(save).toHaveBeenCalledTimes(2);
+      } else {
+        await act(async () => resolve());
+        expect(host.querySelector('form')).toBeNull();
+        expect(host.querySelector('.details-intro h3')?.textContent).toBe(
+          'Submitted title',
+        );
+        expect(document.activeElement?.textContent).toBe('Edit details');
+      }
+      expect(close).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  },
+);
