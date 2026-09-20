@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { TaskError } from '../../components/TaskError';
 import { Modal } from '../../components/Modal';
 import { accountRequest } from '../sync/transport';
 import type { Account } from '../sync/model';
@@ -55,9 +57,20 @@ export function LibraryActions({
           <Trash2 /> Delete library
         </button>
       </div>
-      {mode && (
+      {mode === 'delete' && (
+        <ConfirmDialog
+          title={`Delete ${library.name}?`}
+          description={`This removes shared access, stops its folder watches and deletes its uploaded server files and cached snapshots. Watched originals and members� downloaded books, notes and reading progress stay intact.${error ? ' ' + error : ''}`}
+          confirmLabel="Delete library and server files"
+          danger
+          busy={busy}
+          onCancel={() => setMode(undefined)}
+          onConfirm={() => void save()}
+        />
+      )}
+      {mode === 'rename' && (
         <Modal
-          title={mode === 'rename' ? 'Rename library' : 'Delete library?'}
+          title="Rename library"
           onClose={() => {
             if (!busy) setMode(undefined);
           }}
@@ -69,31 +82,22 @@ export function LibraryActions({
               void save();
             }}
           >
-            {mode === 'rename' ? (
-              <label>
-                Library name
-                <input
-                  autoFocus
-                  required
-                  maxLength={100}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-            ) : (
-              <>
-                <p>
-                  Delete <strong>{library.name}</strong> and its uploaded server
-                  files?
-                </p>
-                <p className="muted">
-                  This removes shared access and stops its folder watches.
-                  Watched originals and members’ downloaded books, notes, and
-                  reading progress stay intact.
-                </p>
-              </>
+            <label>
+              Library name
+              <input
+                autoFocus
+                required
+                maxLength={100}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            {error && (
+              <TaskError
+                summary="Could not rename this library."
+                detail={error}
+              />
             )}
-            {error && <p role="alert">{error}</p>}
             <div className="admin-actions">
               <button
                 type="button"
@@ -103,11 +107,7 @@ export function LibraryActions({
                 Cancel
               </button>
               <button className="primary" disabled={busy}>
-                {busy
-                  ? 'Saving…'
-                  : mode === 'rename'
-                    ? 'Save name'
-                    : 'Delete library and server files'}
+                {busy ? 'Saving�' : 'Save name'}
               </button>
             </div>
           </form>

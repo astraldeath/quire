@@ -23,7 +23,6 @@ export function LibraryBooks({
 }) {
   const [query, setQuery] = useState(''),
     [books, setBooks] = useState<Book[]>([]),
-    [open, setOpen] = useState(false),
     [editing, setEditing] = useState<Book>(),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
@@ -33,13 +32,13 @@ export function LibraryBooks({
     );
   }
   useEffect(() => {
-    if (!open) return;
     const update = () => {
       void refresh().catch((e) => setError(e.message));
     };
+    update();
     window.addEventListener('quire-synced', update);
     return () => window.removeEventListener('quire-synced', update);
-  }, [open, library]);
+  }, [library]);
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
     setError('');
@@ -56,17 +55,8 @@ export function LibraryBooks({
   }
   return (
     <div>
-      <button
-        disabled={busy}
-        onClick={() => {
-          setOpen(!open);
-          if (!open) void run(refresh);
-        }}
-      >
-        {open ? 'Hide books' : 'Manage books'}
-      </button>
       {error && <p role="alert">{error}</p>}
-      {open && (
+      {
         <div>
           <label className="admin-search">
             Find a book
@@ -218,7 +208,7 @@ export function LibraryBooks({
             </p>
           )}
         </div>
-      )}
+      }
     </div>
   );
 }

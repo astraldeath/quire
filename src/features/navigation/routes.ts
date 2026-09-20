@@ -18,6 +18,7 @@ export type WebRoute = {
   series?: string;
   bookId?: string;
   tab?: string;
+  library?: string;
 };
 export function parseWebRoute(path: string): WebRoute {
   const parts = path.split('?')[0].split('/').filter(Boolean);
@@ -84,7 +85,14 @@ export function parseWebRoute(path: string): WebRoute {
           'backups',
         ].includes(parts[1]))
     )
-      return { kind: 'admin', tab: parts[1] || 'overview' };
+      return {
+        kind: 'admin',
+        tab: parts[1] || 'overview',
+        ...(parts[1] === 'libraries' &&
+        new URLSearchParams(path.split('?')[1]).get('library')
+          ? { library: new URLSearchParams(path.split('?')[1]).get('library')! }
+          : {}),
+      };
   } catch {
     /* malformed URL */
   }

@@ -2,18 +2,9 @@ import { useWebPath, parseWebRoute, navigateWeb } from '../navigation/routes';
 import { ServerBackups } from './ServerBackups';
 import { Management } from './Management';
 import { useEffect, useState, useRef } from 'react';
-import {
-  Archive,
-  Check,
-  X,
-  Plus,
-  Users,
-  Ticket,
-  LayoutDashboard,
-  Library,
-  FolderOpen,
-  Settings,
-} from 'lucide-react';
+import { Check, X, Plus } from 'lucide-react';
+import { AdminNavigation } from './AdminNavigation';
+import './admin.css';
 import type { Account } from '../sync/model';
 import { accountRequest } from '../sync/transport';
 interface User {
@@ -101,58 +92,7 @@ export function AdminPanel({
             <X />
           </button>
         </header>
-        <nav aria-label="Administration">
-          {(['overview', 'libraries', 'folders', 'settings'] as const).map(
-            (t) => (
-              <button
-                key={t}
-                aria-current={tab === t ? 'page' : undefined}
-                onClick={() => {
-                  setTab(t);
-                  void refresh().catch((e) => setError(e.message));
-                }}
-              >
-                {t === 'overview' ? (
-                  <LayoutDashboard />
-                ) : t === 'libraries' ? (
-                  <Library />
-                ) : t === 'folders' ? (
-                  <FolderOpen />
-                ) : (
-                  <Settings />
-                )}
-                {t === 'overview'
-                  ? 'Overview'
-                  : t === 'libraries'
-                    ? 'Libraries'
-                    : t === 'folders'
-                      ? 'Watched folders'
-                      : 'Settings'}
-              </button>
-            ),
-          )}
-          <button
-            aria-current={tab === 'accounts' ? 'page' : undefined}
-            onClick={() => setTab('accounts')}
-          >
-            <Users /> Accounts
-          </button>
-          <button
-            aria-current={tab === 'invites' ? 'page' : undefined}
-            onClick={() => {
-              setTab('invites');
-              void refresh().catch((e) => setError(e.message));
-            }}
-          >
-            <Ticket /> Invitations
-          </button>
-          <button
-            aria-current={tab === 'backups' ? 'page' : undefined}
-            onClick={() => setTab('backups')}
-          >
-            <Archive /> Backups
-          </button>
-        </nav>
+        <AdminNavigation active={tab} onChange={setTab} />
         {error && <p role="alert">{error}</p>}
         {tab === 'backups' ? (
           <ServerBackups account={account} />

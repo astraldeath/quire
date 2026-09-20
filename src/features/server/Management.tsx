@@ -1,9 +1,11 @@
-import { SharedUpload } from './SharedUpload';
-import { LibraryActions } from './LibraryActions';
+import { CollectionManager } from './CollectionManager';
+import { WatchRow, type Watch, type Scan } from './WatchRow';
+import { useWebPath, parseWebRoute, navigateWeb } from '../navigation/routes';
+import { TaskError } from '../../components/TaskError';
 import { syncNow } from '../sync/engine';
-import { LibraryBooks } from './LibraryBooks';
 import { useEffect, useRef, useState } from 'react';
-import { Check, Plus, RefreshCw, FolderOpen, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, FolderOpen } from 'lucide-react';
+import './admin.css';
 import type { Account } from '../sync/model';
 import { accountRequest } from '../sync/transport';
 interface Library {
@@ -11,11 +13,6 @@ interface Library {
   name: string;
   members: string[];
   books: number;
-}
-interface Watch {
-  id: string;
-  username: string;
-  path: string;
 }
 interface User {
   id: string;
@@ -37,8 +34,7 @@ export function Management({
       bytes: number;
       status: string;
     }>();
-  const [memberQuery, setMemberQuery] = useState(''),
-    [scanning, setScanning] = useState(''),
+  const [scanning, setScanning] = useState(''),
     [name, setName] = useState(''),
     [path, setPath] = useState(''),
     [target, setTarget] = useState(''),
@@ -46,16 +42,16 @@ export function Management({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [config, setConfig] = useState({ name: 'Quire', scanSeconds: 300 }),
-    [scans, setScans] = useState<
-      {
-        id: string;
-        lastAt: number;
-        error: string;
-        imported: number;
-        existing: number;
-        skipped: number;
-      }[]
-    >([]);
+    [scans, setScans] = useState<Scan[]>([]),
+    [loaded, setLoaded] = useState(false);
+  const route = parseWebRoute(useWebPath());
+  const selected = libraries.find((l) => l.id === route.library);
+  useEffect(() => {
+    if (tab === 'libraries' && loaded && route.library && !selected) {
+      setNotice('This collection is unavailable.');
+      navigateWeb('/admin/libraries', true);
+    }
+  }, [tab, loaded, route.library, selected]);
   const identity = JSON.stringify([
     account.origin,
     account.username,
@@ -71,6 +67,7 @@ export function Management({
     );
     if (current.current !== identity) return;
     setLibraries(l);
+    setLoaded(true);
     setWatches(w);
     setUsers(u);
     setOverview(o);
@@ -107,7 +104,12 @@ export function Management({
   }
   return (
     <>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <TaskError
+          summary="Could not complete this administration action."
+          detail={error}
+        />
+      )}
       {notice && <p role="status">{notice}</p>}
       {scanning && (
         <p role="status" className="scan-progress">
@@ -186,114 +188,74 @@ export function Management({
           </div>
         </>
       )}
-      {tab === 'libraries' && (
-        <>
-          <h2>Shared libraries</h2>
-          <p className="muted">
-            Members have separate notes and reading progress.
-          </p>
-          <form
-            className="admin-create"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                await accountRequest(account, '/v1/admin/libraries', { name });
-                setName('');
-              });
-            }}
-          >
-            <input
-              aria-label="Library name"
-              placeholder="Library name"
-              required
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <button className="primary" disabled={busy}>
-              <Plus /> Create library
-            </button>
-          </form>
-          <label className="admin-search">
-            Find a member
-            <input
-              type="search"
-              placeholder="Search usernames"
-              value={memberQuery}
-              onChange={(e) => setMemberQuery(e.target.value)}
-            />
-          </label>
-          <div className="admin-rows">
-            {libraries.map((l) => (
-              <article key={l.id}>
-                <div>
-                  <div className="library-card-heading">
+      {tab === 'libraries' && selected ? (
+        <CollectionManager
+          key={selected.id}
+          account={account}
+          library={selected}
+          onClose={() => navigateWeb('/admin/libraries')}
+          onChange={async () => {
+            await refresh();
+            await syncNow();
+          }}
+        />
+      ) : (
+        tab === 'libraries' && (
+          <>
+            <h2>Shared libraries</h2>
+            <p className="muted">
+              Members have separate notes and reading progress.
+            </p>
+            <form
+              className="admin-create"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run(async () => {
+                  await accountRequest(account, '/v1/admin/libraries', {
+                    name,
+                  });
+                  setName('');
+                });
+              }}
+            >
+              <input
+                aria-label="Library name"
+                placeholder="Library name"
+                required
+                maxLength={100}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <button className="primary" disabled={busy}>
+                <Plus /> Create library
+              </button>
+            </form>
+            <div className="admin-rows">
+              {libraries.map((l) => (
+                <article key={l.id}>
+                  <div>
                     <strong>{l.name}</strong>
-                    <LibraryActions
-                      account={account}
-                      library={l}
-                      onChange={async () => {
-                        await refresh();
-                        await syncNow();
-                      }}
-                    />
+                    <p className="muted">
+                      {l.books} books � {l.members.length} members
+                    </p>
                   </div>
-                  <p className="muted">
-                    {l.books} books · {l.members.length} members
-                  </p>
-                  <div
-                    className="admin-access"
-                    role="group"
-                    aria-label="Members"
-                  >
-                    {users
-                      .filter((u) =>
-                        u.username
-                          .toLowerCase()
-                          .includes(memberQuery.toLowerCase()),
+                  <button
+                    onClick={() =>
+                      navigateWeb(
+                        '/admin/libraries?library=' + encodeURIComponent(l.id),
                       )
-                      .map((u) => (
-                        <label className="admin-member" key={u.id}>
-                          <input
-                            type="checkbox"
-                            checked={l.members.includes(u.id)}
-                            disabled={busy}
-                            onChange={(e) =>
-                              void run(() =>
-                                accountRequest(
-                                  account,
-                                  `/v1/admin/libraries/${l.id}/members/${u.id}`,
-                                  undefined,
-                                  e.target.checked ? 'PUT' : 'DELETE',
-                                ),
-                              )
-                            }
-                          />
-                          <span className="access-check" aria-hidden="true">
-                            <Check />
-                          </span>
-                          <span>{u.username}</span>
-                        </label>
-                      ))}
-                  </div>
-                  <SharedUpload
-                    account={account}
-                    library={l.id}
-                    onComplete={async () => {
-                      await refresh();
-                      if (current.current === identity) await syncNow();
-                    }}
-                  />
-                  <LibraryBooks
-                    account={account}
-                    library={l.id}
-                    onChange={refresh}
-                  />
-                </div>
-              </article>
-            ))}
-          </div>
-        </>
+                    }
+                  >
+                    Manage
+                  </button>
+                </article>
+              ))}
+            </div>
+            {loaded && libraries.length === 0 && (
+              <p className="muted">No shared libraries yet.</p>
+            )}
+          </>
+        )
       )}
       {tab === 'folders' && (
         <>
@@ -367,66 +329,22 @@ export function Management({
           </form>
           <div className="admin-rows">
             {watches.map((w) => (
-              <article key={w.id}>
-                <div>
-                  <strong>{w.path}</strong>
-                  {scans
-                    .filter((s) => s.id === w.id)
-                    .map((s) => (
-                      <p key={s.id} className="muted">
-                        {s.error
-                          ? 'Scan failed: ' + s.error
-                          : `${s.imported} imported · ${s.existing} existing · ${s.skipped} skipped`}{' '}
-                        · {new Date(s.lastAt * 1000).toLocaleString()}
-                      </p>
-                    ))}
-                  <p className="muted">
-                    {w.username.startsWith('library.')
-                      ? (libraries.find((l) => w.username === 'library.' + l.id)
-                          ?.name ?? 'Shared library')
-                      : w.username}
-                  </p>
-                </div>
-                <div className="admin-actions">
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        setScanning(w.id);
-                        await accountRequest(
-                          account,
-                          `/v1/admin/watches/${w.id}/scan`,
-                          {},
-                          'POST',
-                        );
-                        setNotice('Scan complete.');
-                      })
-                    }
-                  >
-                    <RefreshCw size={16} /> Scan now
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          'Stop watching this folder? Its books will no longer be available from this collection unless uploaded separately. Original files and members’ reading data stay intact.',
-                        )
-                      )
-                        void run(() =>
-                          accountRequest(
-                            account,
-                            `/v1/admin/watches/${w.id}`,
-                            undefined,
-                            'DELETE',
-                          ),
-                        );
-                    }}
-                  >
-                    <Trash2 size={16} /> Stop watching
-                  </button>
-                </div>
-              </article>
+              <WatchRow
+                key={w.id}
+                account={account}
+                watch={w}
+                scan={scans.find((s) => s.id === w.id)}
+                destination={
+                  w.username.startsWith('library.')
+                    ? (libraries.find((l) => w.username === 'library.' + l.id)
+                        ?.name ?? 'Unavailable shared library')
+                    : w.username
+                }
+                onChange={async () => {
+                  await refresh();
+                  await syncNow();
+                }}
+              />
             ))}
           </div>
         </>

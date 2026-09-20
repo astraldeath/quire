@@ -1,0 +1,83 @@
+.admin-shell {
+  min-width: 0;
+}
+.admin-shell nav button {
+  min-height: 44px;
+}
+.admin-shell .admin-section-select {
+  max-width: 30rem;
+  margin: 20px 0;
+}
+.admin-shell .admin-section-select select {
+  width: 100%;
+}
+.collection-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.collection-manager {
+  min-width: 0;
+}
+.collection-manager > button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.collection-manager > button svg {
+  width: 18px;
+}
+.collection-manager .admin-access {
+  max-height: none;
+  overflow: visible;
+}
+.watch-row > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.watch-row details {
+  margin-top: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.watch-row summary {
+  cursor: pointer;
+}
+.watch-path {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin-shell input,
+.admin-shell select {
+  font-size: 16px;
+}
+.admin-shell .task-error pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .admin-shell .admin-create {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .admin-shell .admin-create > input {
+    max-width: none;
+  }
+  .admin-shell .admin-create label {
+    min-width: 0;
+  }
+  .admin-shell .admin-create input,
+  .admin-shell .admin-create select {
+    width: 100%;
+    min-width: 0;
+  }
+  .collection-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .admin-shell .watch-row {
+    align-items: stretch;
+  }
+}
