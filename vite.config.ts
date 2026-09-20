@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { pdfAssets } from './scripts/pdf-assets.ts';
+import { archiveAssets } from './scripts/archive-assets.ts';
 import { hardenFoliate } from './scripts/foliate-transform.ts';
 export default defineConfig(({ mode }) => ({
   define: {
@@ -16,6 +17,7 @@ export default defineConfig(({ mode }) => ({
     },
     react(),
     pdfAssets(),
+    archiveAssets(),
   ],
   optimizeDeps: { exclude: ['foliate-js'] },
   clearScreen: false,

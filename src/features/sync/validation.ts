@@ -89,9 +89,17 @@ function validValue(kind: Kind, v: Value) {
       (v.folders === undefined || validFolders(v.folders)) &&
       (v.format === undefined ||
         (typeof v.format === 'string' &&
-          ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3', 'pdf'].includes(
-            v.format as string,
-          ))) &&
+          [
+            'epub',
+            'cbz',
+            'cbr',
+            'cb7',
+            'fb2',
+            'fbz',
+            'mobi',
+            'azw3',
+            'pdf',
+          ].includes(v.format as string))) &&
       (v.volume == null ||
         (typeof v.volume === 'number' && Number.isFinite(v.volume)))
     );

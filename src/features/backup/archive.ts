@@ -182,7 +182,7 @@ export async function readBackup(bytes: Uint8Array | Blob): Promise<Backup> {
         e.directory ||
         e.encrypted ||
         names.has(e.filename) ||
-        !/^(manifest\.json|books\/[a-f0-9]{64}\.(epub|cbz|fb2|fbz|mobi|azw3|pdf))$/.test(
+        !/^(manifest\.json|books\/[a-f0-9]{64}\.(epub|cbz|cbr|cb7|fb2|fbz|mobi|azw3|pdf))$/.test(
           e.filename,
         )
       )

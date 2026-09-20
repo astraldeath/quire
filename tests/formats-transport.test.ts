@@ -22,7 +22,17 @@ import {
 import { validateResponse } from '../src/features/sync/validation';
 import { validFolder } from '../src/features/library/folders';
 
-const formats = ['epub', 'cbz', 'fb2', 'fbz', 'mobi', 'azw3', 'pdf'] as const;
+const formats = [
+  'epub',
+  'cbz',
+  'cbr',
+  'cb7',
+  'fb2',
+  'fbz',
+  'mobi',
+  'azw3',
+  'pdf',
+] as const;
 const baseBook: Book = {
   id: 'a'.repeat(64),
   title: 'Example',

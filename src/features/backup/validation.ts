@@ -44,6 +44,8 @@ export function validateBook(value: unknown): Book {
           format: choice(b.format, [
             'epub',
             'cbz',
+            'cbr',
+            'cb7',
             'fb2',
             'fbz',
             'mobi',

@@ -22,7 +22,9 @@ export function FileHandlingSettings() {
   return (
     <section className="storage-settings" aria-label="File handling">
       <h3>Open books with Quire</h3>
-      <p className="muted">EPUB, CBZ, FB2, FBZ, MOBI, AZW3 and PDF.</p>
+      <p className="muted">
+        EPUB, CBZ, CBR, CB7, FB2, FBZ, MOBI, AZW3 and PDF.
+      </p>
       {platform === 'windows' ? (
         <>
           <p className="muted">

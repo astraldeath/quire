@@ -16,12 +16,15 @@ import {
 import type { Book } from './domain/models';
 
 export type BookFormat =
-  'epub' | 'cbz' | 'fb2' | 'fbz' | 'mobi' | 'azw3' | 'pdf';
-export const BOOK_ACCEPT = '.epub,.cbz,.fb2,.fb2.zip,.fbz,.mobi,.azw3,.pdf';
+  'epub' | 'cbz' | 'cbr' | 'cb7' | 'fb2' | 'fbz' | 'mobi' | 'azw3' | 'pdf';
+export const BOOK_ACCEPT =
+  '.epub,.cbz,.cbr,.cb7,.fb2,.fb2.zip,.fbz,.mobi,.azw3,.pdf';
 export const BOOK_MIME: Record<BookFormat, string> = {
   pdf: 'application/pdf',
   epub: 'application/epub+zip',
   cbz: 'application/vnd.comicbook+zip',
+  cbr: 'application/vnd.comicbook-rar',
+  cb7: 'application/x-cb7',
   fb2: 'application/x-fictionbook+xml',
   fbz: 'application/x-zip-compressed-fb2',
   mobi: 'application/x-mobipocket-ebook',
@@ -29,8 +32,9 @@ export const BOOK_MIME: Record<BookFormat, string> = {
 };
 export function inferBookFormat(name: string): BookFormat | undefined {
   if (/\.(?:fb2\.zip|fbz)$/i.test(name)) return 'fbz';
-  return /\.(epub|cbz|fb2|mobi|azw3|pdf)$/i.exec(name)?.[1].toLowerCase() as
-    BookFormat | undefined;
+  return /\.(epub|cbz|cbr|cb7|fb2|mobi|azw3|pdf)$/i
+    .exec(name)?.[1]
+    .toLowerCase() as BookFormat | undefined;
 }
 interface Section {
   id: string | number;
@@ -54,8 +58,16 @@ export interface ReaderBook {
   destroy(): void;
 }
 const MB = 1024 * 1024;
-async function comic(bytes: Uint8Array): Promise<ReaderBook> {
-  const archive = await openComicArchive(bytes);
+async function comic(
+  bytes: Uint8Array,
+  format: 'cbz' | 'cbr' | 'cb7',
+): Promise<ReaderBook> {
+  const archive =
+    format === 'cbz'
+      ? await openComicArchive(bytes)
+      : await (
+          await import('./rar-seven-comic')
+        ).openRarSevenComic(bytes, format);
   const { names } = archive;
   const urls = new Set<string>();
   const loaded = new Map<string, () => void>();
@@ -163,8 +175,11 @@ export async function openBook(
       throw error;
     }
   }
-  if (format === 'cbz')
-    return { publication: await comic(bytes), structure: { chapters: [] } };
+  if (format === 'cbz' || format === 'cbr' || format === 'cb7')
+    return {
+      publication: await comic(bytes, format),
+      structure: { chapters: [] },
+    };
   let publication: ReaderBook;
   if (format === 'fb2' || format === 'fbz') {
     if (format === 'fbz') {
@@ -263,7 +278,7 @@ export async function importBook(
   const format = inferBookFormat(file.name);
   if (!format)
     throw new Error(
-      'Supported formats: EPUB, PDF, CBZ, FB2, MOBI and AZW3 (DRM-free).',
+      'Supported formats: EPUB, PDF, CBZ, CBR, CB7, FB2, MOBI and AZW3 (DRM-free).',
     );
   if (format === 'epub') {
     const result = await importEpub(file);
@@ -275,7 +290,10 @@ export async function importBook(
   try {
     const title =
       publication.metadata?.title ||
-      file.name.replace(/\.(fb2\.zip|epub|cbz|fb2|fbz|mobi|azw3|pdf)$/i, '');
+      file.name.replace(
+        /\.(fb2\.zip|epub|cbz|cbr|cb7|fb2|fbz|mobi|azw3|pdf)$/i,
+        '',
+      );
     const authors = publication.metadata?.author;
     const author =
       typeof authors === 'string'

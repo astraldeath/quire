@@ -41,7 +41,10 @@ export function rankMatches<T extends MatchCandidate>(
     const hint =
       format === 'epub'
         ? /novel/.test(type)
-        : format === 'cbz' || format === 'pdf'
+        : format === 'cbz' ||
+            format === 'cbr' ||
+            format === 'cb7' ||
+            format === 'pdf'
           ? /manga|manhwa|manhua|comic/.test(type)
           : false;
     return titleScore * 10 + Number(hint);
