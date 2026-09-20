@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.1]
+
+- Fix native command permission errors introduced in v0.7.0, including file opening, screen capture settings, local storage, sync, tracking, and update checks.
+- If v0.7.0 cannot check for updates, download and install this release manually over your existing installation. Do not uninstall Quire or clear its app data.
+
 ## [0.7.0]
 
 - Simplify library controls, book actions, details editing, and folder management. Create empty nested folders and preserve them through backups and server sync.
