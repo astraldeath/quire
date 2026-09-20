@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { adminConsequence } from './adminActions';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useDraftGuard } from '../../components/useDraftGuard';
 import { TaskError } from '../../components/TaskError';
 import { Modal } from '../../components/Modal';
 import { accountRequest } from '../sync/transport';
@@ -17,11 +18,20 @@ export function LibraryActions({
 }) {
   const [mode, setMode] = useState<'rename' | 'delete'>(),
     [name, setName] = useState(library.name),
+    [baseline, setBaseline] = useState(library.name),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const active = useRef(false);
+  const dirty = mode === 'rename' && name !== baseline;
+  const guard = useDraftGuard({ dirty, busy });
+  const closeRename = () => guard.requestLeave(() => setMode(undefined));
   async function save() {
-    if (active.current) return;
+    if (
+      active.current ||
+      !mode ||
+      (mode === 'rename' && (!dirty || !name.trim()))
+    )
+      return;
     active.current = true;
     setBusy(true);
     setError('');
@@ -32,6 +42,7 @@ export function LibraryActions({
         mode === 'rename' ? { name } : undefined,
         mode === 'rename' ? 'PATCH' : 'DELETE',
       );
+      if (mode === 'rename') setBaseline(name);
       setMode(undefined);
       await onChange();
     } catch (e) {
@@ -51,6 +62,7 @@ export function LibraryActions({
         <button
           onClick={() => {
             setName(library.name);
+            setBaseline(library.name);
             setError('');
             setMode('rename');
           }}
@@ -79,12 +91,7 @@ export function LibraryActions({
         />
       )}
       {mode === 'rename' && (
-        <Modal
-          title="Rename library"
-          onClose={() => {
-            if (!busy) setMode(undefined);
-          }}
-        >
+        <Modal title="Rename library" onClose={closeRename}>
           <form
             className="library-dialog"
             onSubmit={(e) => {
@@ -98,6 +105,7 @@ export function LibraryActions({
                 autoFocus
                 required
                 maxLength={100}
+                disabled={busy}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -109,20 +117,20 @@ export function LibraryActions({
               />
             )}
             <div className="admin-actions">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setMode(undefined)}
-              >
+              <button type="button" disabled={busy} onClick={closeRename}>
                 Cancel
               </button>
-              <button className="primary" disabled={busy}>
+              <button
+                className="primary"
+                disabled={busy || !dirty || !name.trim()}
+              >
                 {busy ? 'Saving…' : 'Save name'}
               </button>
             </div>
           </form>
         </Modal>
       )}
+      {guard.confirmation}
     </>
   );
 }
