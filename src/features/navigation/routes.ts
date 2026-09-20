@@ -8,6 +8,7 @@ export type WebRoute = {
     | 'series'
     | 'series-tracking'
     | 'details'
+    | 'remove'
     | 'tracking'
     | 'read'
     | 'settings'
@@ -41,15 +42,17 @@ export function parseWebRoute(path: string): WebRoute {
       parts[0] === 'books' &&
       /^[a-f0-9]{64}$/.test(parts[1] ?? '') &&
       parts.length <= 3 &&
-      (!parts[2] || ['read', 'tracking'].includes(parts[2]))
+      (!parts[2] || ['read', 'remove', 'tracking'].includes(parts[2]))
     )
       return {
         kind:
           parts[2] === 'read'
             ? 'read'
-            : parts[2] === 'tracking'
-              ? 'tracking'
-              : 'details',
+            : parts[2] === 'remove'
+              ? 'remove'
+              : parts[2] === 'tracking'
+                ? 'tracking'
+                : 'details',
         bookId: parts[1],
       };
     if (

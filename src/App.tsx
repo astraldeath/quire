@@ -217,6 +217,11 @@ function AppContent({
     initialRemove?: boolean;
     anchor?: ActionAnchor;
   } | null>(null);
+  const [removalOrigin, setRemovalOrigin] = useState<{
+    bookId: string;
+    shelf: string;
+  } | null>(null);
+  const detailsRemoval = useRemovalScope(!!removalOrigin);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('appearance');
@@ -487,6 +492,13 @@ function AppContent({
     setReading(shelf.kind === 'reading');
     setGroup(shelf.series ?? null);
     setActions(null);
+    setRemovalOrigin(
+      current.kind === 'remove' &&
+        routeBookExists &&
+        privacy.access(current.bookId!)
+        ? { bookId: current.bookId!, shelf: shelfPath() }
+        : null,
+    );
     setSettings(current.kind === 'settings');
     setDetailsId(
       current.kind === 'details' && privacy.access(current.bookId!)
@@ -539,6 +551,8 @@ function AppContent({
           if (location.pathname !== webPath.split('?')[0]) return;
           if (!ok) navigateWeb('/library', true);
           else if (current.kind === 'details') setDetailsId(current.bookId!);
+          else if (current.kind === 'remove')
+            setRemovalOrigin({ bookId: current.bookId!, shelf: shelfPath() });
           else if (current.kind === 'tracking')
             setBookTracking(current.bookId!);
         });
@@ -593,6 +607,7 @@ function AppContent({
     setHiddenBooks(false);
     setSelected([]);
     setActions(null);
+    setRemovalOrigin(null);
     setDetailsId(null);
     setBookTracking(null);
     setSeriesTracking(null);
@@ -606,7 +621,8 @@ function AppContent({
       document.title =
         (route.kind === 'read' ||
         route.kind === 'details' ||
-        route.kind === 'tracking'
+        route.kind === 'tracking' ||
+        route.kind === 'remove'
           ? privacy.access(route.bookId!)
             ? (books.find((b) => b.id === route.bookId)?.title ?? 'Book')
             : 'Private book'
@@ -815,7 +831,7 @@ function AppContent({
       return;
     setActions({ entry: { ...entry, books: members }, initialRemove, anchor });
   };
-  const removeFromLibrary = (ids: string[]) =>
+  const removeFromLibrary = (ids: string[], returnPath = '/library') =>
     enqueue(async () => {
       await deleteBooks(ids);
       const next = booksRef.current.filter((b) => !ids.includes(b.id));
@@ -827,7 +843,7 @@ function AppContent({
         (ids.includes(route.bookId ?? '') ||
           (group && !next.some((b) => b.series === group)))
       )
-        navigateWeb('/library', true);
+        navigateWeb(returnPath, true);
       setNotice(
         `${ids.length === 1 ? 'Book' : `${ids.length} books`} removed from library.`,
       );
@@ -1107,6 +1123,9 @@ function AppContent({
   };
 
   const details = books.find((b) => b.id === detailsId && privacy.access(b.id));
+  const removalBook = books.find(
+    (book) => book.id === removalOrigin?.bookId && privacy.access(book.id),
+  );
   const goLibrary = (read = false) => {
     setHiddenBooks(false);
     setFolder('');
@@ -1922,6 +1941,48 @@ function AppContent({
             </button>
           </div>
         )}
+      {removalOrigin && removalBook && (
+        <Modal
+          title="Remove from library?"
+          onClose={() => {
+            if (busy) return;
+            if (hostedWeb) closeWeb('/books/' + removalOrigin.bookId);
+            else setRemovalOrigin(null);
+          }}
+        >
+          <p>
+            {detailsRemoval.connected === null
+              ? 'Checking removal scope…'
+              : removalDescription(detailsRemoval.connected, 1)}
+          </p>
+          {detailsRemoval.error && <p role="alert">{detailsRemoval.error}</p>}
+          <div className="button-row">
+            <button
+              disabled={!!busy}
+              onClick={() => {
+                if (hostedWeb) closeWeb('/books/' + removalOrigin.bookId);
+                else setRemovalOrigin(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="danger"
+              disabled={!!busy || detailsRemoval.connected === null}
+              onClick={() => {
+                const origin = removalOrigin;
+                setBusy('Removing book…');
+                void removeFromLibrary([origin.bookId], origin.shelf)
+                  .then(() => setRemovalOrigin(null))
+                  .catch((cause) => setError(String(cause)))
+                  .finally(() => setBusy(''));
+              }}
+            >
+              Remove from library
+            </button>
+          </div>
+        </Modal>
+      )}
       {bulkRemove && (
         <Modal
           title={`Remove ${activeIds.length} books?`}
@@ -2033,22 +2094,15 @@ function AppContent({
           }
         />
       )}
-      {details && (
+      {details && !removalOrigin && (
         <BookDetails
           onTracking={
             hostedWeb || isTauri() ? () => goTracking(details) : undefined
           }
           onDelete={() => {
-            setDetailsId(null);
-            showActions(
-              {
-                key: details.id,
-                title: details.title,
-                series: false,
-                books: [details],
-              },
-              true,
-            );
+            const origin = { bookId: details.id, shelf: shelfPath() };
+            if (hostedWeb) navigateWeb('/books/' + details.id + '/remove');
+            else setRemovalOrigin(origin);
           }}
           key={details.id}
           book={details}

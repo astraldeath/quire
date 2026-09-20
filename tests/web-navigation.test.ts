@@ -29,6 +29,12 @@ describe('WebUI navigation', () => {
       kind: 'read',
       bookId: 'a'.repeat(64),
     });
+    expect(parseWebRoute('/books/' + 'a'.repeat(64) + '/remove')).toMatchObject(
+      {
+        kind: 'remove',
+        bookId: 'a'.repeat(64),
+      },
+    );
     expect(parseWebRoute('/settings/backups')).toMatchObject({
       kind: 'settings',
       tab: 'backups',

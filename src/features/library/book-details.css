@@ -1,3 +1,6 @@
+.book-details-modal {
+  width: min(560px, calc(100vw - 32px));
+}
 .book-details-panel {
   display: flex;
   flex-direction: column;
@@ -34,26 +37,28 @@
   height: 16px;
   flex-shrink: 0;
 }
-.book-details-group,
-.book-details-edit {
+.book-details-group {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 14px;
   min-width: 0;
 }
-.book-details-panel .book-details-group h3,
-.book-details-panel .book-details-edit h3 {
+.book-details-panel .book-details-group h3 {
   font-size: 13px;
   font-weight: 600;
   margin: 0 0 12px;
 }
-.book-details-device {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.book-details-availability {
+  margin: 0;
   font-size: 13px;
+  line-height: 1.5;
+}
+.book-details-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 .book-details-panel .text-action {
   padding: 8px;
@@ -74,9 +79,33 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.book-details-panel .book-server-actions h3 {
-  margin-bottom: 6px;
-  font-weight: 500;
+.book-details-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 13px;
+}
+.book-details-action-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.book-details-action-row .text-action {
+  flex-shrink: 0;
+}
+.book-details-panel .book-server-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.book-details-panel .book-server-summary > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 .book-details-panel .book-server-actions .server-actions {
   display: flex;
@@ -86,10 +115,13 @@
 .book-details-panel .book-server-actions .server-actions:empty {
   display: none;
 }
-.book-details-panel .book-details-edit .form-grid {
+.book-details-edit .form-grid {
   margin-bottom: 0;
 }
-.book-details-panel .book-details-edit .modal-footer {
+.book-details-edit .task-error {
+  margin-top: 14px;
+}
+.book-details-edit .modal-footer {
   padding-top: 16px;
 }
 .book-details-panel .book-details-remove {
@@ -106,8 +138,14 @@
   .book-details-primary > button:first-child {
     flex: 1;
   }
-  .book-details-panel .book-details-group,
-  .book-details-panel .book-details-edit {
+  .book-details-panel .book-details-group {
     padding: 12px;
+  }
+  .book-details-action-row {
+    align-items: flex-start;
+  }
+  .book-details-panel .book-server-summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

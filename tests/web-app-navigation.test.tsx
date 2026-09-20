@@ -43,6 +43,7 @@ vi.mock('../src/storage', () => ({
   saveBookAnnotations: vi.fn(),
   listReadingActivity: async () => [],
   saveReadingActivity: vi.fn(async () => {}),
+  deleteBooks: vi.fn(async () => {}),
 }));
 vi.mock('../src/components/Modal', () => ({
   Modal: ({
@@ -162,6 +163,65 @@ it('opens a series directly, routes into its reader, and restores the series on 
     expect(host.querySelector('[data-reader]')?.textContent).toContain(
       'Book Two',
     );
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    history.replaceState(null, '', '/');
+  }
+});
+
+it('keeps details-origin removal in browser history and returns deletion to its shelf', async () => {
+  const bookId = books[0].id;
+  const seriesPath = '/series/A%2FB';
+  history.replaceState(null, '', seriesPath);
+  const host = document.createElement('div');
+  document.body.append(host);
+  let root = createRoot(host);
+  const click = async (text: string) =>
+    act(async () =>
+      Array.from(host.querySelectorAll('button'))
+        .find((button) => button.textContent === text)!
+        .click(),
+    );
+  try {
+    await act(async () => root.render(<App />));
+    await act(async () => navigateWeb('/books/' + bookId));
+    expect(host.textContent).toContain('Book details');
+    await click('Remove from library');
+    expect(location.pathname).toBe('/books/' + bookId + '/remove');
+    expect(host.textContent).toContain('Remove from library?');
+
+    await act(async () => {
+      const popped = new Promise<void>((resolve) =>
+        window.addEventListener('popstate', () => resolve(), { once: true }),
+      );
+      history.back();
+      await popped;
+    });
+    expect(location.pathname).toBe('/books/' + bookId);
+    expect(host.querySelector('.details-intro h3')?.textContent).toBe(
+      'Book One',
+    );
+
+    await click('Remove from library');
+    await act(async () => root.unmount());
+    host.replaceChildren();
+    root = createRoot(host);
+    await act(async () => root.render(<App />));
+    expect(location.pathname).toBe('/books/' + bookId + '/remove');
+    expect(host.textContent).toContain('Remove from library?');
+    await click('Cancel');
+    await vi.waitFor(() =>
+      expect(location.pathname).toBe('/books/' + bookId),
+    );
+    expect(host.querySelector('.details-intro h3')?.textContent).toBe(
+      'Book One',
+    );
+
+    await click('Remove from library');
+    await click('Remove from library');
+    await vi.waitFor(() => expect(location.pathname).toBe(seriesPath));
+    expect(host.querySelector('h1')?.textContent).toBe('A/B');
   } finally {
     await act(async () => root.unmount());
     host.remove();

@@ -46,45 +46,50 @@ export function BookServerActions({ book }: { book: Book }) {
     }
   };
   return (
-    <section className="book-server-actions">
-      <h3>Server copy</h3>
-      <p className="muted">
-        {remote?.watched
-          ? 'Available from a read-only watched folder'
-          : remote?.uploaded
-            ? 'Uploaded to your server'
-            : 'No book file on your server'}
-      </p>
-      <div className="server-actions">
-        {book.local && !remote && (
-          <button
-            type="button"
-            className="text-action"
-            disabled={!!busy}
-            onClick={() =>
-              void run('Uploading', async () => {
-                const bytes = await getFile(book.id);
-                if (!bytes) throw new Error('Local book file is unavailable.');
-                await syncNow();
-                await upload(account, book.id, bytes);
-              })
-            }
-          >
-            <CloudUpload />
-            Upload book file
-          </button>
-        )}
-        {remote?.uploaded && !confirm && (
-          <button
-            type="button"
-            className="text-action danger"
-            disabled={!!busy}
-            onClick={() => setConfirm(true)}
-          >
-            <Trash2 />
-            Remove server upload
-          </button>
-        )}
+    <div className="book-server-actions">
+      <div className="book-server-summary">
+        <div>
+          <strong>Server copy</strong>
+          <span className="muted">
+            {remote?.watched
+              ? 'Available from a read-only watched folder'
+              : remote?.uploaded
+                ? 'Uploaded to your server'
+                : 'No book file on your server'}
+          </span>
+        </div>
+        <div className="server-actions">
+          {book.local && !remote && (
+            <button
+              type="button"
+              className="text-action"
+              disabled={!!busy}
+              onClick={() =>
+                void run('Uploading', async () => {
+                  const bytes = await getFile(book.id);
+                  if (!bytes)
+                    throw new Error('Local book file is unavailable.');
+                  await syncNow();
+                  await upload(account, book.id, bytes);
+                })
+              }
+            >
+              <CloudUpload />
+              Upload book file
+            </button>
+          )}
+          {remote?.uploaded && !confirm && (
+            <button
+              type="button"
+              className="text-action danger"
+              disabled={!!busy}
+              onClick={() => setConfirm(true)}
+            >
+              <Trash2 />
+              Remove server upload
+            </button>
+          )}
+        </div>
       </div>
       {confirm && (
         <div className="removal">
@@ -121,6 +126,6 @@ export function BookServerActions({ book }: { book: Book }) {
       )}
       {busy && <p role="status">{busy}…</p>}
       {error && <p role="alert">{error}</p>}
-    </section>
+    </div>
   );
 }
