@@ -54,6 +54,17 @@ export interface SyncState {
   lastSync?: number;
   acknowledged?: Record<string, { revision: number; conflict: boolean }>;
 }
+export function assertCurrentAccount(state: SyncState, expected: Account) {
+  if (
+    !state.enabled ||
+    state.account?.origin !== expected.origin ||
+    state.account?.username !== expected.username ||
+    state.account?.sessionId !== expected.sessionId
+  )
+    throw new Error(
+      'Your account or session changed. Reopen the book actions and try again.',
+    );
+}
 export const emptySync = (): SyncState => ({
   cursor: 0,
   records: {},

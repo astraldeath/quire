@@ -2,12 +2,11 @@ import {
   getFile,
   listBooks,
   loadSync,
-  putBook,
+  putDownloadedFile,
   syncTransaction,
 } from '../../storage';
-
 import { download, files, metadata } from './transport';
-import type { Account } from './model';
+import { assertCurrentAccount, type Account } from './model';
 import { readPolicy, writePolicy, touchBook } from '../storage/policy';
 
 /** Covers are immutable derivatives of the book file hash, cached independently of its file. */
@@ -35,31 +34,48 @@ export async function fetchCovers(account: Account) {
   }
 }
 
+async function rememberAccess(id: string, expected?: Account) {
+  try {
+    const state = await loadSync();
+    if (expected) assertCurrentAccount(state, expected);
+    if (state.account)
+      writePolicy(state.account, {
+        accessed: { ...readPolicy(state.account).accessed, [id]: Date.now() },
+      });
+  } catch {
+    /* Storage-policy persistence must not prevent reading a local file. */
+  }
+}
 const downloads = new Map<string, Promise<Uint8Array>>();
-export function ensureBookFile(id: string): Promise<Uint8Array> {
+export async function ensureBookFile(
+  id: string,
+  expected?: Account,
+): Promise<Uint8Array> {
   touchBook(id);
-  const existing = downloads.get(id);
+  const local = await getFile(id);
+  if (local) {
+    if (expected) assertCurrentAccount(await loadSync(), expected);
+    await rememberAccess(id, expected);
+    return local;
+  }
+  const state = await loadSync();
+  if (expected) assertCurrentAccount(state, expected);
+  if (!state.enabled || !state.account)
+    throw new Error(
+      'Connect to your server to download this book, or import its original file.',
+    );
+  const account = state.account;
+  const key = JSON.stringify([
+    account.origin,
+    account.username,
+    account.sessionId,
+    id,
+  ]);
+  const existing = downloads.get(key);
   if (existing) return existing;
   const task = (async () => {
-    const access = (async () => {
-      try {
-        const account = (await loadSync()).account;
-        if (account)
-          writePolicy(account, {
-            accessed: { ...readPolicy(account).accessed, [id]: Date.now() },
-          });
-      } catch {
-        /* Storage-policy persistence must not prevent reading. */
-      }
-    })();
-    const [local] = await Promise.all([getFile(id), access]);
-    if (local) return local;
-    const state = await loadSync();
-    if (!state.enabled || !state.account)
-      throw new Error(
-        'Connect to your server to download this book, or import its original file.',
-      );
-    const bytes = await download(state.account, id);
+    const bytes = await download(account, id);
+    assertCurrentAccount(await loadSync(), account);
     if (bytes.byteLength > 128 * 1024 * 1024)
       throw new Error('Book file is too large (128 MB maximum).');
     const hash = Array.from(
@@ -70,12 +86,11 @@ export function ensureBookFile(id: string): Promise<Uint8Array> {
     ).join('');
     if (hash !== id)
       throw new Error('Downloaded book file does not match this book.');
-    const book = (await listBooks()).find((b) => b.id === id);
-    if (!book) throw new Error('This book is no longer in your library.');
-    await putBook(book, bytes);
+    await putDownloadedFile(id, bytes, account);
+    await rememberAccess(id, account);
     window.dispatchEvent(new Event('quire-synced'));
     return bytes;
-  })().finally(() => downloads.delete(id));
-  downloads.set(id, task);
+  })().finally(() => downloads.delete(key));
+  downloads.set(key, task);
   return task;
 }

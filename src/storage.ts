@@ -18,7 +18,13 @@ import {
   validateActivity,
   type ReadingActivity,
 } from './features/statistics/model';
-import { emptySync, queueChanges, type SyncState } from './features/sync/model';
+import {
+  assertCurrentAccount,
+  emptySync,
+  queueChanges,
+  type Account,
+  type SyncState,
+} from './features/sync/model';
 import { migrateBookFolders } from './features/library/folders';
 interface Record {
   id: string;
@@ -337,6 +343,20 @@ export const removeFile = (id: string) =>
       .filter((b) => b.id === id)
       .map((book) => ({ book, fileMode: 'remove' as const })),
   }));
+/** Validate the download owner inside the serialized file commit, retaining current metadata. */
+export const putDownloadedFile = (
+  id: string,
+  bytes: Uint8Array,
+  expected: Account,
+) =>
+  serial(async () => {
+    const books = await listBooks(),
+      sync = await loadSync();
+    assertCurrentAccount(sync, expected);
+    const book = books.find((b) => b.id === id);
+    if (!book) throw new Error('This book is no longer in your library.');
+    await commit(sync, [{ book, fileMode: 'set', file: bytes }]);
+  });
 /** Check offloading safeguards inside the same serialized edit as file removal. */
 export const removeFileWhen = (
   id: string,

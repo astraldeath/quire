@@ -58,6 +58,8 @@ import { TrackingButton } from './features/tracking/TrackingButton';
 import { isTauri } from '@tauri-apps/api/core';
 import { startNativeTracking } from './features/tracking/native';
 import { BookActions } from './features/library/BookActions';
+import { removalDescription } from './features/library/removal';
+import { useRemovalScope } from './features/library/useRemovalScope';
 import { createBackupBlob, type Backup } from './features/backup/archive';
 import { mergeBook } from './features/backup/merge';
 import { preserveExistingProgress } from './features/statistics/history';
@@ -177,6 +179,7 @@ function AppContent({
   const [selecting, setSelecting] = useState(false),
     [selected, setSelected] = useState<string[]>([]),
     [bulkRemove, setBulkRemove] = useState(false);
+  const removal = useRemovalScope(bulkRemove);
   const [folder, setFolder] = useState('');
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [renameFolder, setRenameFolder] = useState(false);
@@ -1763,17 +1766,25 @@ function AppContent({
       {bulkRemove && (
         <Modal
           title={`Remove ${activeIds.length} books?`}
-          onClose={() => setBulkRemove(false)}
+          onClose={() => {
+            if (!busy) setBulkRemove(false);
+          }}
         >
           <p>
-            This deletes their downloads, progress, bookmarks, highlights, and
-            notes from Quire. Original book files and exported backups are kept.
+            {removal.connected === null
+              ? 'Checking removal scope…'
+              : removalDescription(removal.connected, activeIds.length)}
           </p>
+          {removal.error && <p role="alert">{removal.error}</p>}
           <div className="button-row">
-            <button onClick={() => setBulkRemove(false)}>Cancel</button>
+            <button disabled={!!busy} onClick={() => setBulkRemove(false)}>
+              Cancel
+            </button>
             <button
               className="danger"
-              disabled={!!busy || !activeIds.length}
+              disabled={
+                !!busy || !activeIds.length || removal.connected === null
+              }
               onClick={() => {
                 setBusy('Removing books…');
                 void removeFromLibrary(activeIds)

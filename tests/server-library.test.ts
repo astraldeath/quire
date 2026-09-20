@@ -8,7 +8,14 @@ vi.mock('../src/features/sync/transport', () => ({
   metadata: vi.fn(),
 }));
 vi.mock('../src/epub', () => ({ importEpub: vi.fn() }));
-import { getFile, listBooks, saveBook, syncTransaction } from '../src/storage';
+import {
+  getFile,
+  listBooks,
+  saveBook,
+  syncTransaction,
+  deleteBooks,
+} from '../src/storage';
+import * as storage from '../src/storage';
 import { ensureBookFile, fetchCovers } from '../src/features/sync/library';
 import { download, files, metadata } from '../src/features/sync/transport';
 import { importEpub } from '../src/epub';
@@ -42,8 +49,15 @@ const book = {
     },
   ],
 };
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+  await deleteBooks((await listBooks()).map((b) => b.id));
+  await syncTransaction((s) => {
+    s.account = account;
+    s.enabled = true;
+    s.covers = [];
+    return { result: undefined };
+  });
 });
 it('fetches and caches cover previews without fetching EPUB bytes', async () => {
   await saveBook(book);
@@ -97,6 +111,71 @@ it('rejects an EPUB with a different identity before saving', async () => {
   } as any);
   await expect(ensureBookFile(id)).rejects.toThrow('does not match');
   expect(await getFile(id)).toBeUndefined();
+});
+it('preserves metadata and progress edited while a download is in flight', async () => {
+  await saveBook(book);
+  const position = {
+    fraction: 0.5,
+    cfi: 'new',
+    section: 'Middle',
+    updatedAt: 2,
+  };
+  vi.mocked(download).mockImplementation(async () => {
+    await saveBook({ ...book, title: 'Edited during download', position });
+    return new Uint8Array([1, 2, 3]);
+  });
+  await ensureBookFile(book.id);
+  expect((await listBooks())[0]).toMatchObject({
+    title: 'Edited during download',
+    position,
+    annotations: book.annotations,
+    local: true,
+  });
+});
+it('does not share an in-flight download with a new session', async () => {
+  await saveBook(book);
+  let finish!: (bytes: Uint8Array) => void;
+  let started!: () => void;
+  const downloading = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  vi.mocked(download)
+    .mockImplementationOnce(() => {
+      started();
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    })
+    .mockResolvedValue(new Uint8Array([1, 2, 3]));
+  const first = ensureBookFile(book.id).then(
+    () => 'saved',
+    () => 'rejected',
+  );
+  await downloading;
+  await syncTransaction((s) => {
+    s.account = { ...account, sessionId: 'new' };
+    return { result: undefined };
+  });
+  const second = ensureBookFile(book.id);
+  finish(new Uint8Array([1, 2, 3]));
+  expect(await first).toBe('rejected');
+  expect(await second).toEqual(new Uint8Array([1, 2, 3]));
+  expect(download).toHaveBeenCalledTimes(2);
+});
+it('guards the serialized file commit after an account change queued ahead of it', async () => {
+  await saveBook(book);
+  const change = syncTransaction((s) => {
+    s.account = { ...account, sessionId: 'new' };
+    return { result: undefined };
+  });
+  const result = storage.putDownloadedFile(
+    book.id,
+    new Uint8Array([1, 2, 3]),
+    account,
+  );
+  await change;
+  await expect(result).rejects.toThrow(/account|session/i);
+  expect(await getFile(book.id)).toBeUndefined();
 });
 it('keeps page height steady during keyboard resizing but accepts rotation', () => {
   const initial = { width: 390, height: 844 };

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { CloudUpload, Pin, PinOff } from 'lucide-react';
+import { CloudUpload, Download, Pin, PinOff } from 'lucide-react';
 import type { Book } from '../../domain/models';
-import { loadSync } from '../../storage';
+import { listBooks, loadSync } from '../../storage';
 import type { Account } from '../sync/model';
-import { readPolicy, writePolicy } from './policy';
+import { readPolicy, setBooksPinned } from './policy';
+import { keepDownloaded } from './keepDownloaded';
 import { uploadBooks } from './manager';
 import { ActionMenuItem } from '../../components/ActionMenuItem';
+import { TaskError } from '../../components/TaskError';
 
 export function BookStorageActions({
   books,
@@ -16,8 +18,12 @@ export function BookStorageActions({
 }) {
   const [account, setAccount] = useState<Account>();
   const [pinned, setPinned] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [localIds, setLocalIds] = useState(() =>
+    books.filter((b) => b.local).map((b) => b.id),
+  );
+  const [busy, setBusy] = useState<'upload' | 'keep' | null>(null);
   const [error, setError] = useState('');
+  const [failedIds, setFailedIds] = useState<string[]>([]);
   useEffect(() => {
     let alive = true;
     void loadSync()
@@ -27,6 +33,7 @@ export function BookStorageActions({
         setPinned(
           books.every((b) => readPolicy(s.account!).pinned.includes(b.id)),
         );
+        setLocalIds(books.filter((b) => b.local).map((b) => b.id));
       })
       .catch(() => {});
     return () => {
@@ -34,43 +41,114 @@ export function BookStorageActions({
     };
   }, [books]);
   if (!account) return null;
+  const keep = async (ids: string[]) => {
+    setBusy('keep');
+    setError('');
+    try {
+      const result = await keepDownloaded(ids, account);
+      setFailedIds(result.failed.map((f) => f.id));
+      setPinned(books.every((b) => readPolicy(account).pinned.includes(b.id)));
+      setLocalIds((await listBooks()).filter((b) => b.local).map((b) => b.id));
+      if (result.failed.length) {
+        const count = result.failed.length;
+        setError(
+          `${count === 1 ? '1 book' : `${count} books`} could not be kept on this device.`,
+        );
+      } else onClose();
+    } catch {
+      setFailedIds(ids);
+      setError('Could not keep these books on this device.');
+    } finally {
+      setBusy(null);
+    }
+  };
   return (
     <>
-      {books.some((b) => b.local) && (
+      {books.some((b) => localIds.includes(b.id)) && (
         <ActionMenuItem
+          type="button"
           menuId="upload"
-          disabled={busy}
+          disabled={!!busy}
           onClick={() => {
-            setBusy(true);
+            setBusy('upload');
             setError('');
+            setFailedIds([]);
             void uploadBooks(books.map((b) => b.id))
               .then(onClose)
-              .catch((e) => setError(String(e)))
-              .finally(() => setBusy(false));
+              .catch(() =>
+                setError(
+                  'Could not upload these books. Check your server connection and try again.',
+                ),
+              )
+              .finally(() => setBusy(null));
           }}
         >
           <CloudUpload />
-          {busy ? 'Uploading…' : 'Upload to server'}
+          {busy === 'upload' ? 'Uploading…' : 'Upload to server'}
         </ActionMenuItem>
       )}
       <ActionMenuItem
+        type="button"
         menuId="pin"
-        disabled={busy}
+        disabled={!!busy}
         onClick={() => {
-          const ids = books.map((b) => b.id),
-            old = readPolicy(account).pinned;
-          writePolicy(account, {
-            pinned: pinned
-              ? old.filter((id) => !ids.includes(id))
-              : [...new Set([...old, ...ids])],
-          });
-          onClose();
+          if (!pinned) {
+            void keep(books.map((b) => b.id));
+            return;
+          }
+          setBusy('keep');
+          setError('');
+          setFailedIds([]);
+          void setBooksPinned(
+            books.map((b) => b.id),
+            account,
+            false,
+          )
+            .then(onClose)
+            .catch(() =>
+              setError(
+                'Could not change offloading. Reopen the book actions and try again.',
+              ),
+            )
+            .finally(() => setBusy(null));
         }}
       >
-        {pinned ? <PinOff /> : <Pin />}
-        {pinned ? 'Allow automatic offloading' : 'Keep downloaded'}
+        {pinned ? (
+          <PinOff />
+        ) : books.some((b) => !localIds.includes(b.id)) ? (
+          <Download />
+        ) : (
+          <Pin />
+        )}
+        {busy === 'keep'
+          ? 'Updating downloads…'
+          : pinned
+            ? 'Allow automatic offloading'
+            : books.some((b) => !localIds.includes(b.id))
+              ? 'Download and keep'
+              : 'Keep downloaded'}
       </ActionMenuItem>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <>
+          <TaskError summary={error} detail="" />
+          {!!failedIds.length && (
+            <>
+              <p className="muted">
+                Successful downloads are kept. Check your server connection or
+                reopen the actions if your account changed.
+              </p>
+              <ActionMenuItem
+                type="button"
+                menuId="retry-download"
+                disabled={!!busy}
+                onClick={() => void keep(failedIds)}
+              >
+                Retry
+              </ActionMenuItem>
+            </>
+          )}
+        </>
+      )}
     </>
   );
 }

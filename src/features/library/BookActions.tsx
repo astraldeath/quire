@@ -23,6 +23,8 @@ import {
 import { Modal } from '../../components/Modal';
 import { ActionMenuItem } from '../../components/ActionMenuItem';
 import type { LibraryEntry } from '../../domain/library';
+import { removalDescription } from './removal';
+import { useRemovalScope } from './useRemovalScope';
 export function BookActions({
   entry,
   anchor,
@@ -61,6 +63,7 @@ export function BookActions({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const removal = useRemovalScope(confirm === 'library');
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setError('');
@@ -99,12 +102,12 @@ export function BookActions({
           <p>
             {confirm === 'download'
               ? 'Book details, progress, bookmarks, highlights, and notes stay in your library.'
-              : `This deletes ${entry.series ? `all ${entry.books.length} books in this series and their` : 'this book and its'} downloads, progress, bookmarks, highlights, and notes from Quire on this device.`}
+              : removal.connected === null
+                ? 'Checking removal scope…'
+                : removalDescription(removal.connected, entry.books.length)}
           </p>
-          {confirm === 'library' && (
-            <p className="muted">
-              Original book files and exported backups are kept.
-            </p>
+          {confirm === 'library' && removal.error && (
+            <p role="alert">{removal.error}</p>
           )}
           <div className="button-row">
             <button disabled={busy} onClick={() => setConfirm(null)}>
@@ -112,7 +115,9 @@ export function BookActions({
             </button>
             <button
               className="danger"
-              disabled={busy}
+              disabled={
+                busy || (confirm === 'library' && removal.connected === null)
+              }
               onClick={() =>
                 void run(confirm === 'download' ? onRemoveDownload : onDelete)
               }

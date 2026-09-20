@@ -1,5 +1,7 @@
 import type { Book } from '../../domain/models';
 import type { Account } from '../sync/model';
+import { assertCurrentAccount } from '../sync/model';
+import { syncTransaction } from '../../storage';
 
 const recentAccess = new Map<string, number>();
 export function touchBook(id: string) {
@@ -51,6 +53,28 @@ export function readPolicy(a: Account): StoragePolicy {
 export function writePolicy(a: Account, patch: Partial<StoragePolicy>) {
   localStorage.setItem(key(a), JSON.stringify({ ...readPolicy(a), ...patch }));
   window.dispatchEvent(new Event('quire-storage-policy'));
+}
+/** Serialize with account changes and offloading so only available files can be pinned. */
+export function setBooksPinned(
+  ids: string[],
+  expected: Account,
+  pinned: boolean,
+) {
+  return syncTransaction((state, books) => {
+    assertCurrentAccount(state, expected);
+    if (
+      pinned &&
+      ids.some((id) => !books.find((book) => book.id === id)?.local)
+    )
+      throw new Error('Download this book before keeping it on this device.');
+    const old = readPolicy(expected).pinned;
+    writePolicy(expected, {
+      pinned: pinned
+        ? [...new Set([...old, ...ids])]
+        : old.filter((id) => !ids.includes(id)),
+    });
+    return { result: undefined };
+  });
 }
 export function eligible(
   book: Book,

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { BookOpenButton } from '../src/features/library/BookOpenButton';
 import { BookActions } from '../src/features/library/BookActions';
+import { syncTransaction } from '../src/storage';
 vi.mock('../src/features/library/haptics', () => ({ holdFeedback: vi.fn() }));
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -137,13 +138,65 @@ it('requires explicit group removal confirmation with the number of books', asyn
     );
   await click('Remove from library');
   expect(remove).not.toHaveBeenCalled();
-  expect(host.textContent).toContain('all 2 books');
+  await vi.waitFor(() => expect(host.textContent).toContain('all 2 books'));
   await click('Cancel');
   expect(remove).not.toHaveBeenCalled();
   await click('Remove from library');
+  await vi.waitFor(() => expect(host.textContent).toContain('all 2 books'));
   await click('Remove 2 books');
   expect(remove).toHaveBeenCalledTimes(1);
   await act(async () => root.unmount());
+});
+
+it('discloses synced removal even when an attached account has paused syncing', async () => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  await syncTransaction((s) => {
+    s.enabled = false;
+    s.account = {
+      origin: 'https://example.test',
+      username: 'alice',
+      sessionId: 'paused',
+    };
+    return { result: undefined };
+  });
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const book = {
+    id: 'one',
+    title: 'One',
+    author: '',
+    series: '',
+    volume: null,
+    cover: '',
+    local: true,
+    addedAt: 1,
+  };
+  try {
+    await act(async () =>
+      root.render(
+        <BookActions
+          initialRemove
+          entry={{ key: 'one', title: 'One', series: false, books: [book] }}
+          onClose={() => {}}
+          onOpen={() => {}}
+          onDetails={() => {}}
+          onRemoveDownload={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(host.textContent).toContain('server and other devices'),
+    );
+    expect(host.textContent).toContain(
+      'Downloads already on other devices are kept',
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
 });
 
 it('offers tracking directly in a non-modal menu and supports dismissal and keyboard navigation', async () => {
@@ -228,3 +281,4 @@ it('offers tracking directly in a non-modal menu and supports dismissal and keyb
     await act(async () => root.unmount());
   }
 });
+import 'fake-indexeddb/auto';
