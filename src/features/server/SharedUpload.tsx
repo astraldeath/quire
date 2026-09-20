@@ -72,6 +72,7 @@ export function SharedUpload({
     const valid = () =>
       current.current === identity && active.current === controller;
     let completed = 0;
+    let uploadError: { summary: string; detail: string } | undefined;
     setError(undefined);
     setNotice('');
     remaining.current = files;
@@ -80,12 +81,15 @@ export function SharedUpload({
         controller.signal.throwIfAborted();
         assertCurrentAccount(await loadSync(), account);
         if (!valid()) return;
+        controller.signal.throwIfAborted();
         const file = files[index];
         setProgress({ file, index: index + 1, total: files.length });
         await uploadSharedFile(account, library, file, controller.signal);
         controller.signal.throwIfAborted();
         if (!valid()) return;
         assertCurrentAccount(await loadSync(), account);
+        if (!valid()) return;
+        controller.signal.throwIfAborted();
         completed++;
         remaining.current = files.slice(index + 1);
       }
@@ -99,11 +103,13 @@ export function SharedUpload({
       if (!valid()) return;
       if (controller.signal.aborted)
         setNotice('Upload cancelled. Completed books were kept.');
-      else
-        setError({
+      else {
+        uploadError = {
           summary: `Could not upload ${remaining.current[0]?.name ?? 'book'}.`,
           detail: e instanceof Error ? e.message : 'Try again.',
-        });
+        };
+        setError(uploadError);
+      }
     } finally {
       if (valid()) {
         try {
@@ -112,10 +118,17 @@ export function SharedUpload({
           if (valid()) await onComplete();
         } catch {
           if (valid())
-            setError({
-              summary: 'Could not refresh the library.',
-              detail: 'Could not refresh this library. Try again.',
-            });
+            setError(
+              uploadError
+                ? {
+                    ...uploadError,
+                    detail: `${uploadError.detail}\nCould not refresh this library. Try again.`,
+                  }
+                : {
+                    summary: 'Could not refresh the library.',
+                    detail: 'Could not refresh this library. Try again.',
+                  },
+            );
         }
         if (valid()) {
           restoreFocus.current =
