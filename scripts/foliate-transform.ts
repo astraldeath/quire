@@ -147,6 +147,15 @@ export function hardenFoliate(
     // Guard all additional adaptations against dependency drift too.
     const replacements = [
       [
+        '    #observer = new ResizeObserver(() => this.#render())',
+        `    #observer = new ResizeObserver(() => {
+        const portrait = this.#portrait
+        this.#render()
+        if (portrait !== this.#portrait && this.#index >= 0)
+            this.#reportLocation('resize')
+    })`,
+      ],
+      [
         'return parseViewport(viewport)',
         'return Object.fromEntries(parseViewport(viewport))',
       ],

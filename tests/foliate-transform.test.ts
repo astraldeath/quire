@@ -39,7 +39,10 @@ function fixedRenderer(rtl = false, count = 4) {
     ),
   )(
     class {
-      observe() {}
+      constructor(readonly callback: () => void) {}
+      observe(target: { resize: () => void }) {
+        target.resize = this.callback;
+      }
       unobserve() {}
     },
     class {
@@ -120,6 +123,32 @@ it('completes when the final two-page spread is visible in landscape', async () 
   await renderer.goTo({ index: 1 });
   expect(renderer.index).toBe(1);
   expect(renderer.atEnd).toBe(true);
+  renderer.destroy();
+});
+
+it('reports a fresh position when resizing changes which fixed pages are visible', async () => {
+  const { renderer } = fixedRenderer(false, 3);
+  renderer.getBoundingClientRect.mockReturnValue({ width: 1200, height: 800 });
+  await renderer.goTo({ index: 1 });
+  expect(renderer.atEnd).toBe(true);
+  const positions: { index: number; reason: string; atEnd: boolean }[] = [];
+  renderer.addEventListener('relocate', (event: CustomEvent) =>
+    positions.push({ ...event.detail, atEnd: renderer.atEnd }),
+  );
+  renderer.getBoundingClientRect.mockReturnValue({ width: 400, height: 800 });
+  renderer.resize();
+  expect(positions).toEqual([
+    expect.objectContaining({ index: 1, reason: 'resize', atEnd: false }),
+  ]);
+  renderer.resize();
+  expect(positions).toHaveLength(1);
+  renderer.getBoundingClientRect.mockReturnValue({ width: 1200, height: 800 });
+  renderer.resize();
+  expect(positions[1]).toMatchObject({
+    index: 1,
+    reason: 'resize',
+    atEnd: true,
+  });
   renderer.destroy();
 });
 

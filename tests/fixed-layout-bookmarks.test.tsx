@@ -97,6 +97,38 @@ it('bookmarks the exact live fixed page while parent position persistence lags',
     const view = host.querySelector('mock-fixed-bookmark-view') as View;
     expect(onPosition).toHaveBeenCalled();
     await act(async () => {
+      view.renderer.atEnd = true;
+      view.dispatchEvent(
+        new CustomEvent('relocate', {
+          detail: {
+            cfi: 'epubcfi(/6/4)',
+            fraction: 2 / 3,
+            section: { current: 1 },
+            range: null,
+          },
+        }),
+      );
+    });
+    expect(onPosition).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fraction: 1 }),
+    );
+    await act(async () => {
+      view.renderer.atEnd = false;
+      view.dispatchEvent(
+        new CustomEvent('relocate', {
+          detail: {
+            cfi: 'epubcfi(/6/4)',
+            fraction: 2 / 3,
+            section: { current: 1 },
+            range: null,
+          },
+        }),
+      );
+    });
+    expect(onPosition).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fraction: 2 / 3 }),
+    );
+    await act(async () => {
       view.dispatchEvent(
         new CustomEvent('relocate', {
           detail: {
