@@ -97,7 +97,7 @@ type Entry = {
 };
 let accepted: Entry | undefined;
 let listening = false;
-let restoring: { origin: Entry; target: Entry; delta: number } | undefined;
+let restoring: { origin: Entry; target: Entry } | undefined;
 let approved: Entry | undefined;
 function indexedEntry(): Entry | undefined {
   const state = history.state;
@@ -156,6 +156,19 @@ function guardUnknownSlot(origin: Entry, path: string, state: unknown) {
     publish();
   });
 }
+function resumeTraversal(origin: Entry, target: Entry) {
+  // A later unknown pop can relocate the accepted URL while the first draft
+  // confirmation remains open. Its relative offset is valid only at its
+  // original entry. Otherwise accept that first destination in the new slot,
+  // without arming an approval for a traversal that may never emit popstate.
+  if (!matches(indexedEntry(), origin)) {
+    replaceUnknownSlot(target.path, target.state);
+    publish();
+    return;
+  }
+  approved = target;
+  history.go(target.index - origin.index);
+}
 function onPopState() {
   const target = indexedEntry();
   if (restoring) {
@@ -176,10 +189,9 @@ function onPopState() {
       return;
     }
     restoring = undefined;
-    requestNavigation(() => {
-      approved = transition.target;
-      history.go(transition.delta);
-    });
+    requestNavigation(() =>
+      resumeTraversal(transition.origin, transition.target),
+    );
     return;
   }
   if (
@@ -198,7 +210,7 @@ function onPopState() {
   }
   const origin = accepted;
   if (target?.session === origin.session && target.index !== origin.index) {
-    restoring = { origin, target, delta: target.index - origin.index };
+    restoring = { origin, target };
     history.go(origin.index - target.index);
     return;
   }
@@ -254,16 +266,16 @@ export function closeWeb(fallback = '/library') {
   ensureHistory();
   if (restoring || approved) return;
   if (history.state?.quire && history.state?.from) {
-    requestNavigation(() => {
-      // closeWeb has already been approved. The subsequent asynchronous pop
-      // must consume that approval, rather than prompt a second time.
-      approved = {
-        ...accepted!,
-        index: accepted!.index - 1,
-        path: history.state.from,
-      };
-      history.back();
-    });
+    // Capture the destination before asking; a later legacy pop can replace
+    // the current state (including `from`) while confirmation is still open.
+    const origin = accepted!;
+    const target = {
+      ...origin,
+      index: origin.index - 1,
+      path: history.state.from,
+      state: { shelf: origin.state.shelf },
+    };
+    requestNavigation(() => resumeTraversal(origin, target));
     return;
   }
   navigateWeb(fallback, true);

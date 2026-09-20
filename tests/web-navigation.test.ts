@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { useDraftGuard } from '../src/components/useDraftGuard';
 import {
   registerNavigationBlocker,
   requestNavigation,
@@ -210,4 +213,74 @@ describe('guarded browser history', () => {
       unregister();
     }
   });
+  it.each(['Back', 'Close'])(
+    'preserves the pending %s destination after a second pop relocates the current slot',
+    async (method) => {
+      (
+        globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
+      ).IS_REACT_ACT_ENVIRONMENT = true;
+      const showModal = HTMLDialogElement.prototype.showModal;
+      HTMLDialogElement.prototype.showModal = function () {
+        this.open = true;
+      };
+      const host = document.createElement('div');
+      document.body.append(host);
+      const root = createRoot(host);
+      function Draft() {
+        return useDraftGuard({ dirty: true }).confirmation;
+      }
+      history.replaceState({ legacy: true }, '', '/account');
+      history.pushState(null, '', '/library');
+      navigateWeb('/settings/appearance');
+      const length = history.length;
+      const published: string[] = [];
+      const listener = () => published.push(location.pathname);
+      let pops = 0;
+      const countPop = () => {
+        pops++;
+      };
+      window.addEventListener('quire-navigation', listener);
+      window.addEventListener('popstate', countPop);
+      try {
+        await act(async () => root.render(createElement(Draft)));
+        await act(async () => {
+          if (method === 'Back') {
+            history.back();
+            await vi.waitFor(() => expect(pops).toBe(2));
+          } else closeWeb();
+        });
+        expect(location.pathname).toBe('/settings/appearance');
+        expect(host.querySelectorAll('dialog')).toHaveLength(1);
+        await act(async () => {
+          history.go(-2);
+          await vi.waitFor(() => expect(pops).toBe(method === 'Back' ? 3 : 1));
+        });
+        expect(location.pathname).toBe('/settings/appearance');
+        expect(host.querySelectorAll('dialog')).toHaveLength(1);
+        expect(published).toEqual([]);
+        const discard = [...host.querySelectorAll('button')].find(
+          (button) => button.textContent === 'Discard changes',
+        )!;
+        await act(async () => {
+          discard.click();
+          await vi.waitFor(() => expect(location.pathname).toBe('/library'));
+        });
+        expect(published).toEqual(['/library']);
+        expect(history.length).toBe(length);
+        await act(async () => root.render(null));
+        // A nonexistent traversal must not leave approval armed and freeze these.
+        navigateWeb('/settings/backups');
+        expect(location.pathname).toBe('/settings/backups');
+        closeWeb();
+        await vi.waitFor(() => expect(location.pathname).toBe('/library'));
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+        window.removeEventListener('quire-navigation', listener);
+        window.removeEventListener('popstate', countPop);
+        if (showModal) HTMLDialogElement.prototype.showModal = showModal;
+        else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+      }
+    },
+  );
 });
