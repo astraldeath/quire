@@ -19,12 +19,8 @@ import { BackupSettings, type BackupActions } from '../backup/BackupSettings';
 import { defaults, type Book, type Preferences } from '../../domain/models';
 import { Modal } from '../../components/Modal';
 import { SettingsTabs } from '../../components/SettingsTabs';
-import {
-  ThemePicker,
-  StepperControl,
-  Switch,
-  ColorControl,
-} from '../../components/Controls';
+import { ThemePicker, ColorControl } from '../../components/Controls';
+import { ViewOptions } from './ViewOptions';
 export function Settings({
   preferences: p,
   books,
@@ -122,25 +118,13 @@ export function Settings({
             icon: Library,
             content: (
               <div className="settings-body">
-                <StepperControl
-                  label="Cover size"
-                  min={110}
-                  max={210}
-                  step={10}
-                  value={p.coverSize}
-                  unit=" px"
-                  onChange={(coverSize) => onChange({ ...p, coverSize })}
-                />
-                <Switch
-                  label="Group books into series"
-                  checked={p.groupSeries}
-                  onChange={(groupSeries) => onChange({ ...p, groupSeries })}
-                />
+                <ViewOptions preferences={p} onChange={onChange} />
                 <button
                   className="text-action"
                   onClick={() =>
                     onChange({
                       ...p,
+                      view: defaults.view,
                       coverSize: defaults.coverSize,
                       groupSeries: defaults.groupSeries,
                     })

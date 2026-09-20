@@ -57,6 +57,7 @@ export interface Preferences {
   accent: string;
   view: 'grid' | 'list';
   sort: 'recent' | 'title' | 'author' | 'added' | 'last-read' | 'volume';
+  sortDirection?: 'asc' | 'desc';
   groupSeries: boolean;
   coverSize: number;
   reader: ReaderPreferences;

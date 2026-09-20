@@ -1,16 +1,27 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
-  ListFilter,
   ArrowDownWideNarrow,
-  Grid2X2,
   CheckSquare,
-  X,
   ChevronRight,
+  EyeOff,
+  Grid2X2,
+  ListFilter,
+  X,
 } from 'lucide-react';
-import { Modal } from '../../components/Modal';
-import { EyeOff } from 'lucide-react';
-import { Segments, Switch, StepperControl } from '../../components/Controls';
+import { OptionsPanel } from '../../components/OptionsPanel';
+import type { ActionAnchor } from '../../components/ActionPopover';
+import { Segments } from '../../components/Controls';
 import type { Preferences } from '../../domain/models';
+import { naturalSortDirection } from '../../domain/library';
+import { ViewOptions } from './ViewOptions';
+
+const sortOptions = [
+  ['last-read', 'Last read'],
+  ['added', 'Date added'],
+  ['title', 'Title'],
+  ['author', 'Author'],
+] as const;
+
 export function LibraryControls({
   preferences,
   onChange,
@@ -37,28 +48,59 @@ export function LibraryControls({
   onSelect(): void;
 }) {
   const [panel, setPanel] = useState('');
+  const [anchor, setAnchor] = useState<ActionAnchor>();
+  const sortName = useId();
+  const directionName = useId();
+  const sortDescription = useId();
   const sort =
     preferences.sort === 'recent'
       ? series
         ? 'volume'
         : 'last-read'
       : preferences.sort;
+  const direction = preferences.sortDirection ?? naturalSortDirection(sort);
+  const labels = new Map<Preferences['sort'], string>([
+    ...sortOptions,
+    ['volume', 'Volume'],
+    ['recent', 'Recent'],
+  ]);
+  const open = (name: string, element: HTMLButtonElement) => {
+    const rect = element.getBoundingClientRect();
+    setAnchor({
+      left: rect.left,
+      top: rect.top,
+      bottom: rect.bottom,
+      element,
+    });
+    setPanel(name);
+  };
   return (
     <>
       <div className="library-tools">
-        <button onClick={() => setPanel('Filters')} aria-label="Filter books">
+        <button
+          onClick={(event) => open('Filters', event.currentTarget)}
+          aria-label="Filter books"
+        >
           <ListFilter />
           Filters
           {(status !== 'all' ||
             availability !== 'all' ||
             collection !== 'all') && <span className="filter-dot" />}
         </button>
-        <button onClick={() => setPanel('Sort')} aria-label="Sort books">
+        <button
+          onClick={(event) => open('Sort', event.currentTarget)}
+          aria-label="Sort books"
+          aria-describedby={sortDescription}
+        >
           <ArrowDownWideNarrow />
           Sort
         </button>
+        <span id={sortDescription} className="sr-only">
+          Sorted by {labels.get(sort)},{' '}
+          {direction === 'asc' ? 'ascending' : 'descending'}
+        </span>
         <button
-          onClick={() => setPanel('View')}
+          onClick={(event) => open('View', event.currentTarget)}
           aria-label="Library view options"
         >
           <Grid2X2 />
@@ -70,7 +112,11 @@ export function LibraryControls({
         </button>
       </div>
       {panel && (
-        <Modal title={panel} onClose={() => setPanel('')}>
+        <OptionsPanel
+          title={panel}
+          anchor={anchor}
+          onClose={() => setPanel('')}
+        >
           <div className="library-options">
             {panel === 'Filters' && (
               <>
@@ -79,13 +125,15 @@ export function LibraryControls({
                     Library
                     <select
                       value={collection}
-                      onChange={(e) => onFilter('collection', e.target.value)}
+                      onChange={(event) =>
+                        onFilter('collection', event.target.value)
+                      }
                     >
                       <option value="all">All libraries</option>
                       <option value="personal">Personal</option>
-                      {collections.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
+                      {collections.map((library) => (
+                        <option key={library.id} value={library.id}>
+                          {library.name}
                         </option>
                       ))}
                     </select>
@@ -94,7 +142,7 @@ export function LibraryControls({
                 <Segments
                   label="Reading status"
                   value={status}
-                  onChange={(v) => onFilter('status', v)}
+                  onChange={(value) => onFilter('status', value)}
                   options={[
                     { value: 'all', label: 'All' },
                     { value: 'unread', label: 'Unread' },
@@ -105,7 +153,7 @@ export function LibraryControls({
                 <Segments
                   label="Availability"
                   value={availability}
-                  onChange={(v) => onFilter('availability', v)}
+                  onChange={(value) => onFilter('availability', value)}
                   options={[
                     { value: 'all', label: 'All' },
                     { value: 'downloaded', label: 'Downloaded' },
@@ -115,34 +163,55 @@ export function LibraryControls({
               </>
             )}
             {panel === 'Sort' && (
-              <div
-                className="sort-options"
-                role="group"
-                aria-label="Sort books"
-              >
-                {[
-                  ['last-read', 'Last read'],
-                  ['added', 'Date added'],
-                  ['title', 'Title'],
-                  ['author', 'Author'],
-                  ...(series ? [['volume', 'Volume']] : []),
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    aria-pressed={sort === value}
-                    onClick={() => {
-                      onChange({
-                        ...preferences,
-                        sort: value as Preferences['sort'],
-                      });
-                      setPanel('');
-                    }}
-                  >
-                    {label}
-                    {sort === value && <CheckSquare />}
-                  </button>
-                ))}
-              </div>
+              <>
+                <fieldset className="control-group sort-options">
+                  <legend>Sort books</legend>
+                  {[
+                    ...sortOptions,
+                    ...(series ? ([['volume', 'Volume']] as const) : []),
+                  ].map(([value, label]) => (
+                    <label key={value}>
+                      <input
+                        type="radio"
+                        name={sortName}
+                        value={value}
+                        checked={sort === value}
+                        onChange={() =>
+                          onChange({
+                            ...preferences,
+                            sort: value,
+                            sortDirection: naturalSortDirection(value),
+                          })
+                        }
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                <fieldset className="control-group sort-direction">
+                  <legend>Direction</legend>
+                  {(['asc', 'desc'] as const).map((value) => (
+                    <label key={value}>
+                      <input
+                        type="radio"
+                        name={directionName}
+                        value={value}
+                        checked={direction === value}
+                        onChange={() =>
+                          onChange({
+                            ...preferences,
+                            sort,
+                            sortDirection: value,
+                          })
+                        }
+                      />
+                      <span>
+                        {value === 'asc' ? 'Ascending' : 'Descending'}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              </>
             )}
             {panel === 'View' && (
               <>
@@ -159,37 +228,11 @@ export function LibraryControls({
                     <ChevronRight className="menu-chevron" />
                   </button>
                 )}
-                <Segments
-                  label="Layout"
-                  value={preferences.view}
-                  onChange={(view) => onChange({ ...preferences, view })}
-                  options={[
-                    { value: 'grid', label: 'Grid' },
-                    { value: 'list', label: 'List' },
-                  ]}
-                />
-                <StepperControl
-                  label="Cover size"
-                  min={110}
-                  max={210}
-                  step={10}
-                  value={preferences.coverSize}
-                  unit=" px"
-                  onChange={(coverSize) =>
-                    onChange({ ...preferences, coverSize })
-                  }
-                />
-                <Switch
-                  label="Group books into series"
-                  checked={preferences.groupSeries}
-                  onChange={(groupSeries) =>
-                    onChange({ ...preferences, groupSeries })
-                  }
-                />
+                <ViewOptions preferences={preferences} onChange={onChange} />
               </>
             )}
           </div>
-        </Modal>
+        </OptionsPanel>
       )}
     </>
   );

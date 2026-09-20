@@ -35,6 +35,7 @@ import {
   normalizeFolder,
 } from './features/library/folders';
 import { LibraryControls } from './features/library/LibraryControls';
+import { SelectionToolbar } from './features/library/SelectionToolbar';
 import { UpdateNotice } from './features/updates/UpdateSettings';
 import { Modal } from './components/Modal';
 import { ActionMenuItem } from './components/ActionMenuItem';
@@ -45,7 +46,6 @@ import {
   samePrivacy,
   sharedPrivacy,
 } from './features/privacy/shared';
-import { PrivacyMenu } from './features/privacy/PrivacyMenu';
 import { visibleBook } from './features/privacy/model';
 import { LockKeyhole } from 'lucide-react';
 import {
@@ -90,9 +90,7 @@ import {
   Check,
   CloudDownload,
   Ellipsis,
-  Download,
   CheckSquare,
-  Trash2,
   LoaderCircle,
   Plus,
   Search,
@@ -1477,58 +1475,94 @@ function AppContent({
               </div>
             )}
             <div className="shelf-controls">
-              {serverLibraries.length > 0 && (
-                <select
-                  aria-label="Library collection"
-                  value={libraryScope}
-                  onChange={(e) => changeFilter('collection', e.target.value)}
-                >
-                  <option value="all">All libraries</option>
-                  <option value="personal">Personal</option>
-                  {serverLibraries.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <LibraryControls
-                onHidden={
-                  hiddenBooks
-                    ? undefined
-                    : () => {
-                        void privacy.authenticate().then((ok) => {
-                          if (ok) {
-                            goLibrary(false);
-                            goFolder('');
-                            setHiddenBooks(true);
-                            setGroup(null);
-                            setQuery('');
-                          }
-                        });
+              {selecting ? (
+                <SelectionToolbar
+                  selectedIds={activeIds}
+                  totalEligible={visibleIds.length}
+                  busy={!!busy}
+                  onSelectAll={() =>
+                    setSelected(
+                      activeIds.length === visibleIds.length ? [] : visibleIds,
+                    )
+                  }
+                  onDone={() => {
+                    setSelecting(false);
+                    setSelected([]);
+                  }}
+                  onFolders={(origin) =>
+                    openFolderMembership(activeIds, origin)
+                  }
+                  onDownload={() => void batch(activeIds, 'download')}
+                  onMarkFinished={() => void batch(activeIds, 'finished')}
+                  onMarkUnread={() => void batch(activeIds, 'unread')}
+                  onRemove={() => {
+                    void (async () => {
+                      if (
+                        activeIds.every((id) => privacy.access(id)) ||
+                        (await privacy.authenticate())
+                      )
+                        setBulkRemove(true);
+                    })();
+                  }}
+                />
+              ) : (
+                <>
+                  {serverLibraries.length > 0 && (
+                    <select
+                      aria-label="Library collection"
+                      value={libraryScope}
+                      onChange={(event) =>
+                        changeFilter('collection', event.target.value)
                       }
-                }
-                collections={serverLibraries}
-                collection={libraryScope}
-                preferences={shelfPreferences}
-                onChange={(p) => {
-                  if (group && p.sort !== seriesSort)
-                    changeFilter('sort', p.sort);
-                  changePreferences({
-                    ...p,
-                    sort: group ? preferences.sort : p.sort,
-                  });
-                }}
-                series={!!group}
-                status={status}
-                availability={availability}
-                onFilter={changeFilter}
-                selecting={selecting}
-                onSelect={() => {
-                  setSelecting(!selecting);
-                  setSelected([]);
-                }}
-              />
+                    >
+                      <option value="all">All libraries</option>
+                      <option value="personal">Personal</option>
+                      {serverLibraries.map((library) => (
+                        <option key={library.id} value={library.id}>
+                          {library.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <LibraryControls
+                    onHidden={
+                      hiddenBooks
+                        ? undefined
+                        : () => {
+                            void privacy.authenticate().then((ok) => {
+                              if (ok) {
+                                goLibrary(false);
+                                goFolder('');
+                                setHiddenBooks(true);
+                                setGroup(null);
+                                setQuery('');
+                              }
+                            });
+                          }
+                    }
+                    collections={serverLibraries}
+                    collection={libraryScope}
+                    preferences={shelfPreferences}
+                    onChange={(next) => {
+                      if (group && next.sort !== seriesSort)
+                        changeFilter('sort', next.sort);
+                      changePreferences({
+                        ...next,
+                        sort: group ? preferences.sort : next.sort,
+                      });
+                    }}
+                    series={!!group}
+                    status={status}
+                    availability={availability}
+                    onFilter={changeFilter}
+                    selecting={false}
+                    onSelect={() => {
+                      setSelecting(true);
+                      setSelected([]);
+                    }}
+                  />
+                </>
+              )}
             </div>
             {(status !== 'all' ||
               availability !== 'all' ||
@@ -1557,74 +1591,6 @@ function AppContent({
                 )}
               </div>
             )}
-            {selecting && (
-              <div
-                className="selection-bar"
-                role="region"
-                aria-label="Selected books"
-              >
-                <strong>{activeIds.length} selected</strong>
-                <button
-                  disabled={!activeIds.length || !!busy}
-                  onClick={(event) =>
-                    openFolderMembership(activeIds, event.currentTarget)
-                  }
-                >
-                  <FolderInput />
-                  Folders
-                </button>
-                <PrivacyMenu ids={activeIds} onDone={() => setSelected([])} />
-                <button
-                  onClick={() =>
-                    setSelected(
-                      activeIds.length === visibleIds.length ? [] : visibleIds,
-                    )
-                  }
-                >
-                  {activeIds.length === visibleIds.length
-                    ? 'Deselect all'
-                    : 'Select all'}
-                </button>
-                <button
-                  disabled={!activeIds.length || !!busy}
-                  onClick={() => void batch(activeIds, 'download')}
-                >
-                  <Download />
-                  Download
-                </button>
-                <button
-                  disabled={!activeIds.length || !!busy}
-                  onClick={() => void batch(activeIds, 'finished')}
-                >
-                  <Check />
-                  Mark finished
-                </button>
-                <button
-                  disabled={!activeIds.length || !!busy}
-                  onClick={() => void batch(activeIds, 'unread')}
-                >
-                  <BookOpen />
-                  Mark unread
-                </button>
-                <button
-                  className="danger"
-                  disabled={!activeIds.length || !!busy}
-                  onClick={() => {
-                    void (async () => {
-                      if (
-                        activeIds.every((id) => privacy.access(id)) ||
-                        (await privacy.authenticate())
-                      )
-                        setBulkRemove(true);
-                    })();
-                  }}
-                >
-                  <Trash2 />
-                  Remove
-                </button>
-              </div>
-            )}
-
             {loading ? (
               <div className="empty">
                 <LoaderCircle className="spin" />

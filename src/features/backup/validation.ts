@@ -134,6 +134,9 @@ export function validatePreferences(value: unknown): Preferences {
       'last-read',
       'volume',
     ]),
+    ...(p.sortDirection === undefined
+      ? {}
+      : { sortDirection: choice(p.sortDirection, ['asc', 'desc'] as const) }),
     groupSeries: bool(p.groupSeries),
     coverSize: num(p.coverSize, 110, 210),
     reader: {

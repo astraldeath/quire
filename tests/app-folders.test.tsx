@@ -511,7 +511,11 @@ it('does not reveal hidden-derived or explicit hidden folders before access', as
   expect(host.querySelector('[aria-label="Open folder Shelf"]')).toBeNull();
   expect(host.textContent).not.toContain('Private shelf');
   await click('View');
-  await click('Hidden books');
+  await act(async () =>
+    [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === 'Hidden books')!
+      .click(),
+  );
   expect(host.querySelector('[role="dialog"] h2')?.textContent).toBe(
     'Unlock private books',
   );

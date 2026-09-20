@@ -2708,26 +2708,95 @@ a.book-open {
   display: grid;
   gap: 20px;
 }
+.options-panel {
+  width: min(360px, calc(100vw - 16px));
+}
+.options-panel-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  min-height: 0;
+  padding: 18px;
+}
+.options-panel header {
+  margin-bottom: 16px;
+}
+.options-panel h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.options-panel-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 2px;
+}
+.options-panel footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
 .library-options .toggle-control {
   flex-direction: row;
   align-items: center;
 }
 .sort-options {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
-.sort-options button {
+.sort-options legend,
+.sort-direction legend {
+  grid-column: 1 / -1;
+}
+.sort-options label,
+.sort-direction label {
   display: flex;
-  justify-content: space-between;
+  flex-direction: row;
   align-items: center;
+  gap: 8px;
   min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   text-align: left;
 }
-.sort-options button[aria-pressed='true'] {
+.sort-options label:has(input:checked),
+.sort-direction label:has(input:checked) {
   background: var(--hover);
+  border-color: var(--accent);
 }
-.sort-options svg {
-  width: 18px;
+.sort-direction {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.view-options {
+  display: grid;
+  gap: 20px;
+}
+.cover-size-control {
+  display: grid;
+  gap: 8px;
+}
+.cover-size-heading,
+.cover-size-scale {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.cover-size-heading label {
+  display: block;
+}
+.cover-size-scale {
+  color: var(--muted);
+  font-size: 11px;
+}
+.cover-size-control input[type='range'] {
+  width: 100%;
 }
 .filter-dot {
   width: 6px;
@@ -2777,6 +2846,10 @@ a.book-open {
 }
 .selection-bar strong {
   padding: 0 8px;
+}
+.shelf-controls > .selection-bar {
+  flex: 1;
+  margin: 0;
 }
 .book-selection {
   position: absolute;
@@ -2920,6 +2993,12 @@ a.book-open {
   }
   .library-options .segmented label {
     min-width: 40%;
+  }
+  .options-panel {
+    border-radius: 14px 14px 0 0;
+  }
+  .selection-bar {
+    width: 100%;
   }
   .book-copy h2 {
     font-size: 14px;

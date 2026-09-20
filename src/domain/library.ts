@@ -39,6 +39,11 @@ export function continueBook(books: Book[]): Book | undefined {
 export function restoreImport(imported: Book, existing?: Book): Book {
   return existing ? { ...existing, local: true } : imported;
 }
+export function naturalSortDirection(
+  sort: Preferences['sort'],
+): 'asc' | 'desc' {
+  return ['title', 'author', 'volume'].includes(sort) ? 'asc' : 'desc';
+}
 export function entriesFor(
   books: Book[],
   preferences: Preferences,
@@ -83,29 +88,37 @@ export function entriesFor(
       books: members,
     };
   });
+  const sort =
+    group && preferences.sort === 'recent' ? 'volume' : preferences.sort;
+  const direction = preferences.sortDirection ?? naturalSortDirection(sort);
+  const factor = direction === 'asc' ? 1 : -1;
+  const compareNumber = (a?: number, b?: number) => {
+    const aMissing = a === undefined || a <= 0;
+    const bMissing = b === undefined || b <= 0;
+    if (aMissing || bMissing)
+      return aMissing === bMissing ? 0 : aMissing ? 1 : -1;
+    return (a - b) * factor;
+  };
+  const entryDate = (entry: LibraryEntry) => {
+    const values = entry.books
+      .map((book) =>
+        sort === 'added' ? book.addedAt : book.position?.updatedAt,
+      )
+      .filter((value): value is number => value !== undefined && value > 0);
+    return values.length ? Math.max(...values) : undefined;
+  };
   return entries.sort((a, b) => {
-    if (
-      preferences.sort === 'volume' ||
-      (group && preferences.sort === 'recent')
-    )
+    const tie = a.title.localeCompare(b.title);
+    if (sort === 'volume')
       return (
-        (a.books[0].volume ?? Infinity) - (b.books[0].volume ?? Infinity) ||
-        a.title.localeCompare(b.title)
+        compareNumber(
+          a.books[0].volume ?? undefined,
+          b.books[0].volume ?? undefined,
+        ) || tie
       );
-    if (preferences.sort === 'title') return a.title.localeCompare(b.title);
-    if (preferences.sort === 'author')
-      return (
-        a.books[0].author.localeCompare(b.books[0].author) ||
-        a.title.localeCompare(b.title)
-      );
-    const recent = (e: LibraryEntry) =>
-      Math.max(
-        ...e.books.map((b) =>
-          preferences.sort === 'added'
-            ? b.addedAt
-            : (b.position?.updatedAt ?? 0),
-        ),
-      );
-    return recent(b) - recent(a) || a.title.localeCompare(b.title);
+    if (sort === 'title') return tie * factor;
+    if (sort === 'author')
+      return a.books[0].author.localeCompare(b.books[0].author) * factor || tie;
+    return compareNumber(entryDate(a), entryDate(b)) || tie;
   });
 }

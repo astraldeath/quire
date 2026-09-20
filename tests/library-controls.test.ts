@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { continueBook, entriesFor, readingStatus } from '../src/domain/library';
 import { defaults, type Book } from '../src/domain/models';
+import { validatePreferences } from '../src/features/backup/validation';
 const book = (id: string, props: Partial<Book> = {}): Book => ({
   id,
   title: id,
@@ -104,5 +105,102 @@ describe('library controls', () => {
         (e) => e.title,
       ),
     ).toEqual(['Z', 'A']);
+  });
+  it.each([
+    ['title', 'asc', ['Alpha', 'Bravo', 'Zulu']],
+    ['title', 'desc', ['Zulu', 'Bravo', 'Alpha']],
+    ['author', 'asc', ['Bravo', 'Zulu', 'Alpha']],
+    ['author', 'desc', ['Alpha', 'Zulu', 'Bravo']],
+  ] as const)('sorts %s %s', (sort, sortDirection, expected) => {
+    const books = [
+      book('Alpha', { author: 'Zulu' }),
+      book('Bravo', { author: 'Alpha' }),
+      book('Zulu', { author: 'Bravo' }),
+    ];
+    expect(
+      entriesFor(
+        books,
+        { ...defaults, sort, sortDirection },
+        '',
+        false,
+        null,
+      ).map((entry) => entry.title),
+    ).toEqual(expected);
+  });
+  it('sorts volume and dates in either direction while leaving missing values last', () => {
+    const books = [
+      book('Missing', { volume: null, addedAt: 0 }),
+      book('Two', {
+        volume: 2,
+        addedAt: 20,
+        position: position(0.2, 20),
+      }),
+      book('One', {
+        volume: 1,
+        addedAt: 10,
+        position: position(0.2, 10),
+      }),
+      book('Absent', { volume: null, addedAt: 0 }),
+    ];
+    const sorted = (
+      sort: 'volume' | 'added' | 'last-read',
+      direction: 'asc' | 'desc',
+    ) =>
+      entriesFor(
+        books,
+        { ...defaults, sort, sortDirection: direction },
+        '',
+        false,
+        null,
+      ).map((entry) => entry.title);
+    expect(sorted('volume', 'asc')).toEqual([
+      'One',
+      'Two',
+      'Absent',
+      'Missing',
+    ]);
+    expect(sorted('volume', 'desc')).toEqual([
+      'Two',
+      'One',
+      'Absent',
+      'Missing',
+    ]);
+    expect(sorted('last-read', 'asc')).toEqual([
+      'One',
+      'Two',
+      'Absent',
+      'Missing',
+    ]);
+    expect(sorted('last-read', 'desc')).toEqual([
+      'Two',
+      'One',
+      'Absent',
+      'Missing',
+    ]);
+    expect(sorted('added', 'asc')).toEqual(['One', 'Two', 'Absent', 'Missing']);
+    expect(sorted('added', 'desc')).toEqual([
+      'Two',
+      'One',
+      'Absent',
+      'Missing',
+    ]);
+  });
+  it('keeps old preference directions natural and validates optional direction', () => {
+    expect(
+      entriesFor(
+        [book('Zulu'), book('Alpha')],
+        { ...defaults, sort: 'title' },
+        '',
+        false,
+        null,
+      ).map((entry) => entry.title),
+    ).toEqual(['Alpha', 'Zulu']);
+    expect(validatePreferences(defaults).sortDirection).toBeUndefined();
+    expect(
+      validatePreferences({ ...defaults, sortDirection: 'desc' }).sortDirection,
+    ).toBe('desc');
+    expect(() =>
+      validatePreferences({ ...defaults, sortDirection: 'sideways' }),
+    ).toThrow();
   });
 });
