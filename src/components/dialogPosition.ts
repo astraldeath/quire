@@ -9,6 +9,7 @@ export function dialogPosition(
   panelHeight: number,
   insets: { top: number; bottom: number },
   anchor?: number,
+  placement: 'center' | 'top' = 'center',
 ) {
   const minimum = insets.top + 12;
   const bottom = insets.bottom + 12;
@@ -24,7 +25,9 @@ export function dialogPosition(
   const top =
     anchor === undefined
       ? minimum +
-        Math.max(0, (available - Math.min(panelHeight, available)) / 2)
+        (placement === 'top'
+          ? Math.min(36, available * 0.05)
+          : Math.max(0, (available - Math.min(panelHeight, available)) / 2))
       : Math.max(
           minimum,
           Math.min(anchor, viewport.height - bottom - usableHeight),

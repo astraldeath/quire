@@ -8,6 +8,7 @@ export function Modal({
   initialFocus,
   focusKey,
   className,
+  placement = 'center',
 }: {
   title: string;
   onClose: () => void;
@@ -15,6 +16,7 @@ export function Modal({
   initialFocus?: RefObject<HTMLElement | null>;
   focusKey?: string;
   className?: string;
+  placement?: 'center' | 'top';
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
@@ -46,6 +48,7 @@ export function Modal({
         panel.getBoundingClientRect().height,
         safe,
         keyboard ? anchor : undefined,
+        placement,
       );
       if (!keyboard) anchor = position.anchor;
       Object.assign(panel.style, {
@@ -98,7 +101,7 @@ export function Modal({
       window.removeEventListener('resize', update);
       window.removeEventListener('quire-window-controls', update);
     };
-  }, []);
+  }, [placement]);
   useLayoutEffect(() => {
     initialFocus?.current?.focus({ preventScroll: true });
   }, [focusKey, initialFocus]);

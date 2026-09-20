@@ -1,5 +1,21 @@
 import { expect, it, vi } from 'vitest';
 import { dialogPosition, safeInsets } from '../src/components/dialogPosition';
+it.each([
+  { width: 1280, height: 900, inset: 0 },
+  { width: 360, height: 640, inset: 59 },
+])(
+  'keeps top-aligned settings stable as content changes at $width px',
+  ({ width, height, inset }) => {
+    const viewport = { top: 0, left: 0, width, height };
+    const safe = { top: inset, bottom: 34 };
+    const short = dialogPosition(viewport, 300, safe, undefined, 'top');
+    const tall = dialogPosition(viewport, 1200, safe, undefined, 'top');
+    expect(tall.top).toBe(short.top);
+    expect(tall.left).toBe(short.left);
+    expect(tall.top).toBeGreaterThanOrEqual(inset + 12);
+    expect(tall.top + tall.maxHeight).toBe(height - 46);
+  },
+);
 it('reserves custom window controls while leaving fullscreen and mobile insets unchanged', () => {
   const bar = document.createElement('header');
   bar.className = 'desktop-titlebar';

@@ -74,6 +74,7 @@ export function Settings({
   return (
     <Modal
       title="Settings"
+      placement="top"
       onClose={() => {
         if (!working) requestNavigation(onClose);
       }}
