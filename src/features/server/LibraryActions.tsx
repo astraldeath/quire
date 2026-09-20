@@ -22,6 +22,7 @@ export function LibraryActions({
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const active = useRef(false);
+  const nameInput = useRef<HTMLInputElement>(null);
   const dirty = mode === 'rename' && name !== baseline;
   const guard = useDraftGuard({ dirty, busy });
   const closeRename = () => guard.requestLeave(() => setMode(undefined));
@@ -91,7 +92,11 @@ export function LibraryActions({
         />
       )}
       {mode === 'rename' && (
-        <Modal title="Rename library" onClose={closeRename}>
+        <Modal
+          title="Rename library"
+          onClose={closeRename}
+          initialFocus={nameInput}
+        >
           <form
             className="library-dialog"
             onSubmit={(e) => {
@@ -102,7 +107,7 @@ export function LibraryActions({
             <label>
               Library name
               <input
-                autoFocus
+                ref={nameInput}
                 required
                 maxLength={100}
                 disabled={busy}

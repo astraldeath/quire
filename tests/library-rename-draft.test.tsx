@@ -20,6 +20,7 @@ const showModal = HTMLDialogElement.prototype.showModal;
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
+    this.querySelector<HTMLButtonElement>('button')?.focus();
   };
   request.mockReset();
   request.mockResolvedValue(undefined);
@@ -83,6 +84,11 @@ async function dismiss(kind: string) {
       else dialog.click();
     });
 }
+it('focuses the library name after opening the native dialog', async () => {
+  await render();
+  await click('Rename');
+  expect(document.activeElement).toBe(renameDialog().querySelector('input'));
+});
 it.each(['Close', 'Cancel', 'Escape', 'backdrop'])(
   'guards a changed rename on %s and keeps the original baseline',
   async (kind) => {
