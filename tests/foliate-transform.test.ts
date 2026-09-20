@@ -136,6 +136,8 @@ it('reports a fresh position when resizing changes which fixed pages are visible
     positions.push({ ...event.detail, atEnd: renderer.atEnd }),
   );
   renderer.getBoundingClientRect.mockReturnValue({ width: 400, height: 800 });
+  // Applying the zoom preference may re-render before ResizeObserver runs.
+  renderer.attributeChangedCallback('zoom', 'fit-page', 'fit-page');
   renderer.resize();
   expect(positions).toEqual([
     expect.objectContaining({ index: 1, reason: 'resize', atEnd: false }),
@@ -143,6 +145,7 @@ it('reports a fresh position when resizing changes which fixed pages are visible
   renderer.resize();
   expect(positions).toHaveLength(1);
   renderer.getBoundingClientRect.mockReturnValue({ width: 1200, height: 800 });
+  renderer.attributeChangedCallback('zoom', 'fit-page', 'fit-page');
   renderer.resize();
   expect(positions[1]).toMatchObject({
     index: 1,

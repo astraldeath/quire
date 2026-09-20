@@ -149,9 +149,8 @@ export function hardenFoliate(
       [
         '    #observer = new ResizeObserver(() => this.#render())',
         `    #observer = new ResizeObserver(() => {
-        const portrait = this.#portrait
         this.#render()
-        if (portrait !== this.#portrait && this.#index >= 0)
+        if (this.#reportedPortrait !== this.#portrait && this.#index >= 0)
             this.#reportLocation('resize')
     })`,
       ],
@@ -184,7 +183,14 @@ export function hardenFoliate(
         '    get index() {',
         '    get atStart() { return this.index === 0 }\n    get atEnd() { return this.#index === this.#spreads.length - 1 && (!this.#portrait || this.index === this.book.sections.length - 1) }\n    get index() {',
       ],
-      ['    #index = -1', '    #index = -1\n    #closed = false'],
+      [
+        '    #index = -1',
+        '    #index = -1\n    #closed = false\n    #reportedPortrait',
+      ],
+      [
+        '    #reportLocation(reason) {',
+        '    #reportLocation(reason) {\n        this.#reportedPortrait = this.#portrait',
+      ],
       [
         '        const section = spread?.center',
         '        if (!spread) return -1\n        const section = spread?.center',
