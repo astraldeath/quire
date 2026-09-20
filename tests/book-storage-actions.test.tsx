@@ -118,3 +118,64 @@ it('keeps the actions open on partial failure and retries only unfinished books'
     await c.dispose();
   }
 });
+
+it.each([false, true])(
+  'restores Retry focus after failure without overriding a deliberate focus move (%s)',
+  async (movedFocus) => {
+    let rejectDownload!: (error: Error) => void;
+    vi.mocked(download).mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectDownload = reject;
+        }),
+    );
+    const c = await render([book]);
+    const back = document.createElement('button');
+    back.textContent = 'Back';
+    c.host.prepend(back);
+    try {
+      const pin = c.host.querySelector<HTMLButtonElement>(
+        '[data-menu-id="pin"]',
+      )!;
+      pin.focus();
+      await act(async () => pin.click());
+      await vi.waitFor(() => expect(rejectDownload).toBeTypeOf('function'));
+      expect(pin.disabled).toBe(true);
+      // Chromium drops focus to body when the currently focused action is disabled.
+      // jsdom retains focus, so reproduce that browser boundary explicitly.
+      document.body.tabIndex = -1;
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+      expect(document.activeElement).toBe(document.body);
+      if (movedFocus) back.focus();
+      await act(async () => rejectDownload(new Error('Server unavailable')));
+      await vi.waitFor(() =>
+        expect(
+          c.host.querySelector('[data-menu-id="retry-download"]'),
+        ).toBeTruthy(),
+      );
+      const retry = c.host.querySelector<HTMLButtonElement>(
+        '[data-menu-id="retry-download"]',
+      )!;
+      expect(document.activeElement).toBe(movedFocus ? back : retry);
+      expect(c.close).not.toHaveBeenCalled();
+      if (!movedFocus) {
+        // Retry itself is removed during the next attempt; a repeated failure
+        // must focus the newly rendered Retry action too.
+        await act(async () => retry.click());
+        await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(2));
+        await act(async () => rejectDownload(new Error('Still unavailable')));
+        await vi.waitFor(() =>
+          expect(
+            c.host.querySelector('[data-menu-id="retry-download"]'),
+          ).toBeTruthy(),
+        );
+        expect(document.activeElement).toBe(
+          c.host.querySelector('[data-menu-id="retry-download"]'),
+        );
+      }
+    } finally {
+      await c.dispose();
+    }
+  },
+);

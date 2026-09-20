@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CloudUpload, Download, Pin, PinOff } from 'lucide-react';
 import type { Book } from '../../domain/models';
 import { listBooks, loadSync } from '../../storage';
@@ -24,6 +24,24 @@ export function BookStorageActions({
   const [busy, setBusy] = useState<'upload' | 'keep' | null>(null);
   const [error, setError] = useState('');
   const [failedIds, setFailedIds] = useState<string[]>([]);
+  const keepFocus = useRef<{
+    trigger: HTMLButtonElement;
+    menu: HTMLElement;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (busy || !error || !failedIds.length) return;
+    const origin = keepFocus.current;
+    keepFocus.current = null;
+    if (
+      origin &&
+      origin.menu.isConnected &&
+      (document.activeElement === document.body ||
+        document.activeElement === origin.trigger)
+    )
+      origin.menu
+        .querySelector<HTMLButtonElement>('[data-menu-id="retry-download"]')
+        ?.focus({ preventScroll: true });
+  }, [busy, error, failedIds]);
   useEffect(() => {
     let alive = true;
     void loadSync()
@@ -41,7 +59,11 @@ export function BookStorageActions({
     };
   }, [books]);
   if (!account) return null;
-  const keep = async (ids: string[]) => {
+  const keep = async (ids: string[], trigger: HTMLButtonElement) => {
+    const menu =
+      trigger.closest<HTMLElement>('[role="menu"]') ?? trigger.parentElement;
+    keepFocus.current =
+      menu && document.activeElement === trigger ? { trigger, menu } : null;
     setBusy('keep');
     setError('');
     try {
@@ -91,9 +113,12 @@ export function BookStorageActions({
         type="button"
         menuId="pin"
         disabled={!!busy}
-        onClick={() => {
+        onClick={(event) => {
           if (!pinned) {
-            void keep(books.map((b) => b.id));
+            void keep(
+              books.map((b) => b.id),
+              event.currentTarget,
+            );
             return;
           }
           setBusy('keep');
@@ -141,7 +166,7 @@ export function BookStorageActions({
                 type="button"
                 menuId="retry-download"
                 disabled={!!busy}
-                onClick={() => void keep(failedIds)}
+                onClick={(event) => void keep(failedIds, event.currentTarget)}
               >
                 Retry
               </ActionMenuItem>
