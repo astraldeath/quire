@@ -46,7 +46,7 @@ export function indexComicEntries(entries: ComicEntry[]) {
 
 export function openDecodedComic(
   pages: Map<string, number>,
-  extract: (name: string) => Promise<Blob>,
+  extract: (name: string, signal?: AbortSignal) => Promise<Blob>,
   dispose: () => void,
 ) {
   const cache = new Map<string, Blob>();
@@ -70,7 +70,7 @@ export function openDecodedComic(
           cache.set(name, cached);
           return cached;
         }
-        const file = await extract(name);
+        const file = await extract(name, signal);
         check(signal);
         if (file.size !== pages.get(name) || file.size > MAX_PAGE)
           throw new Error('Comic page has an invalid extracted size.');
