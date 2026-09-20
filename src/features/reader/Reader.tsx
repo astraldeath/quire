@@ -64,6 +64,10 @@ function colors(p: ReaderPreferences) {
 }
 export function applyReaderPreferences(view: View, p: ReaderPreferences) {
   if (!view.renderer) return;
+  if (view.isFixedLayout) {
+    view.renderer.setAttribute('zoom', 'fit-page');
+    return;
+  }
   const c = colors(p);
   view.renderer.toggleAttribute(
     'animated',
@@ -255,7 +259,7 @@ export function Reader({
       window.removeEventListener('pageshow', visibility);
       flushActivity();
     });
-    if (book.format === 'cbz' || book.format === 'pdf') {
+    if (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub')) {
       setReady(false);
       setError('');
       setComic(null);
@@ -327,11 +331,15 @@ export function Reader({
       doc.addEventListener('keydown', (event) => {
         if (event.key === 'ArrowRight') {
           event.preventDefault();
-          void view.next();
+          void (view.isFixedLayout && view.renderer.rtl
+            ? view.prev()
+            : view.next());
         }
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          void view.prev();
+          void (view.isFixedLayout && view.renderer.rtl
+            ? view.next()
+            : view.prev());
         }
         if (event.key === 'Escape') {
           setChromeVisible(true);
@@ -353,7 +361,10 @@ export function Reader({
         }>
       ).detail;
       if (!location.cfi) return;
-      const fraction = clamp(location.fraction || 0, 0, 1);
+      const fraction =
+        view.isFixedLayout && view.renderer.atEnd
+          ? 1
+          : clamp(location.fraction || 0, 0, 1);
       setFraction(fraction);
       setChapter(location.tocItem?.label ?? '');
       setActiveHref(location.tocItem?.href ?? '');
@@ -409,6 +420,23 @@ export function Reader({
         sectionBuffer?.relocate(detail.index);
         const { reason } = detail;
         syncAvailability();
+        if (view.isFixedLayout) {
+          collector.relocate(
+            {
+              key: view.getCFI(detail.index),
+              index: detail.index,
+              fraction: 0,
+              size: 1,
+              words: 0,
+              chapter: null,
+              atEnd: view.renderer.atEnd,
+              reason,
+              forwardIntent: performance.now() < forwardUntil,
+            },
+            performance.now(),
+          );
+          forwardUntil = 0;
+        }
         if (
           detail.range &&
           Number.isFinite(detail.fraction) &&
@@ -540,8 +568,9 @@ export function Reader({
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         navigate(
-          (book.format === 'cbz' || book.format === 'pdf') &&
-            current.current.preferences.comicDirection === 'rtl'
+          (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
+            (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
+              current.current.preferences.comicDirection === 'rtl')
             ? 'prev'
             : 'next',
         );
@@ -549,8 +578,9 @@ export function Reader({
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         navigate(
-          (book.format === 'cbz' || book.format === 'pdf') &&
-            current.current.preferences.comicDirection === 'rtl'
+          (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
+            (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
+              current.current.preferences.comicDirection === 'rtl')
             ? 'next'
             : 'prev',
         );
@@ -561,8 +591,9 @@ export function Reader({
   }, [panel]);
   const c = colors(preferences);
   const comicRTL =
-    (book.format === 'cbz' || book.format === 'pdf') &&
-    preferences.comicDirection === 'rtl';
+    (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
+    (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
+      preferences.comicDirection === 'rtl');
   return (
     <section
       ref={root}
@@ -683,7 +714,7 @@ export function Reader({
             </p>
           )}
           <div className="reader-pages" ref={host}>
-            {(book.format === 'cbz' || book.format === 'pdf') &&
+            {['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
               comic?.comicPages && (
                 <ComicPages
                   key={book.id}
@@ -766,7 +797,7 @@ export function Reader({
         />
       )}
       {ready &&
-        (book.format === 'cbz' || book.format === 'pdf') &&
+        ['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
         comic?.comicPages &&
         toolbar.current && (
           <ComicBookmarks
@@ -797,7 +828,8 @@ export function Reader({
             </button>
           </div>
           <ReadingSettings
-            comic={book.format === 'cbz' || book.format === 'pdf'}
+            fixedLayout={viewRef.current?.isFixedLayout}
+            comic={['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub')}
             preferences={preferences}
             onPreferences={onPreferences}
           />

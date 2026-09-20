@@ -258,24 +258,36 @@ export async function openArchive(
         ?.getAttribute('full-path') ?? '',
     );
     const opf = xml(text(path));
-    if (
-      Array.from(opf.getElementsByTagNameNS('*', 'meta')).some(
-        (x) =>
-          x.getAttribute('property') === 'rendition:layout' &&
-          x.textContent?.trim() === 'pre-paginated',
-      ) ||
-      Array.from(opf.getElementsByTagNameNS('*', 'itemref')).some((x) =>
-        x
-          .getAttribute('properties')
-          ?.includes('rendition:layout-pre-paginated'),
-      ) ||
-      /<option[^>]*name=["']fixed-layout["'][^>]*>\s*true/i.test(
-        text('META-INF/com.apple.ibooks.display-options.xml'),
+    const packageLayout = Array.from(opf.getElementsByTagNameNS('*', 'meta'))
+      .find(
+        (meta) =>
+          meta.getAttribute('property') === 'rendition:layout' &&
+          !meta.hasAttribute('refines'),
       )
-    )
+      ?.textContent?.trim();
+    const legacyFixed = ['com.apple.ibooks', 'com.kobobooks'].some((vendor) =>
+      /<option[^>]*name=["']fixed-layout["'][^>]*>\s*true/i.test(
+        text(`META-INF/${vendor}.display-options.xml`),
+      ),
+    );
+    const defaultFixed = packageLayout
+      ? packageLayout === 'pre-paginated'
+      : legacyFixed;
+    const layouts = Array.from(opf.getElementsByTagNameNS('*', 'itemref')).map(
+      (ref) => {
+        const properties = ref.getAttribute('properties')?.split(/\s+/) ?? [];
+        return properties.includes('rendition:layout-pre-paginated')
+          ? true
+          : properties.includes('rendition:layout-reflowable')
+            ? false
+            : defaultFixed;
+      },
+    );
+    if (layouts.some(Boolean) && layouts.some((fixed) => !fixed))
       throw new Error(
-        'Fixed-layout EPUBs are not supported yet. Choose a reflowable EPUB edition.',
+        'Mixed fixed-layout and reflowable EPUBs are unsupported. Choose an edition with one layout.',
       );
+    const layout = layouts.every(Boolean) ? 'pre-paginated' : 'reflowable';
     if (!opf.getElementsByTagNameNS('*', 'itemref').length)
       throw new Error('EPUB has no readable chapters.');
     const base = path.slice(0, path.lastIndexOf('/') + 1);
@@ -303,9 +315,11 @@ export async function openArchive(
       if (!item || !files.has(resolve(item.getAttribute('href') ?? '')))
         throw new Error('EPUB is missing a required chapter.');
       if (
-        !['application/xhtml+xml', 'text/html'].includes(
-          item.getAttribute('media-type') ?? '',
-        )
+        ![
+          'application/xhtml+xml',
+          'text/html',
+          ...(layout === 'pre-paginated' ? ['image/svg+xml'] : []),
+        ].includes(item.getAttribute('media-type') ?? '')
       )
         throw new Error(
           'This EPUB chapter format is unsupported. Choose a reflowable XHTML EPUB.',
@@ -313,6 +327,7 @@ export async function openArchive(
     }
     return {
       files,
+      layout,
       opf,
       resolve,
       getSize: zip.getSize,

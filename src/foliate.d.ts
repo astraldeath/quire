@@ -19,7 +19,9 @@ declare module 'foliate-js/epub.js' {
 declare module 'foliate-js/view.js' {
   import type { ReaderBook } from './books';
   export class View extends HTMLElement {
+    isFixedLayout: boolean;
     renderer: HTMLElement & {
+      rtl?: boolean;
       getContents(): { doc: Document; index: number }[];
       setStyles(css: string): void;
       goTo(target: unknown): Promise<void>;

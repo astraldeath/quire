@@ -7,6 +7,29 @@ import {
 } from '../src/features/reader/interactions';
 import type { View } from 'foliate-js/view.js';
 
+it('uses publisher RTL for fixed-page swipes even when surrounding UI is LTR', () => {
+  const target = document.createElement('div');
+  const next = vi.fn().mockResolvedValue(undefined);
+  const prev = vi.fn().mockResolvedValue(undefined);
+  const dispose = installReadingInteractions(
+    target,
+    {
+      isFixedLayout: true,
+      renderer: { localName: 'foliate-fxl', rtl: true },
+      next,
+      prev,
+      getBoundingClientRect: () => ({ left: 0, width: 400 }),
+    } as unknown as View,
+    () => ({ ...defaults.reader, flow: 'continuous' }),
+  );
+  target.dispatchEvent(touchEvent('touchstart', 350, 100));
+  target.dispatchEvent(touchEvent('touchmove', 100, 100));
+  target.dispatchEvent(touchEvent('touchend', 100, 100));
+  expect(prev).toHaveBeenCalledOnce();
+  expect(next).not.toHaveBeenCalled();
+  dispose();
+});
+
 it('turns comic pages by swipe without paginator scrolling methods', () => {
   const target = document.createElement('div');
   const next = vi.fn().mockResolvedValue(undefined);

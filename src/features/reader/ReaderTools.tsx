@@ -136,7 +136,7 @@ export function ReaderTools({
     const disposers: (() => void)[] = [];
     const installed = new WeakSet<Document>();
     const install = ({ doc, index }: { doc: Document; index: number }) => {
-      if (installed.has(doc)) return;
+      if (view.isFixedLayout || installed.has(doc)) return;
       installed.add(doc);
       let timer: ReturnType<typeof setTimeout>;
       const changed = () => {
@@ -179,7 +179,7 @@ export function ReaderTools({
     const restore = () =>
       queueMicrotask(() => {
         for (const item of current.current.book.annotations ?? [])
-          if (item.kind === 'highlight')
+          if (!view.isFixedLayout && item.kind === 'highlight')
             void view
               .addAnnotation({ value: item.cfi })
               .catch(() => setMessage('A highlight could not be restored.'));

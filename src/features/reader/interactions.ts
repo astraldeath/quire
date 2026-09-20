@@ -74,7 +74,8 @@ export function installReadingInteractions(
       });
   };
   const continueScroll = (delta: number) => {
-    if (preferences().flow !== 'continuous' || selected()) return;
+    if (view.isFixedLayout || preferences().flow !== 'continuous' || selected())
+      return;
     const r = view.renderer;
     const direction = boundaryTurn(delta, r.start, r.end, r.viewSize);
     if (direction && !(direction === 'prev' ? r.atStart : r.atEnd))
@@ -136,12 +137,21 @@ export function installReadingInteractions(
     view.renderer.localName === 'foliate-fxl' ||
     preferences().flow === 'paginated';
   const rtl = () =>
-    doc.defaultView?.getComputedStyle(doc.documentElement).direction === 'rtl';
+    view.isFixedLayout
+      ? Boolean(view.renderer.rtl)
+      : doc.defaultView?.getComputedStyle(doc.documentElement).direction ===
+        'rtl';
   const tap = (clientX: number) => {
     const frame = doc.defaultView?.frameElement;
     const rect = view.getBoundingClientRect();
     const direction = sideTurn(
-      clientX + (frame?.getBoundingClientRect().left ?? 0) - rect.left,
+      clientX *
+        (frame
+          ? frame.getBoundingClientRect().width /
+            (doc.defaultView?.innerWidth || frame.clientWidth || 1)
+          : 1) +
+        (frame?.getBoundingClientRect().left ?? 0) -
+        rect.left,
       rect.width,
       rtl(),
     );
@@ -252,7 +262,7 @@ export function installReadingInteractions(
         // Slow drags settle to the nearest page; a quick release supplies momentum.
         if (typeof view.renderer.snap !== 'function') {
           if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy))
-            turn(dx < 0 ? 'next' : 'prev');
+            turn(dx < 0 !== rtl() ? 'next' : 'prev');
         } else
           view.renderer.snap(
             Date.now() - dragTime < 100

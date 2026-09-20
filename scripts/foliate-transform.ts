@@ -92,7 +92,30 @@ export function hardenFoliate(
     const promise = method.indexOf('        return new Promise(resolve => {');
     const safe =
       method.slice(0, promise) +
-      `        const response = await fetch(src); if (!response.ok) throw new Error('Could not load comic page'); const markup = await response.text();
+      `        const response = await fetch(src); if (!response.ok) throw new Error('Could not load book page'); let markup = await response.text();
+        // srcdoc uses the HTML parser; give standalone SVG spine pages an HTML
+        // viewport and CSP without changing their authored coordinate system.
+        const sourceDoc = new DOMParser().parseFromString(markup, 'application/xml')
+        if (sourceDoc.documentElement.localName === 'svg') {
+            const svg = sourceDoc.documentElement
+            const viewport = getViewport(sourceDoc, this.defaultViewport)
+            const wrapper = document.implementation.createHTMLDocument('')
+            const policy = wrapper.createElement('meta')
+            policy.httpEquiv = 'Content-Security-Policy'
+            policy.content = "default-src 'none'; script-src 'none'; connect-src 'none'; img-src blob: data:; style-src 'unsafe-inline' blob:; font-src blob: data:; base-uri 'none'; form-action 'none'"
+            const meta = wrapper.createElement('meta')
+            meta.name = 'viewport'
+            meta.content = 'width=' + viewport.width + ',height=' + viewport.height
+            wrapper.head.prepend(policy, meta)
+            wrapper.documentElement.style.height = '100%'
+            wrapper.body.style.margin = '0'
+            wrapper.body.style.height = '100%'
+            svg.style.width = '100%'
+            svg.style.height = '100%'
+            svg.style.display = 'block'
+            wrapper.body.append(wrapper.importNode(svg, true))
+            markup = wrapper.documentElement.outerHTML
+        }
         return new Promise((resolve, reject) => {
             let finished = false, polling, deadline, observed = 'unavailable'
             const cleanup = () => {
@@ -108,19 +131,60 @@ export function hardenFoliate(
                     finished = true; cleanup()
                     this.dispatchEvent(new CustomEvent('load', { detail: { doc, index } }))
                     const { width, height } = getViewport(doc, this.defaultViewport)
+                    if (![width, height].every(value => Number.isFinite(parseFloat(value)) && parseFloat(value) > 0)) throw new Error('Book page has an invalid viewport')
                     resolve({ element, iframe, width: parseFloat(width), height: parseFloat(height), onZoom })
                 } catch (error) { finished = true; cleanup(); reject(error) }
             }
             iframe.addEventListener('load', onLoad)
             polling = setInterval(onLoad, 50)
             deadline = setTimeout(() => {
-                finished = true; cleanup(); reject(new Error('Comic page frame load timed out; document readiness: ' + observed))
+                finished = true; cleanup(); reject(new Error('Book page frame load timed out; document readiness: ' + observed))
             }, 15000)
             iframe.srcdoc = markup
         })
     }
 `;
-    return normalized.slice(0, start) + safe + normalized.slice(end);
+    // Guard all additional adaptations against dependency drift too.
+    const replacements = [
+      [
+        'return parseViewport(viewport)',
+        'return Object.fromEntries(parseViewport(viewport))',
+      ],
+      ["this.side === 'left'", "this.#side === 'left'"],
+      [
+        "            this.#side = 'left'\n            return true",
+        "            this.#side = 'left'\n            this.#render()\n            return true",
+      ],
+      [
+        "            this.#side = 'right'\n            return true",
+        "            this.#side = 'right'\n            this.#render()\n            return true",
+      ],
+      [
+        '            this.#render(side)\n            return',
+        '            this.#side = side ?? this.#side\n            this.#render()\n            this.#reportLocation(reason)\n            return',
+      ],
+      [
+        '        this.#index = index\n        const spread',
+        '        const spread',
+      ],
+      [
+        '        this.#reportLocation(reason)\n    }\n    async select',
+        '        this.#index = index\n        this.#reportLocation(reason)\n    }\n    async select',
+      ],
+      [
+        '    get index() {',
+        '    get atStart() { return this.index === 0 }\n    get atEnd() { return this.#index === this.#spreads.length - 1 && (!this.#portrait || this.index === this.book.sections.length - 1) }\n    get index() {',
+      ],
+    ];
+    let output = normalized.slice(0, start) + safe + normalized.slice(end);
+    for (const [before, after] of replacements) {
+      if (output.split(before).length !== 2)
+        throw new Error(
+          'Review foliate fixed-layout navigation before upgrading the renderer.',
+        );
+      output = output.replace(before, after);
+    }
+    return output;
   }
   if (
     !id.split('?')[0].replaceAll('\\', '/').endsWith('/foliate-js/paginator.js')

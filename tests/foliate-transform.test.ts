@@ -9,6 +9,104 @@ const fixedSource = readFileSync(
 );
 const fixedId = '/node_modules/foliate-js/fixed-layout.js';
 
+function fixedRenderer(rtl = false) {
+  const transformed = hardenFoliate(fixedSource, fixedId)!;
+  const start = transformed.indexOf('    async #createFrame(');
+  const end = transformed.indexOf('    #render(side', start);
+  const source = (
+    transformed.slice(0, start) +
+    `
+    async #createFrame({ index, src }) {
+      if (src === 'fail') throw new Error('failed page')
+      const element = document.createElement('div')
+      const iframe = document.createElement('iframe')
+      element.append(iframe)
+      return { element, iframe, blank: !src, width: 600, height: 900 }
+    }
+  ` +
+    transformed.slice(end)
+  )
+    .replace(/^import .*$/m, '')
+    .replace('export class', 'class');
+  const name = 'test-fxl-' + Math.random().toString(36).slice(2);
+  const Renderer = new Function(
+    'ResizeObserver',
+    'CSSStyleSheet',
+    source.replace(
+      "customElements.define('foliate-fxl', FixedLayout)",
+      `customElements.define('${name}', FixedLayout); return FixedLayout`,
+    ),
+  )(
+    class {
+      observe() {}
+      unobserve() {}
+    },
+    class {
+      replaceSync() {}
+    },
+  );
+  const renderer = new Renderer();
+  vi.spyOn(renderer, 'getBoundingClientRect').mockReturnValue({
+    width: 400,
+    height: 800,
+  });
+  const sections = Array.from({ length: 4 }, (_, i) => ({
+    load: async () => 'page' + i,
+  }));
+  renderer.open({
+    dir: rtl ? 'rtl' : 'ltr',
+    rendition: { layout: 'pre-paginated' },
+    sections,
+  });
+  return { renderer, sections };
+}
+
+it.each([false, true])(
+  'restores either page in the same spread (rtl=%s)',
+  async (rtl) => {
+    const { renderer } = fixedRenderer(rtl);
+    const located = vi.fn();
+    renderer.addEventListener('relocate', (event: CustomEvent) =>
+      located(event.detail.index),
+    );
+    await renderer.goTo({ index: 1 });
+    expect(renderer.index).toBe(1);
+    await renderer.goTo({ index: 2 });
+    expect(renderer.index).toBe(2);
+    expect(located.mock.calls.map((call) => call[0])).toEqual([1, 2]);
+    await renderer.prev();
+    expect(renderer.index).toBe(1);
+    await renderer.next();
+    expect(renderer.index).toBe(2);
+    renderer.destroy();
+  },
+);
+
+it('retries a failed spread without treating it as already loaded', async () => {
+  const { renderer, sections } = fixedRenderer();
+  sections[0].load = async () => 'fail';
+  await expect(renderer.goTo({ index: 0 })).rejects.toThrow('failed page');
+  sections[0].load = async () => 'page';
+  await renderer.goTo({ index: 0 });
+  expect(renderer.index).toBe(0);
+  renderer.destroy();
+});
+
+it('uses package viewport strings as width and height values', () => {
+  const transformed = hardenFoliate(fixedSource, fixedId)!;
+  const helpers = transformed.slice(
+    transformed.indexOf('const parseViewport'),
+    transformed.indexOf('export class'),
+  );
+  const viewport = new Function(helpers + '; return getViewport')();
+  expect(
+    viewport(
+      document.implementation.createHTMLDocument(),
+      'width=600,height=900',
+    ),
+  ).toEqual({ width: '600', height: '900' });
+});
+
 it.each([false, true])(
   'uses bounded srcdoc loading for comics (hosted=%s) and rejects fixed-layout upstream drift',
   async (hosted) => {

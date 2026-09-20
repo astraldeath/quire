@@ -28,6 +28,56 @@ async function fixture(
     name: 'fixture.epub',
   } as File;
 }
+
+it.each(['com.apple.ibooks', 'com.kobobooks'])(
+  'recognizes legacy %s fixed-layout metadata',
+  async (vendor) => {
+    const file = await fixture('', 'EPUB/chapter.xhtml', {
+      [`META-INF/${vendor}.display-options.xml`]:
+        '<display_options><platform name="*"><option name="fixed-layout">true</option></platform></display_options>',
+    });
+    const archive = await openArchive(new Uint8Array(await file.arrayBuffer()));
+    expect(archive.layout).toBe('pre-paginated');
+  },
+);
+
+it('supports all-fixed spine overrides but rejects genuinely mixed layouts', async () => {
+  const opf =
+    '<package xmlns="http://www.idpf.org/2007/opf"><metadata/><manifest><item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c" properties="rendition:layout-pre-paginated"/>EXTRA</spine></package>';
+  const single = await fixture('', 'EPUB/chapter.xhtml', {
+    'EPUB/package.opf': opf.replace('EXTRA', ''),
+  });
+  expect(
+    (await openArchive(new Uint8Array(await single.arrayBuffer()))).layout,
+  ).toBe('pre-paginated');
+  const mixed = await fixture('', 'EPUB/chapter.xhtml', {
+    'EPUB/package.opf': opf.replace('EXTRA', '<itemref idref="c"/>'),
+  });
+  await expect(importEpub(mixed)).rejects.toThrow(/mixed fixed-layout/i);
+});
+
+it('preserves fixed viewport, positioned artwork, fonts, and SVG spine pages while removing active content', async () => {
+  const file = await fixture('', 'EPUB/chapter.xhtml', {
+    'EPUB/package.opf':
+      '<package xmlns="http://www.idpf.org/2007/opf"><metadata><meta property="rendition:layout">pre-paginated</meta></metadata><manifest><item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="s" href="page.svg" media-type="image/svg+xml"/></manifest><spine page-progression-direction="rtl"><itemref idref="c" properties="page-spread-right"/><itemref idref="s" properties="page-spread-left"/></spine></package>',
+    'EPUB/chapter.xhtml':
+      '<html xmlns="http://www.w3.org/1999/xhtml"><head><meta name="viewport" content="width=600,height=900"/><style>@font-face { font-family: Book; src: url(font.woff2) } .caption { position: absolute; left: 90px; font-family: Book }</style></head><body><img src="art.png"/><p class="caption">Caption</p><script>bad()</script></body></html>',
+    'EPUB/page.svg':
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900"><image href="art.png"/><script>bad()</script></svg>',
+  });
+  const archive = await openArchive(new Uint8Array(await file.arrayBuffer()));
+  expect(archive.layout).toBe('pre-paginated');
+  const page = await archive.loadText('EPUB/chapter.xhtml');
+  expect(page).toContain('width=600,height=900');
+  expect(page).toContain('position: absolute');
+  expect(page).toContain('url(font.woff2)');
+  expect(page).toContain('src="art.png"');
+  expect(page).not.toContain('<script');
+  expect(await archive.loadText('EPUB/page.svg')).toContain(
+    'viewBox="0 0 600 900"',
+  );
+  expect(await archive.loadText('EPUB/page.svg')).not.toContain('<script');
+});
 describe('EPUB import boundary', () => {
   it('extracts metadata and stable content identity', async () => {
     const file = await fixture();
@@ -43,12 +93,12 @@ describe('EPUB import boundary', () => {
     expect(a.book.id).toMatch(/^[a-f0-9]{64}$/);
     expect(a.book.id).toBe(b.book.id);
   });
-  it('rejects fixed layout with an actionable message', async () => {
+  it('accepts fixed layout with stable metadata', async () => {
     await expect(
       importEpub(
         await fixture('<meta property="rendition:layout">pre-paginated</meta>'),
       ),
-    ).rejects.toThrow(/fixed.layout/i);
+    ).resolves.toMatchObject({ book: { title: 'Metadata fixture' } });
   });
   it('rejects archive traversal', async () => {
     await expect(
