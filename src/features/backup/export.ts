@@ -1,6 +1,15 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { withSystemDialog } from '../privacy/inactive';
 import { writeNativeFile, deleteNativeFile } from '../../native-files';
+/** iOS/iPadOS file export uses a share sheet and needs a fresh user gesture. */
+export function backupNeedsSaveGesture(): boolean {
+  return (
+    !isTauri() &&
+    typeof navigator.share === 'function' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+  );
+}
 export async function exportBackup(bytes: Uint8Array | Blob): Promise<boolean> {
   if (isTauri()) {
     const reference = await writeNativeFile(bytes);
@@ -20,12 +29,13 @@ export async function exportBackup(bytes: Uint8Array | Blob): Promise<boolean> {
       type: 'application/zip',
     },
   );
-  if (navigator.canShare?.({ files: [file] })) {
+  if (backupNeedsSaveGesture() && navigator.canShare?.({ files: [file] })) {
     try {
       await withSystemDialog(() => navigator.share({ files: [file] }));
       return true;
     } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') return false;
+      if (e && typeof e === 'object' && 'name' in e && e.name === 'AbortError')
+        return false;
       throw e;
     }
   }

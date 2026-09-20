@@ -161,6 +161,8 @@ async function web(
       ? AbortSignal.any([options.signal, timeout])
       : timeout,
   });
+  if (response.status === 404 && path === '/v1/admin/backup/status')
+    return null;
   if (response.status === 409 && path === '/v1/sync')
     throw new SyncConflictError();
   if (!response.ok && path.startsWith('/v1/tracking')) {
@@ -579,6 +581,39 @@ export async function uploadSharedFile(
   return { bookId: result.bookId, size: result.size };
 }
 
+export interface ServerBackupStatus {
+  inputBytes: number;
+  browserLimitBytes: number;
+  fitsBrowser: boolean | null;
+}
+export async function serverBackupStatus(
+  a: Account,
+  signal?: AbortSignal,
+): Promise<ServerBackupStatus | null> {
+  const value = await accountRequest(
+    a,
+    '/v1/admin/backup/status',
+    undefined,
+    'GET',
+    { signal },
+  );
+  if (value === null) return null; // Older server: bounded download remains available.
+  if (
+    !value ||
+    !Number.isSafeInteger(value.inputBytes) ||
+    value.inputBytes < 0 ||
+    !Number.isSafeInteger(value.browserLimitBytes) ||
+    value.browserLimitBytes <= 0 ||
+    ![true, false, null].includes(value.fitsBrowser)
+  )
+    throw new Error('Invalid backup status.');
+  return {
+    inputBytes: value.inputBytes,
+    browserLimitBytes: Math.min(value.browserLimitBytes, 512 * 1048576),
+    fitsBrowser: value.fitsBrowser,
+  };
+}
+
 export async function downloadServerBackup(
   a: Account,
   onProgress: (bytes: number, total: number) => void,
@@ -599,7 +634,7 @@ export async function downloadServerBackup(
   if (total > limit) {
     await r.body.cancel();
     throw new Error(
-      'This backup exceeds the 512 MB browser limit. Use the server backup command below.',
+      'This backup exceeds the 512 MiB browser limit. Use the server backup command below.',
     );
   }
   const reader = r.body.getReader(),

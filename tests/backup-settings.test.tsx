@@ -1,3 +1,7 @@
+import {
+  backupNeedsSaveGesture,
+  exportBackup,
+} from '../src/features/backup/export';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -7,6 +11,7 @@ import { defaults, type Book } from '../src/domain/models';
 import { Blob as NodeBlob } from 'node:buffer';
 vi.mock('../src/features/backup/export', () => ({
   exportBackup: vi.fn().mockResolvedValue(false),
+  backupNeedsSaveGesture: vi.fn(() => true),
 }));
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -54,6 +59,14 @@ it('requires preview confirmation and leaves settings opt-in', async () => {
   );
   expect(document.body.textContent).toContain('0 new books; 1 matching books');
   expect(actions.restore).not.toHaveBeenCalled();
+  expect(
+    [...host.querySelectorAll('button')].filter(
+      (b) => b.textContent === 'Cancel',
+    ),
+  ).toHaveLength(1);
+  expect(
+    [...host.querySelectorAll('button')].some((b) => b.textContent === 'Back'),
+  ).toBe(false);
   const restore = Array.from(document.querySelectorAll('button')).find(
     (b) => b.textContent === 'Restore backup',
   )!;
@@ -96,10 +109,83 @@ it('does not record a cancelled export as a completed backup', async () => {
   ).toBe(false);
   await act(async () =>
     Array.from(document.querySelectorAll('button'))
-      .find((b) => b.textContent?.startsWith('Save backup'))!
+      .find((b) => b.textContent?.startsWith('Save prepared backup'))!
       .click(),
   );
   expect(actions.exported).not.toHaveBeenCalled();
   expect(document.body.textContent).not.toContain('Backup exported.');
   await act(async () => root.unmount());
 });
+
+it.each([0, 1, 2])(
+  'shows included and missing downloaded file counts (%s)',
+  async (count) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () =>
+      root.render(
+        <BackupSettings
+          books={[
+            { ...book, local: count > 0 },
+            { ...book, id: 'b'.repeat(64), local: count > 1 },
+          ]}
+          preferences={defaults}
+          actions={{ prepare: vi.fn(), restore: vi.fn(), exported: vi.fn() }}
+          onBusy={() => {}}
+        />,
+      ),
+    );
+    expect(host.textContent).toContain('Downloaded books + data');
+    expect(host.textContent).toContain(`${count} included`);
+    expect(host.textContent).toContain(`${2 - count} not downloaded`);
+    await act(async () => root.unmount());
+    host.remove();
+  },
+);
+
+it.each(['success', 'cancel', 'failed'])(
+  'ordinary export prepares and saves in one action (%s)',
+  async (result) => {
+    vi.mocked(backupNeedsSaveGesture).mockReturnValue(false);
+    if (result === 'failed')
+      vi.mocked(exportBackup).mockRejectedValueOnce(new Error('disk'));
+    else vi.mocked(exportBackup).mockResolvedValueOnce(result === 'success');
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const actions = {
+      prepare: vi.fn(async () => new Uint8Array([1])),
+      restore: vi.fn(),
+      exported: vi.fn(),
+    };
+    await act(async () =>
+      root.render(
+        <BackupSettings
+          books={[]}
+          preferences={defaults}
+          actions={actions}
+          onBusy={() => {}}
+        />,
+      ),
+    );
+    await act(async () =>
+      [...host.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Create backup')!
+        .click(),
+    );
+    expect(actions.prepare).toHaveBeenCalledWith('full');
+    expect(actions.exported).toHaveBeenCalledTimes(
+      result === 'success' ? 1 : 0,
+    );
+    expect(host.textContent?.includes('Backup exported.')).toBe(
+      result === 'success',
+    );
+    if (result === 'failed') {
+      expect(host.querySelector('[role=alert]')).not.toBeNull();
+      expect(host.textContent).not.toContain('connection');
+    }
+    await act(async () => root.unmount());
+    host.remove();
+  },
+);

@@ -1,6 +1,7 @@
+import { TaskError } from '../../components/TaskError';
 import { useEffect, useState } from 'react';
 import { Switch, StepperControl } from '../../components/Controls';
-import { loadSync } from '../../storage';
+import { localFileSummary, loadSync } from '../../storage';
 import type { Account } from '../sync/model';
 import { readPolicy, writePolicy, type StoragePolicy } from './policy';
 import { storageMessage } from './manager';
@@ -9,6 +10,25 @@ export function StorageSettings({ onConnect }: { onConnect(): void }) {
   const [account, setAccount] = useState<Account>();
   const [policy, setPolicy] = useState<StoragePolicy>();
   const [message, setMessage] = useState('');
+  const [summary, setSummary] = useState<{ books: number; bytes: number }>();
+  const [error, setError] = useState('');
+  const [custom, setCustom] = useState(false);
+  const measure = () => {
+    setError('');
+    void localFileSummary()
+      .then(setSummary)
+      .catch(() => {
+        setSummary(undefined);
+        setError(
+          'Could not measure downloads. Check device storage access and retry.',
+        );
+      });
+  };
+  useEffect(() => {
+    measure();
+    window.addEventListener('quire-storage', measure);
+    return () => window.removeEventListener('quire-storage', measure);
+  }, []);
   useEffect(() => {
     let alive = true;
     const update = () => {
@@ -41,6 +61,14 @@ export function StorageSettings({ onConnect }: { onConnect(): void }) {
   return (
     <section className="storage-settings">
       <h3>Storage</h3>
+      {summary && (
+        <p>
+          {summary.books} downloaded books ·{' '}
+          {(summary.bytes / 1073741824).toFixed(2)} GiB
+        </p>
+      )}
+      {error && <TaskError summary={error} detail="" onRetry={measure} />}
+      {!summary && !error && <p role="status">Measuring downloads…</p>}
       {!account || !policy ? (
         <>
           <p className="muted">
@@ -86,15 +114,52 @@ export function StorageSettings({ onConnect }: { onConnect(): void }) {
                 onChange={(enabled) => change({ maxMB: enabled ? 1024 : 0 })}
               />
               {policy.maxMB > 0 && (
-                <StepperControl
-                  label="Download limit"
-                  value={policy.maxMB}
-                  min={128}
-                  max={1048576}
-                  step={128}
-                  unit=" MB"
-                  onChange={(maxMB) => change({ maxMB })}
-                />
+                <>
+                  <label>
+                    Download limit
+                    <select
+                      value={
+                        !custom &&
+                        [1024, 2048, 5120, 10240].includes(policy.maxMB)
+                          ? String(policy.maxMB)
+                          : 'custom'
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCustom(value === 'custom');
+                        if (value !== 'custom')
+                          change({ maxMB: Number(value) });
+                      }}
+                    >
+                      {[1, 2, 5, 10].map((gib) => (
+                        <option key={gib} value={gib * 1024}>
+                          {gib} GiB
+                        </option>
+                      ))}
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+                  {(custom ||
+                    ![1024, 2048, 5120, 10240].includes(policy.maxMB)) && (
+                    <label>
+                      Custom limit (GiB)
+                      <input
+                        type="number"
+                        min={1 / 1024}
+                        max={1024}
+                        step="any"
+                        value={policy.maxMB / 1024}
+                        onChange={(e) => {
+                          const gib = Number(e.target.value);
+                          if (Number.isFinite(gib) && gib > 0 && gib <= 1024)
+                            change({
+                              maxMB: Math.max(1, Math.round(gib * 1024)),
+                            });
+                        }}
+                      />
+                    </label>
+                  )}
+                </>
               )}
               <p className="muted">
                 Removes downloads only after verifying the server copy. Keeps

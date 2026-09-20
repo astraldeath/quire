@@ -133,3 +133,17 @@ it('offers sign in again on session expiry', async () => {
   expect(t.host.querySelector('button')?.textContent).toBe('Sign in again');
   await t.close();
 });
+
+it('retains shared sync context without directions to the current settings page', async () => {
+  const t = await mount(
+    <SyncStatus
+      message="2 changes need review in Settings → Sync"
+      busy={false}
+      pending={0}
+      onSync={() => {}}
+    />,
+  );
+  expect(t.host.textContent).toContain('2 changes need review');
+  expect(t.host.textContent).not.toContain('Settings → Sync');
+  await t.close();
+});

@@ -275,7 +275,32 @@ it('roundtrips only folder catalog values and defaults missing v1 catalogs to em
     catalog,
   );
   expect((await readBackup(archive)).folders).toEqual(catalog);
+  const { ZipWriter, Uint8ArrayWriter, TextReader } =
+    await import('@zip.js/zip.js');
+  const writer = new ZipWriter(new Uint8ArrayWriter(), {
+    useWebWorkers: false,
+  });
+  // Genuine v1 manifest predating folders: do not call the current backup writer.
+  await writer.add(
+    'manifest.json',
+    new TextReader(
+      JSON.stringify({
+        format: 'quire-backup',
+        version: 1,
+        createdAt: 1,
+        kind: 'data',
+        preferences: defaults,
+        books: [book],
+        files: [],
+      }),
+    ),
+  );
+  const legacy = await readBackup(await writer.close());
+  expect(legacy.folders).toEqual({ library: [], hidden: [] });
+  const { mergeFolderCatalog, emptyFolderCatalog } =
+    await import('../src/features/library/folderCatalog');
   expect(
-    (await readBackup(await createBackup([], defaults, 'data'))).folders,
-  ).toEqual({ library: [], hidden: [] });
+    mergeFolderCatalog(emptyFolderCatalog(), catalog, legacy.folders!),
+  ).toEqual(catalog);
+  expect(mergeBook(undefined, legacy.records[0].book).title).toBe('Book');
 });

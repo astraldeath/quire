@@ -1,7 +1,8 @@
+import { TaskError } from '../../components/TaskError';
 import { useState } from 'react';
 import { Download } from 'lucide-react';
 import type { Book } from '../../domain/models';
-import { exportEpub } from './epub-export';
+import { BookExportError, exportEpub } from './epub-export';
 import { ActionMenuItem } from '../../components/ActionMenuItem';
 
 export function ExportBookAction({
@@ -19,9 +20,11 @@ export function ExportBookAction({
     setError('');
     try {
       if (await exportEpub(book)) onClose();
-    } catch {
+    } catch (error) {
       setError(
-        'Could not export the book. Check your connection and try again.',
+        (error instanceof BookExportError ? error.stage === 'save' : book.local)
+          ? 'Could not export the book. Check device storage and try again.'
+          : 'Could not download the book for export. Check your server connection and try again.',
       );
     } finally {
       setBusy(false);
@@ -43,9 +46,12 @@ export function ExportBookAction({
           : `Export ${format}`}
       </ActionMenuItem>
       {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+        <TaskError
+          summary={error}
+          detail=""
+          onRetry={() => void run()}
+          busy={busy}
+        />
       )}
     </>
   );

@@ -3511,7 +3511,7 @@ dialog:focus {
 /* Application settings only; reading settings retain their tab layout. */
 dialog:has(.settings-layout) {
   width: min(900px, calc(100vw - 32px));
-  height: min(760px, calc(100dvh - 32px));
+  height: auto;
 }
 .settings-layout {
   display: grid;
@@ -3567,5 +3567,29 @@ dialog:has(.settings-layout) {
     padding: 16px;
     flex: 1;
     overflow-y: auto;
+  }
+}
+
+.sync-status > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+dialog:has(.settings-layout) .modal-inner {
+  height: auto;
+}
+.settings-layout {
+  flex: 0 1 auto;
+}
+@media (max-width: 600px) {
+  dialog:has(.settings-layout) .modal-inner {
+    height: 100%;
+  }
+  .settings-layout {
+    flex: 1;
+  }
+  .settings-layout .settings-section-selector {
+    flex-direction: row;
+    width: 100%;
   }
 }

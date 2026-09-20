@@ -1,9 +1,10 @@
+import { TaskError } from '../../components/TaskError';
 import { useRef, useState } from 'react';
-import { Download, Upload, LoaderCircle, ArrowLeft } from 'lucide-react';
+import { Download, Upload, LoaderCircle } from 'lucide-react';
 import type { Book, Preferences } from '../../domain/models';
 import { Segments, Switch } from '../../components/Controls';
 import { readBackup, type Backup } from './archive';
-import { exportBackup } from './export';
+import { backupNeedsSaveGesture, exportBackup } from './export';
 export interface BackupActions {
   prepare(kind: Backup['kind']): Promise<Uint8Array | Blob>;
   restore(backup: Backup, settings: boolean): Promise<void>;
@@ -27,15 +28,23 @@ export function BackupSettings({
   const [settings, setSettings] = useState(false);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const run = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
     onBusy(true);
     setMessage('');
+    setError('');
     try {
       await work();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Backup failed. Try again.');
+      setError(
+        label === 'Saving backup' || label === 'Preparing backup'
+          ? 'Could not export the backup. Check device storage and try again.'
+          : e instanceof Error
+            ? e.message
+            : 'Could not restore the backup. Choose a valid Quire backup and try again.',
+      );
     } finally {
       setBusy('');
       onBusy(false);
@@ -62,7 +71,7 @@ export function BackupSettings({
                 label="Backup contents"
                 value={kind}
                 options={[
-                  { value: 'full', label: 'Full library' },
+                  { value: 'full', label: 'Downloaded books + data' },
                   { value: 'data', label: 'Data only' },
                 ]}
                 onChange={(v) => {
@@ -73,8 +82,11 @@ export function BackupSettings({
               />
               <p className="muted">
                 {kind === 'full'
-                  ? 'Downloaded books, reading data for all books, and settings.'
+                  ? `${books.filter((book) => book.local).length} included; ${books.filter((book) => !book.local).length} not downloaded. Reading data for all books and settings are included.`
                   : 'Progress, reading history, notes, highlights, covers, and settings. Book files are not included.'}
+              </p>
+              <p className="muted">
+                Backups are not encrypted. Store them securely.
               </p>
               {prepared ? (
                 <div className="backup-ready">
@@ -104,7 +116,7 @@ export function BackupSettings({
                     }
                   >
                     <Download />
-                    Save backup
+                    Save prepared backup
                   </button>
                 </div>
               ) : (
@@ -112,7 +124,15 @@ export function BackupSettings({
                   className="primary backup-main-action"
                   onClick={() =>
                     void run('Preparing backup', async () => {
-                      setPrepared(await actions.prepare(kind));
+                      const bytes = await actions.prepare(kind);
+                      if (backupNeedsSaveGesture()) {
+                        setPrepared(bytes);
+                        return;
+                      }
+                      if (await exportBackup(bytes)) {
+                        await actions.exported();
+                        setMessage('Backup exported.');
+                      }
                     })
                   }
                 >
@@ -158,10 +178,6 @@ export function BackupSettings({
         />
         {preview && (
           <div className="backup-preview">
-            <button className="backup-back" onClick={() => setPreview(null)}>
-              <ArrowLeft />
-              Back
-            </button>
             <div className="backup-section-heading">
               <h3>Review backup</h3>
               <p className="backup-filename">{fileName}</p>
@@ -219,6 +235,7 @@ export function BackupSettings({
         </p>
       )}
       {message && <p role="status">{message}</p>}
+      {error && <TaskError summary={error} detail="" />}
     </section>
   );
 }

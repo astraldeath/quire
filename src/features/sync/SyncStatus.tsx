@@ -23,7 +23,7 @@ export function SyncStatus({
           <strong>
             {pending > 0 && /up to date/i.test(message)
               ? 'Changes waiting to sync'
-              : message}
+              : message.replace(/ in Settings → Sync\.?$/, '')}
           </strong>
           <span className="muted">
             {lastSync

@@ -25,11 +25,41 @@ export function epubFilename(
   return `${stem}.${format}`;
 }
 
-/** Export the original book, including fetching server-only books on demand. */
+export class BookExportError extends Error {
+  constructor(
+    readonly stage: 'download' | 'save',
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : 'Book export failed.');
+  }
+}
 export async function exportEpub(book: {
   id: string;
   title: string;
   format?: BookFormat;
+  local?: boolean;
+}): Promise<boolean> {
+  try {
+    return await exportOriginal(book);
+  } catch (error) {
+    throw error instanceof BookExportError
+      ? error
+      : new BookExportError('save', error);
+  }
+}
+async function exportFile(book: { id: string; local?: boolean }) {
+  try {
+    return await ensureBookFile(book.id);
+  } catch (error) {
+    throw new BookExportError(book.local ? 'save' : 'download', error);
+  }
+}
+/** Export the original book, including fetching server-only books on demand. */
+async function exportOriginal(book: {
+  id: string;
+  title: string;
+  format?: BookFormat;
+  local?: boolean;
 }): Promise<boolean> {
   const name = epubFilename(book.title, book.format);
   if (isTauri()) {
@@ -46,14 +76,14 @@ export async function exportEpub(book: {
           },
         }),
       );
-    const bytes = await ensureBookFile(book.id);
+    const bytes = await exportFile(book);
     return withSystemDialog(() =>
       invoke<boolean>('export_epub', bytes, {
         headers: { 'x-quire-filename': encoded },
       }),
     );
   }
-  const bytes = await ensureBookFile(book.id);
+  const bytes = await exportFile(book);
   const file = new File([bytes as Uint8Array<ArrayBuffer>], name, {
     type: BOOK_MIME[book.format ?? 'epub'],
   });

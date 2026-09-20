@@ -187,6 +187,61 @@ export async function listBooks(): Promise<Book[]> {
     }),
   );
 }
+/** Measure original book files without materializing their contents. */
+export async function localFileSummary(): Promise<{
+  books: number;
+  bytes: number;
+}> {
+  let books = 0,
+    bytes = 0;
+  const add = (size: number) => {
+    if (!Number.isSafeInteger(size) || size < 0)
+      throw new Error('Invalid stored file size.');
+    books++;
+    bytes += size;
+  };
+  try {
+    if (isTauri()) {
+      // Legacy inline base64 is measured in SQLite; only short references cross IPC.
+      const rows = await (
+        await sql()
+      ).select<{ reference: string | null; bytes: number }[]>(
+        "SELECT CASE WHEN file LIKE '@quire-file:%' THEN file ELSE NULL END AS reference, CASE WHEN file LIKE '@quire-file:%' THEN 0 ELSE (length(file) / 4) * 3 - CASE WHEN substr(file, -2) = '==' THEN 2 WHEN substr(file, -1) = '=' THEN 1 ELSE 0 END END AS bytes FROM books WHERE file IS NOT NULL",
+      );
+      for (const row of rows) {
+        if (!row.reference) {
+          add(row.bytes);
+          continue;
+        }
+        try {
+          add(
+            await invoke<number>('book_file_size', {
+              id: nativeFileId(row.reference),
+            }),
+          );
+        } catch (error) {
+          // The existing stat command reports std::io errors, including their OS code.
+          if (/\(os error 2\)/.test(String(error))) continue;
+          throw error;
+        }
+      }
+    } else {
+      const tx = (await idb()).transaction('files', 'readonly');
+      let cursor = await tx.store.openCursor();
+      while (cursor) {
+        const file = cursor.value;
+        add(file instanceof Blob ? file.size : file.byteLength);
+        cursor = await cursor.continue();
+      }
+      await tx.done;
+    }
+    return { books, bytes };
+  } catch {
+    throw new Error(
+      'Could not measure downloaded books. Check device storage access and retry.',
+    );
+  }
+}
 export async function loadSync(): Promise<SyncState> {
   if (isTauri()) {
     const rows = await (
