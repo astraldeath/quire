@@ -21,6 +21,7 @@ import {
   type FolderChanges,
 } from './features/library/FolderMembershipDialog';
 import { FolderDialog } from './features/library/FolderDialog';
+import { NewFolderDialog } from './features/library/NewFolderDialog';
 import {
   bookFolders,
   bookInFolder,
@@ -79,8 +80,10 @@ import {
   type ReactNode,
   type CSSProperties,
 } from 'react';
+import { flushSync } from 'react-dom';
 import {
   FolderInput,
+  FolderPlus,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -188,7 +191,11 @@ function AppContent({
   const removal = useRemovalScope(bulkRemove);
   const [folder, setFolder] = useState('');
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
+  const moveOrigin = useRef<HTMLElement | null>(null);
   const [renameFolder, setRenameFolder] = useState(false);
+  const [newFolder, setNewFolder] = useState(false);
+  const [focusFolder, setFocusFolder] = useState('');
+  const newFolderOrigin = useRef<HTMLElement | null>(null);
   const [folderCatalog, setFolderCatalog] = useState(emptyFolderCatalog);
   const [addAnchor, setAddAnchor] = useState<ActionAnchor | null>(null);
   const directoryInput = useRef<HTMLInputElement>(null);
@@ -575,8 +582,10 @@ function AppContent({
     const relocked = wasUnlocked.current && !privacy.unlocked;
     wasUnlocked.current = privacy.unlocked;
     if (!relocked) return;
+    moveOrigin.current = null;
     setMoveIds(null);
     setRenameFolder(false);
+    setNewFolder(false);
     if (hiddenBooks) {
       setFolder('');
       if (hostedWeb) navigateWeb('/library', true);
@@ -876,6 +885,28 @@ function AppContent({
       setReading(false);
     }
   };
+  const openNewFolder = async (origin?: HTMLElement) => {
+    if (hiddenBooks && !privacy.isUnlocked() && !(await privacy.authenticate()))
+      return;
+    newFolderOrigin.current = origin?.isConnected ? origin : null;
+    setNewFolder(true);
+  };
+  const closeNewFolder = () => {
+    const origin = newFolderOrigin.current;
+    newFolderOrigin.current = null;
+    flushSync(() => setNewFolder(false));
+    if (origin?.isConnected) origin.focus({ preventScroll: true });
+  };
+  const openFolderMembership = (ids: string[], origin?: HTMLElement) => {
+    moveOrigin.current = origin?.isConnected ? origin : null;
+    setMoveIds(ids);
+  };
+  const closeFolderMembership = () => {
+    const origin = moveOrigin.current;
+    moveOrigin.current = null;
+    flushSync(() => setMoveIds(null));
+    if (origin?.isConnected) origin.focus({ preventScroll: true });
+  };
   const updateBookFolders = async (
     ids: string[],
     update: (paths: string[]) => string[],
@@ -908,13 +939,28 @@ function AppContent({
     });
     setSelected([]);
   };
-  const setBookFolders = (ids: string[], changes: FolderChanges) =>
-    updateBookFolders(ids, (paths) => {
-      const next = paths.filter((path) => changes[path] !== false);
-      for (const [path, included] of Object.entries(changes))
-        if (included && !next.includes(path)) next.push(path);
-      return next;
-    });
+  const setBookFolders = (ids: string[], changes: FolderChanges) => {
+    const created = Object.entries(changes)
+      .filter(([path, included]) => included && !folders.includes(path))
+      .map(([path]) => path);
+    return updateBookFolders(
+      ids,
+      (paths) => {
+        const next = paths.filter((path) => changes[path] !== false);
+        for (const [path, included] of Object.entries(changes))
+          if (included && !next.includes(path)) next.push(path);
+        return next;
+      },
+      created.length
+        ? (state) => {
+            const scope = hiddenBooks ? 'hidden' : 'library';
+            state.value[scope] = [
+              ...new Set([...state.value[scope], ...created]),
+            ];
+          }
+        : undefined,
+    );
+  };
   const renameBooksFolder = async (path: string) => {
     path = normalizeFolder(path);
     if (!path) throw new Error('Enter a folder name.');
@@ -941,7 +987,7 @@ function AppContent({
         );
       },
     );
-    goFolder(path);
+    return path;
   };
   const deferredQuery = useDeferredValue(query);
   const browsingFolders =
@@ -1119,17 +1165,44 @@ function AppContent({
               <FolderInput />
               Import folder
             </ActionMenuItem>
+            <ActionMenuItem
+              menuId="new-folder"
+              onClick={() => {
+                const origin = addAnchor?.element;
+                setAddAnchor(null);
+                void openNewFolder(origin);
+              }}
+            >
+              <FolderPlus />
+              New folder
+            </ActionMenuItem>
           </div>
         </ActionPopover>
       )}
       {moveIds && (
         <FolderMembershipDialog
           paths={folders}
+          context={`${moveIds.length} selected ${moveIds.length === 1 ? 'book' : 'books'}`}
+          parent={folder}
           memberships={books
             .filter((book) => moveIds.includes(book.id))
             .map(bookFolders)}
-          onClose={() => setMoveIds(null)}
+          onClose={closeFolderMembership}
           onSave={(changes) => setBookFolders(moveIds, changes)}
+        />
+      )}
+      {newFolder && (
+        <NewFolderDialog
+          paths={folders}
+          parent={folder}
+          scope={hiddenBooks ? 'hidden' : 'library'}
+          onClose={closeNewFolder}
+          onCreated={(path) => {
+            newFolderOrigin.current = null;
+            flushSync(() => setNewFolder(false));
+            setFocusFolder(path);
+            goFolder(path);
+          }}
         />
       )}
       {renameFolder && (
@@ -1138,7 +1211,11 @@ function AppContent({
           paths={folders}
           initial={folder}
           onClose={() => setRenameFolder(false)}
-          onSave={renameBooksFolder}
+          onSave={async (path) => {
+            const target = await renameBooksFolder(path);
+            flushSync(() => setRenameFolder(false));
+            goFolder(target);
+          }}
         />
       )}
       {opened && privacy.access(opened.book.id) ? (
@@ -1263,8 +1340,12 @@ function AppContent({
             {!group && !reading && !!folder && (
               <FolderNavigation
                 path={folder}
+                count={folderBooks.length}
+                childCount={childFolders(folders, folder).length}
+                focusKey={focusFolder}
                 href={hostedWeb ? folderHref : undefined}
                 onOpen={goFolder}
+                onNewFolder={(origin) => void openNewFolder(origin)}
                 onRename={() => setRenameFolder(true)}
                 onDelete={async () => {
                   await updateBookFolders(
@@ -1288,43 +1369,45 @@ function AppContent({
                 }}
               />
             )}
-            <div className="shelf-toolbar">
-              <div className="shelf-label">
-                {(group || hiddenBooks) && (
-                  <button
-                    className="icon"
-                    aria-label={
-                      group
-                        ? hiddenBooks
-                          ? 'Back to hidden books'
-                          : 'Back to all books'
-                        : 'Back to library'
-                    }
-                    onClick={() => {
-                      if (group) goGroup(null);
-                      else setHiddenBooks(false);
-                    }}
-                  >
-                    <ArrowLeft />
-                  </button>
-                )}
-                <h1>
-                  {group ??
-                    (hiddenBooks
-                      ? 'Hidden books'
-                      : reading
-                        ? 'Currently reading'
-                        : folder
-                          ? folder.split('/').at(-1)
-                          : 'All books')}
-                </h1>
-                <span className="muted">
-                  {browsingFolders
-                    ? folderBooks.length
-                    : entries.reduce((n, e) => n + e.books.length, 0)}
-                </span>
+            {(!folder || !!group || reading) && (
+              <div className="shelf-toolbar">
+                <div className="shelf-label">
+                  {(group || hiddenBooks) && (
+                    <button
+                      className="icon"
+                      aria-label={
+                        group
+                          ? hiddenBooks
+                            ? 'Back to hidden books'
+                            : 'Back to all books'
+                          : 'Back to library'
+                      }
+                      onClick={() => {
+                        if (group) goGroup(null);
+                        else setHiddenBooks(false);
+                      }}
+                    >
+                      <ArrowLeft />
+                    </button>
+                  )}
+                  <h1>
+                    {group ??
+                      (hiddenBooks
+                        ? 'Hidden books'
+                        : reading
+                          ? 'Currently reading'
+                          : folder
+                            ? folder.split('/').at(-1)
+                            : 'All books')}
+                  </h1>
+                  <span className="muted">
+                    {browsingFolders
+                      ? folderBooks.length
+                      : entries.reduce((n, e) => n + e.books.length, 0)}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
             {group && seriesBooks.length > 0 && (
               <div className="series-actions">
                 <span className="muted">
@@ -1463,7 +1546,9 @@ function AppContent({
                 <strong>{activeIds.length} selected</strong>
                 <button
                   disabled={!activeIds.length || !!busy}
-                  onClick={() => setMoveIds(activeIds)}
+                  onClick={(event) =>
+                    openFolderMembership(activeIds, event.currentTarget)
+                  }
                 >
                   <FolderInput />
                   Folders
@@ -1531,22 +1616,26 @@ function AppContent({
                 <h2>
                   {query || status !== 'all' || availability !== 'all'
                     ? 'No books found'
-                    : hiddenBooks
-                      ? 'No hidden books'
-                      : reading
-                        ? 'No books in progress'
-                        : 'No books yet'}
+                    : folder
+                      ? 'This folder is empty'
+                      : hiddenBooks
+                        ? 'No hidden books'
+                        : reading
+                          ? 'No books in progress'
+                          : 'No books yet'}
                 </h2>
                 <p>
                   {query || status !== 'all' || availability !== 'all'
                     ? 'Try another search or adjust your filters.'
-                    : hiddenBooks
-                      ? 'Books you hide will appear here.'
-                      : reading
-                        ? 'Open a book from your library to start reading.'
-                        : onImport
-                          ? 'Upload a book to your personal server library.'
-                          : 'Add a book to start reading.'}
+                    : folder
+                      ? 'Add books or create a subfolder here.'
+                      : hiddenBooks
+                        ? 'Books you hide will appear here.'
+                        : reading
+                          ? 'Open a book from your library to start reading.'
+                          : onImport
+                            ? 'Upload a book to your personal server library.'
+                            : 'Add a book to start reading.'}
                 </p>
                 <button
                   className="primary"
@@ -1587,6 +1676,7 @@ function AppContent({
                     books={scopedBooks.filter((book) =>
                       bookInFolder(book, path),
                     )}
+                    childCount={childFolders(folders, path).length}
                     href={hostedWeb ? folderHref(path) : undefined}
                     onOpen={() => goFolder(path)}
                   />
@@ -1872,7 +1962,10 @@ function AppContent({
       {actions && actions.entry.books.every((b) => privacy.access(b.id)) && (
         <BookActions
           onMove={() => {
-            setMoveIds(actions.entry.books.map((book) => book.id));
+            openFolderMembership(
+              actions.entry.books.map((book) => book.id),
+              actions.anchor?.element,
+            );
             setActions(null);
           }}
           onDownload={() =>

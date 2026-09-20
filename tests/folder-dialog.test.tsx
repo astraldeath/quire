@@ -164,3 +164,20 @@ it('blocks duplicate saves and dismissal while pending, then permits retry after
   expect(save).toHaveBeenCalledTimes(2);
   expect(onClose).toHaveBeenCalledOnce();
 });
+
+it('guards a changed folder name and confirmation actions never submit the form', async () => {
+  const { onSave, onClose } = await render({ rename: true });
+  await enter(host.querySelector('input')!, 'Changed');
+  await click('Cancel');
+  expect(onClose).not.toHaveBeenCalled();
+  const keep = button('Keep editing');
+  const discard = button('Discard changes');
+  expect(keep.getAttribute('type')).toBe('button');
+  expect(discard.getAttribute('type')).toBe('button');
+  await act(async () => keep.click());
+  expect(onSave).not.toHaveBeenCalled();
+  await click('Cancel');
+  await act(async () => button('Discard changes').click());
+  expect(onSave).not.toHaveBeenCalled();
+  expect(onClose).toHaveBeenCalledOnce();
+});

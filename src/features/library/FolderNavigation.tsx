@@ -1,5 +1,11 @@
-import { useRef, useState } from 'react';
-import { ChevronRight, Ellipsis, Pencil, Trash2 } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import {
+  ChevronRight,
+  Ellipsis,
+  FolderPlus,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import {
   ActionPopover,
   type ActionAnchor,
@@ -9,14 +15,22 @@ import { ActionMenuItem } from '../../components/ActionMenuItem';
 
 export function FolderNavigation({
   path,
+  count,
+  childCount = 0,
+  focusKey,
   href,
   onOpen,
+  onNewFolder,
   onRename,
   onDelete,
 }: {
   path: string;
+  count: number;
+  childCount?: number;
+  focusKey?: string;
   href?: (path: string) => string;
   onOpen(path: string): void;
+  onNewFolder(origin?: HTMLElement): void;
   onRename(): void;
   onDelete(): Promise<void>;
 }) {
@@ -25,24 +39,34 @@ export function FolderNavigation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const saving = useRef(false);
+  const heading = useRef<HTMLHeadingElement>(null);
   const parts = path.split('/');
-  const crumbs = [
+  const countText = [
+    count ? `${count} ${count === 1 ? 'book' : 'books'}` : '',
+    childCount
+      ? `${childCount} ${childCount === 1 ? 'folder' : 'folders'}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const ancestors = [
     { name: 'Library', path: '' },
-    ...parts.map((name, i) => ({
+    ...parts.slice(0, -1).map((name, index) => ({
       name,
-      path: parts.slice(0, i + 1).join('/'),
+      path: parts.slice(0, index + 1).join('/'),
     })),
   ];
+  useLayoutEffect(() => {
+    if (focusKey === path) heading.current?.focus({ preventScroll: true });
+  }, [focusKey, path]);
   return (
     <div className="folder-navigation">
       <nav aria-label="Folder breadcrumbs" className="folder-breadcrumbs">
         <ol>
-          {crumbs.map((crumb, i) => (
-            <li key={crumb.path}>
-              {i > 0 && <ChevronRight aria-hidden="true" />}
-              {i === crumbs.length - 1 ? (
-                <span aria-current="page">{crumb.name}</span>
-              ) : href ? (
+          {ancestors.map((crumb, index) => (
+            <li key={crumb.path || ':root'}>
+              {index > 0 && <ChevronRight aria-hidden="true" />}
+              {href ? (
                 <a
                   href={href(crumb.path)}
                   onClick={(event) => {
@@ -61,12 +85,22 @@ export function FolderNavigation({
                   {crumb.name}
                 </a>
               ) : (
-                <button onClick={() => onOpen(crumb.path)}>{crumb.name}</button>
+                <button type="button" onClick={() => onOpen(crumb.path)}>
+                  {crumb.name}
+                </button>
               )}
             </li>
           ))}
+          <li className="folder-current">
+            <ChevronRight aria-hidden="true" />
+            <h1 ref={heading} tabIndex={-1} aria-current="page">
+              {parts.at(-1)}
+            </h1>
+            {countText && <span className="folder-count">{countText}</span>}
+          </li>
         </ol>
         <button
+          type="button"
           className="icon"
           aria-label="Folder actions"
           aria-haspopup="menu"
@@ -90,6 +124,17 @@ export function FolderNavigation({
           onClose={() => setAnchor(null)}
         >
           <div className="book-action-list">
+            <ActionMenuItem
+              menuId="new-folder"
+              onClick={() => {
+                const origin = anchor?.element;
+                setAnchor(null);
+                onNewFolder(origin);
+              }}
+            >
+              <FolderPlus />
+              New folder
+            </ActionMenuItem>
             <ActionMenuItem
               menuId="rename"
               onClick={() => {
@@ -133,10 +178,10 @@ export function FolderNavigation({
               try {
                 await onDelete();
                 setConfirm(false);
-              } catch (error) {
+              } catch (reason) {
                 setError(
-                  error instanceof Error
-                    ? error.message
+                  reason instanceof Error
+                    ? reason.message
                     : 'Could not delete folder.',
                 );
               } finally {

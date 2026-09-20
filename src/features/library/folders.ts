@@ -18,6 +18,13 @@ export function normalizeFolder(value: string): string {
     );
   return parts.join('/');
 }
+export function newFolderPath(name: string, parent = ''): string {
+  name = name.trim();
+  if (!name) throw new Error('Enter a folder name.');
+  if (name.includes('/'))
+    throw new Error('Use a single folder name without /.');
+  return normalizeFolder([parent, name].filter(Boolean).join('/'));
+}
 export function validFolder(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   try {

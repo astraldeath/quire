@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { App } from '../src/App';
 import { defaults } from '../src/domain/models';
-const { books, ensure, saveBook, putBook } = vi.hoisted(() => ({
+const { books, ensure, saveBook, putBook, folderCatalog } = vi.hoisted(() => ({
   saveBook: vi.fn(async (_book: import('../src/domain/models').Book) => {}),
   putBook: vi.fn(
     async (
@@ -36,6 +36,7 @@ const { books, ensure, saveBook, putBook } = vi.hoisted(() => ({
     },
   ],
   ensure: vi.fn(async () => new Uint8Array([1])),
+  folderCatalog: { library: [] as string[], hidden: [] as string[] },
 }));
 vi.mock('../src/books', async () => ({
   ...(await vi.importActual('../src/books')),
@@ -59,14 +60,18 @@ vi.mock('../src/storage', () => ({
   listBooks: async () => books,
   loadPreferences: async () => defaults,
   loadSync: async () => ({ enabled: false }),
-  loadFolderCatalog: async () => ({ value: { library: [], hidden: [] } }),
+  loadFolderCatalog: async () => ({ value: structuredClone(folderCatalog) }),
   saveBook,
   editFolderCatalog: async (
     edit: (state: any) => void,
     memberships?: (books: any[]) => any[],
   ) => {
-    edit({ value: { library: [], hidden: [] } });
+    const state = { value: structuredClone(folderCatalog) };
+    edit(state);
+    folderCatalog.library = [...state.value.library];
+    folderCatalog.hidden = [...state.value.hidden];
     for (const book of memberships?.(books) ?? []) await saveBook(book);
+    window.dispatchEvent(new Event('quire-storage'));
   },
   putBook,
   saveReadingPosition: vi.fn(),
@@ -122,6 +127,8 @@ let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
   saveBook.mockClear();
   putBook.mockClear();
+  folderCatalog.library = [];
+  folderCatalog.hidden = [];
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -147,10 +154,15 @@ async function click(text: string) {
   );
 }
 async function input(value: string) {
-  const el = host.querySelector<HTMLInputElement>(
-    '[role="dialog"] input:not([type="checkbox"])',
-  )!;
+  const el =
+    host.querySelector<HTMLInputElement>(
+      '[role="dialog"] input[aria-label="Folder name"]',
+    ) ??
+    host.querySelector<HTMLInputElement>(
+      '[role="dialog"] input:not([type="checkbox"])',
+    )!;
   await act(async () => {
+    el.focus();
     Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
@@ -272,7 +284,10 @@ it('adds the selected series to another folder without changing existing members
   await act(async () =>
     host.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click(),
   );
-  await click('Folders');
+  const foldersTrigger = [...host.querySelectorAll('button')].find(
+    (node) => node.textContent === 'Folders',
+  )!;
+  await act(async () => foldersTrigger.click());
   await click('New folder');
   await input('New shelf');
   await submit();
@@ -280,7 +295,30 @@ it('adds the selected series to another folder without changing existing members
   expect(saveBook.mock.calls.map((call) => call[0])).toEqual(
     books.map((book) => ({ ...book, folders: [book.folder, 'New shelf'] })),
   );
+  expect(folderCatalog.library).toEqual(['New shelf']);
   expect(host.querySelector('[role="dialog"]')).toBeNull();
+});
+
+it('returns membership cancel focus to the persistent book actions trigger', async () => {
+  await mount('/library?folder=Shelf');
+  const actionsTrigger = host.querySelector<HTMLButtonElement>(
+    '[aria-label="Actions for Book Two"]',
+  )!;
+  await act(async () => actionsTrigger.click());
+  await act(async () =>
+    [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((node) => node.textContent === 'Folders')!
+      .click(),
+  );
+  await act(async () =>
+    host
+      .querySelector<HTMLInputElement>('input[aria-label="Shelf/Nested"]')!
+      .click(),
+  );
+  await click('Cancel');
+  await click('Discard changes');
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.activeElement).toBe(actionsTrigger);
 });
 
 it('shows folder cards instead of duplicating their books at the library root', async () => {
@@ -332,4 +370,137 @@ it('imports a picked directory beneath the current folder and skips non-book fil
   });
   expect(new URLSearchParams(location.search).get('folder')).toBe('Shelf');
   expect(host.textContent).toContain('1 book imported.');
+});
+
+it('creates an empty child folder, restores it after reload, then deletes it', async () => {
+  await mount('/library?folder=Shelf');
+  const folderActions = host.querySelector<HTMLButtonElement>(
+    '[aria-label="Folder actions"]',
+  )!;
+  await act(async () => folderActions.click());
+  await act(async () =>
+    [...document.querySelectorAll('button')]
+      .find((node) => node.textContent === 'New folder')!
+      .click(),
+  );
+  const pristineCancel = [...host.querySelectorAll('button')].find(
+    (node) => node.textContent === 'Cancel',
+  )!;
+  pristineCancel.focus();
+  await act(async () => pristineCancel.click());
+  expect(document.activeElement).toBe(folderActions);
+  await act(async () => folderActions.click());
+  await act(async () =>
+    [...document.querySelectorAll('button')]
+      .find((node) => node.textContent === 'New folder')!
+      .click(),
+  );
+  expect(
+    host.querySelector<HTMLInputElement>('input[aria-label="Shelf"]')?.checked,
+  ).toBe(true);
+  expect(
+    host.querySelector<HTMLInputElement>('input[aria-label="Shelf"]')?.type,
+  ).toBe('radio');
+  const parentSearch = host.querySelector<HTMLInputElement>(
+    'input[aria-label="Search folders"]',
+  )!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )!.set!.call(parentSearch, 'No matching parent');
+    parentSearch.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(
+    host.querySelector<HTMLInputElement>('input[aria-label="Shelf"]')?.checked,
+  ).toBe(true);
+  await input('Empty child');
+  await submit();
+  expect(folderCatalog.library).toEqual(['Shelf/Empty child']);
+  expect(saveBook).not.toHaveBeenCalled();
+  expect(new URLSearchParams(location.search).get('folder')).toBe(
+    'Shelf/Empty child',
+  );
+  expect(document.activeElement?.textContent).toBe('Empty child');
+
+  await act(async () => root.unmount());
+  root = createRoot(host);
+  await mount('/library?folder=Shelf%2FEmpty%20child');
+  expect(host.textContent).toContain('Empty child');
+  expect(host.textContent).toContain('This folder is empty');
+  await act(async () =>
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Folder actions"]')!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll('button')]
+      .find((node) => node.textContent === 'Delete folder')!
+      .click(),
+  );
+  await submit();
+  expect(folderCatalog.library).toEqual([]);
+  expect(saveBook).not.toHaveBeenCalled();
+  expect(new URLSearchParams(location.search).get('folder')).toBe('Shelf');
+});
+
+it('validates a single new folder name and rejects duplicate targets', async () => {
+  await mount('/library');
+  const addBooks = host.querySelector<HTMLButtonElement>(
+    '[aria-label="Add books"]',
+  )!;
+  await click('Add books');
+  await act(async () =>
+    [...document.querySelectorAll('button')]
+      .find((node) => node.textContent === 'New folder')!
+      .click(),
+  );
+  await input('Nested/Name');
+  await submit();
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+    'single folder name',
+  );
+  expect(folderCatalog.library).toEqual([]);
+  await input('Shelf');
+  await submit();
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+    'already exists',
+  );
+  expect(folderCatalog.library).toEqual([]);
+  await click('Cancel');
+  await click('Discard changes');
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
+  expect(folderCatalog.library).toEqual([]);
+  expect(document.activeElement).toBe(addBooks);
+});
+
+it('does not reveal an explicit hidden folder before privacy access is granted', async () => {
+  folderCatalog.hidden = ['Private shelf'];
+  localStorage.setItem(
+    'privacy-folder-test',
+    JSON.stringify({
+      version: 1,
+      books: { [books[0].id]: 'hidden' },
+      credential: { salt: 'a'.repeat(32), hash: 'b'.repeat(64) },
+    }),
+  );
+  await mount('/library');
+  expect(host.textContent).not.toContain('Private shelf');
+  await click('View');
+  await click('Hidden books');
+  expect(host.querySelector('[role="dialog"] h2')?.textContent).toBe(
+    'Unlock private books',
+  );
+  expect(host.textContent).not.toContain('Private shelf');
+});
+
+it('labels an empty parent by its child folders with a folder-specific frame', async () => {
+  folderCatalog.library = ['Reference/History', 'Reference/Science'];
+  await mount('/library');
+  const card = host.querySelector(
+    '.folder-card [aria-label="Open folder Reference"]',
+  )!;
+  expect(card.textContent).toContain('2 folders');
+  expect(card.textContent).not.toContain('0 books');
+  expect(card.querySelector('.folder-cover-empty')).not.toBeNull();
 });

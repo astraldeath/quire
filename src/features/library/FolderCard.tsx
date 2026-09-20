@@ -1,22 +1,35 @@
-import { Folder, BookOpen } from 'lucide-react';
+import { Folder, FolderOpen } from 'lucide-react';
 import type { Book } from '../../domain/models';
 
 export function FolderCard({
   path,
   books,
+  childCount = 0,
   href,
   onOpen,
 }: {
   path: string;
   books: Book[];
+  childCount?: number;
   href?: string;
   onOpen(): void;
 }) {
   const name = path.split('/').at(-1)!;
   const covers = books.filter((book) => book.cover).slice(0, 4);
+  const counts = [
+    books.length
+      ? `${books.length} ${books.length === 1 ? 'book' : 'books'}`
+      : '',
+    childCount
+      ? `${childCount} ${childCount === 1 ? 'folder' : 'folders'}`
+      : '',
+  ].filter(Boolean);
   const contents = (
     <>
-      <div className="cover-frame folder-cover" aria-hidden="true">
+      <div
+        className={`cover-frame folder-cover ${covers.length ? '' : 'folder-cover-empty'}`}
+        aria-hidden="true"
+      >
         <div className={`folder-cover-preview preview-${covers.length}`}>
           {covers.length ? (
             covers.map((book) => (
@@ -29,7 +42,7 @@ export function FolderCard({
               />
             ))
           ) : (
-            <BookOpen />
+            <FolderOpen />
           )}
         </div>
         <span className="folder-cover-badge">
@@ -38,9 +51,7 @@ export function FolderCard({
       </div>
       <div className="book-copy">
         <h2 title={name}>{name}</h2>
-        <p className="book-author">
-          {books.length} {books.length === 1 ? 'book' : 'books'}
-        </p>
+        <p className="book-author">{counts.join(' · ') || 'Empty folder'}</p>
       </div>
     </>
   );

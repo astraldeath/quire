@@ -3090,16 +3090,15 @@ dialog:focus {
 }
 
 .folder-navigation {
-  display: grid;
-  gap: 10px;
   min-width: 0;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 .folder-breadcrumbs {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+  min-height: 44px;
 }
 .folder-breadcrumbs ol {
   display: flex;
@@ -3127,7 +3126,7 @@ dialog:focus {
 }
 .folder-breadcrumbs li > a,
 .folder-breadcrumbs li > button,
-.folder-breadcrumbs li > span {
+.folder-breadcrumbs li > h1 {
   display: block;
   min-width: 0;
   padding: 10px 6px;
@@ -3145,14 +3144,29 @@ dialog:focus {
   color: var(--fg);
   background: var(--hover);
 }
-.folder-breadcrumbs li > [aria-current='page'] {
+.folder-breadcrumbs li > h1[aria-current='page'] {
   color: var(--fg);
   font-weight: 500;
+  font-size: 16px;
+  margin: 0;
 }
 .folder-breadcrumbs > .icon {
   width: 40px;
   height: 40px;
   flex-shrink: 0;
+}
+.folder-current {
+  flex: 1;
+}
+.folder-current h1:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.folder-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 10px 2px;
 }
 .folder-breadcrumbs a:focus-visible {
   outline: 2px solid var(--accent);
@@ -3197,6 +3211,10 @@ dialog:focus {
   place-items: center;
   grid-template: 1fr / 1fr;
   color: var(--muted);
+}
+.folder-cover-empty .folder-cover-preview {
+  border: 1px dashed color-mix(in srgb, var(--accent) 36%, var(--line));
+  background: linear-gradient(145deg, var(--surface), var(--hover));
 }
 .folder-cover-preview > svg {
   width: 32px;
@@ -3244,12 +3262,59 @@ dialog:focus {
   display: grid;
   gap: 4px;
 }
-.folder-membership .folder-choice {
+.folder-picker {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.folder-picker-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--surface);
+}
+.folder-picker-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.folder-picker-search > svg {
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.folder-picker-search input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding-inline: 0;
+}
+.folder-picker-search .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.folder-picker .folder-choices {
+  max-height: min(280px, 36vh);
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.folder-choice {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 12px 10px calc(12px + var(--folder-depth, 0) * 18px);
   min-height: 44px;
   border-radius: 6px;
   background: var(--surface);
@@ -3266,14 +3331,50 @@ dialog:focus {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.folder-choice > input[type='checkbox'] {
+.folder-choice > input[type='checkbox'],
+.folder-choice > input[type='radio'] {
   flex: 0 0 18px;
   width: 18px;
   height: 18px;
   margin: 0;
 }
+.folder-picker-empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+  padding: 14px 12px;
+}
+.folder-parent-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.folder-parent-field > legend {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.new-folder-form,
+.new-folder-fields {
+  min-width: min(420px, 100%);
+}
+.new-folder-fields {
+  display: grid;
+  gap: 14px;
+}
 .folder-navigation button:focus-visible {
   outline-offset: -3px;
+}
+@media (max-width: 540px) {
+  .folder-breadcrumbs {
+    flex-wrap: wrap;
+  }
+  .folder-breadcrumbs ol {
+    flex-basis: calc(100% - 46px);
+  }
+  .folder-picker .folder-choices {
+    max-height: min(240px, 32vh);
+  }
 }
 
 .shared-upload-progress {
