@@ -25,6 +25,24 @@
       },
       {
         "ext": [
+          "cbr"
+        ],
+        "name": "Quire CBR book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.comicbook-rar"
+      },
+      {
+        "ext": [
+          "cb7"
+        ],
+        "name": "Quire CB7 book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/x-cb7"
+      },
+      {
+        "ext": [
           "fb2"
         ],
         "name": "Quire FB2 book",

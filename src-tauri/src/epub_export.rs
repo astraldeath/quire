@@ -24,7 +24,7 @@ fn export_name(encoded: &str) -> Result<String, String> {
         .map_err(|_| "Invalid book filename.")?;
     let name = String::from_utf8(bytes).map_err(|_| "Invalid book filename.")?;
     let (stem, extension) = name.rsplit_once('.').ok_or("Invalid book filename.")?;
-    if !["epub", "cbz", "fb2", "fbz", "mobi", "azw3", "pdf"].contains(&extension) { return Err("Invalid book filename.".into()); }
+    if !["epub", "cbz", "cbr", "cb7", "fb2", "fbz", "mobi", "azw3", "pdf"].contains(&extension) { return Err("Invalid book filename.".into()); }
     if name.len() > 200
         || stem.is_empty()
         || stem.starts_with('.')
@@ -135,6 +135,8 @@ mod tests {
     fn accepts_unicode_and_rejects_paths_and_oversized_names() {
         assert_eq!(name("旅の本.epub").unwrap(), "旅の本.epub");
         assert_eq!(name("Document.pdf").unwrap(), "Document.pdf");
+        assert_eq!(name("Comic.cbr").unwrap(), "Comic.cbr");
+        assert_eq!(name("Comic.cb7").unwrap(), "Comic.cb7");
         for invalid in [
             "../book.epub",
             "C:\\book.epub",

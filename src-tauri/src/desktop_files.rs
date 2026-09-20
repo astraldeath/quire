@@ -33,7 +33,7 @@ fn supported(path: &Path) -> bool {
         .to_string_lossy()
         .to_lowercase();
     [
-        ".epub", ".cbz", ".fb2", ".fbz", ".fb2.zip", ".mobi", ".azw3", ".pdf",
+        ".epub", ".cbz", ".cbr", ".cb7", ".fb2", ".fbz", ".fb2.zip", ".mobi", ".azw3", ".pdf",
     ]
     .iter()
     .any(|ext| name.ends_with(ext))
@@ -207,11 +207,13 @@ mod tests {
     #[test]
     fn only_book_extensions_and_valid_regular_files_are_accepted() {
         assert!(supported(Path::new("BOOK.PDF")));
+        assert!(supported(Path::new("Comic.CBR")));
+        assert!(supported(Path::new("Comic.CB7")));
         assert!(supported(Path::new("book.fb2.zip")));
         assert!(!supported(Path::new("archive.zip")));
         assert!(!supported(Path::new("file.exe")));
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("book.epub");
+        let path = dir.path().join("book.cbr");
         std::fs::write(&path, b"book").unwrap();
         let mut inbox = Vec::new();
         enqueue(&mut inbox, path.clone());
@@ -221,7 +223,7 @@ mod tests {
         assert!(read(&mut inbox[0], 0, CHUNK + 1).is_err());
         assert!(read(&mut inbox[0], u64::MAX, 2).is_err());
         assert!(read(&mut inbox[0], 3, 2).is_err());
-        enqueue(&mut inbox, dir.path().join("missing.pdf"));
+        enqueue(&mut inbox, dir.path().join("missing.cb7"));
         assert!(inbox[1].info.error.is_some());
     }
     #[test]

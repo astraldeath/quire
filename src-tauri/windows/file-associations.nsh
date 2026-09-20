@@ -21,6 +21,8 @@
   WriteRegStr SHCTX "Software\RegisteredApplications" "Quire" "Software\Quire\Capabilities"
   !insertmacro QuireRegisterExtension "epub"
   !insertmacro QuireRegisterExtension "cbz"
+  !insertmacro QuireRegisterExtension "cbr"
+  !insertmacro QuireRegisterExtension "cb7"
   !insertmacro QuireRegisterExtension "fb2"
   !insertmacro QuireRegisterExtension "fbz"
   !insertmacro QuireRegisterExtension "mobi"
@@ -32,6 +34,8 @@
 !macro NSIS_HOOK_POSTUNINSTALL
   !insertmacro QuireUnregisterExtension "epub"
   !insertmacro QuireUnregisterExtension "cbz"
+  !insertmacro QuireUnregisterExtension "cbr"
+  !insertmacro QuireUnregisterExtension "cb7"
   !insertmacro QuireUnregisterExtension "fb2"
   !insertmacro QuireUnregisterExtension "fbz"
   !insertmacro QuireUnregisterExtension "mobi"
