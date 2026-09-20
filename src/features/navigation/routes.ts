@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { hasNavigationBlockers, requestNavigation } from './blockers';
 export const hostedWeb = import.meta.env.VITE_HOSTED === 'true';
 export type WebRoute = {
   kind:
@@ -87,12 +88,137 @@ export function parseWebRoute(path: string): WebRoute {
   return { kind: 'not-found' };
 }
 const event = 'quire-navigation';
-const snapshot = () => location.pathname + location.search;
+const browserPath = () => location.pathname + location.search;
+type Entry = {
+  path: string;
+  state: Record<string, unknown>;
+  index: number;
+  session: string;
+};
+let accepted: Entry | undefined;
+let listening = false;
+let restoring: { origin: Entry; target: Entry; delta: number } | undefined;
+let approved: Entry | undefined;
+function indexedEntry(): Entry | undefined {
+  const state = history.state;
+  if (
+    !state ||
+    typeof state.quireSession !== 'string' ||
+    !Number.isSafeInteger(state.quireIndex) ||
+    state.quireIndex < 0
+  )
+    return;
+  return {
+    path: browserPath(),
+    state,
+    index: state.quireIndex,
+    session: state.quireSession,
+  };
+}
+function ownEntry(): Entry {
+  const existing = indexedEntry();
+  if (existing) return existing;
+  const state = {
+    ...(history.state && typeof history.state === 'object'
+      ? history.state
+      : {}),
+    quireSession: crypto.randomUUID(),
+    quireIndex: 0,
+  };
+  history.replaceState(state, '', browserPath());
+  return indexedEntry()!;
+}
+function publish() {
+  accepted = ownEntry();
+  window.dispatchEvent(new Event(event));
+}
+function matches(a: Entry | undefined, b: Entry) {
+  return a?.session === b.session && a.index === b.index && a.path === b.path;
+}
+function replaceUnknownSlot(path: string, state: unknown) {
+  const data =
+    state && typeof state === 'object'
+      ? ({ ...state } as Record<string, unknown>)
+      : {};
+  // Neither the old index nor `from` describes this relocated entry. Start a
+  // fresh segment rather than manufacture traversal directions for later pops.
+  delete data.quireIndex;
+  delete data.quireSession;
+  delete data.quire;
+  delete data.from;
+  history.replaceState(data, '', path);
+  accepted = ownEntry();
+}
+function guardUnknownSlot(origin: Entry, path: string, state: unknown) {
+  replaceUnknownSlot(origin.path, origin.state);
+  requestNavigation(() => {
+    replaceUnknownSlot(path, state);
+    publish();
+  });
+}
+function onPopState() {
+  const target = indexedEntry();
+  if (restoring) {
+    const transition = restoring;
+    if (!matches(target, transition.origin)) {
+      // A second Back arrived before restoration completed. Return all the way
+      // to the accepted entry and retain only the first pending destination.
+      if (target?.session === transition.origin.session) {
+        history.go(transition.origin.index - target.index);
+        return;
+      }
+      restoring = undefined;
+      guardUnknownSlot(
+        transition.origin,
+        transition.target.path,
+        transition.target.state,
+      );
+      return;
+    }
+    restoring = undefined;
+    requestNavigation(() => {
+      approved = transition.target;
+      history.go(transition.delta);
+    });
+    return;
+  }
+  if (
+    approved &&
+    (matches(target, approved) ||
+      (approved.index < 0 && browserPath() === approved.path))
+  ) {
+    approved = undefined;
+    publish();
+    return;
+  }
+  approved = undefined;
+  if (!accepted || !hasNavigationBlockers()) {
+    publish();
+    return;
+  }
+  const origin = accepted;
+  if (target?.session === origin.session && target.index !== origin.index) {
+    restoring = { origin, target, delta: target.index - origin.index };
+    history.go(origin.index - target.index);
+    return;
+  }
+  // Legacy entries have no reliable traversal direction. Preserve the draft
+  // and URL without pushing a duplicate entry. Accepting replaces this unknown
+  // slot; we cannot reconstruct its original relationship to other entries.
+  guardUnknownSlot(origin, browserPath(), history.state);
+}
+function ensureHistory() {
+  if (!listening) {
+    window.addEventListener('popstate', onPopState);
+    listening = true;
+  }
+  if (!restoring && !approved) accepted = ownEntry();
+}
+const snapshot = () => accepted?.path ?? browserPath();
 const subscribe = (listener: () => void) => {
-  window.addEventListener('popstate', listener);
+  ensureHistory();
   window.addEventListener(event, listener);
   return () => {
-    window.removeEventListener('popstate', listener);
     window.removeEventListener(event, listener);
   };
 };
@@ -102,19 +228,42 @@ export function useWebPath() {
 export function navigateWeb(path: string, replace = false) {
   if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\'))
     throw new Error('Expected a local Quire path.');
-  const current = snapshot();
-  if (current === path) return;
-  const route = parseWebRoute(current);
-  const shelf = ['library', 'reading', 'series'].includes(route.kind)
-    ? current
-    : history.state?.shelf || '/library';
-  const state = replace ? history.state : { quire: true, from: current, shelf };
-  history[replace ? 'replaceState' : 'pushState'](state, '', path);
-  window.dispatchEvent(new Event(event));
+  ensureHistory();
+  if (snapshot() === path || restoring || approved) return;
+  requestNavigation(() => {
+    const current = accepted!.path;
+    if (current === path) return;
+    const route = parseWebRoute(current);
+    const shelf = ['library', 'reading', 'series'].includes(route.kind)
+      ? current
+      : history.state?.shelf || '/library';
+    const state = replace
+      ? history.state
+      : {
+          quire: true,
+          from: current,
+          shelf,
+          quireSession: accepted!.session,
+          quireIndex: accepted!.index + 1,
+        };
+    history[replace ? 'replaceState' : 'pushState'](state, '', path);
+    publish();
+  });
 }
 export function closeWeb(fallback = '/library') {
+  ensureHistory();
+  if (restoring || approved) return;
   if (history.state?.quire && history.state?.from) {
-    history.back();
+    requestNavigation(() => {
+      // closeWeb has already been approved. The subsequent asynchronous pop
+      // must consume that approval, rather than prompt a second time.
+      approved = {
+        ...accepted!,
+        index: accepted!.index - 1,
+        path: history.state.from,
+      };
+      history.back();
+    });
     return;
   }
   navigateWeb(fallback, true);

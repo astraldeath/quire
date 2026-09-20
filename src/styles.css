@@ -735,6 +735,32 @@ label {
   align-items: center;
   justify-content: space-between;
 }
+.confirm-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+}
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+.task-error {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+.task-error > p {
+  margin: 0 0 0.5rem;
+}
+.task-error details {
+  margin-block: 0.5rem;
+}
+.task-error pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
 .error {
   color: #d36464;
   white-space: pre-wrap;
