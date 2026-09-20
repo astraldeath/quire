@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.2]
+
+- Restore labeled settings tabs on mobile in two compact rows, replacing the section dropdown.
+- Keep mobile tabs visible and stationary while settings content scrolls, with keyboard navigation adapted to the layout.
+
 ## [0.7.1]
 
 - Fix native command permission errors introduced in v0.7.0, including file opening, screen capture settings, local storage, sync, tracking, and update checks.
