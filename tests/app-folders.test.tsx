@@ -423,6 +423,25 @@ it('creates an empty child folder, restores it after reload, then deletes it', a
   );
   expect(document.activeElement?.textContent).toBe('Empty child');
 
+  const parent = [
+    ...host.querySelectorAll<HTMLAnchorElement>(
+      '[aria-label="Folder breadcrumbs"] a',
+    ),
+  ].find((node) => node.textContent === 'Shelf')!;
+  await act(async () => parent.click());
+  expect(new URLSearchParams(location.search).get('folder')).toBe('Shelf');
+  const reopen = host.querySelector<HTMLButtonElement>(
+    '[aria-label="Open folder Empty child"]',
+  )!;
+  reopen.focus();
+  expect(document.activeElement).toBe(reopen);
+  await act(async () => reopen.click());
+  const reopenedHeading = host.querySelector<HTMLHeadingElement>(
+    '[aria-current="page"]',
+  )!;
+  expect(reopenedHeading.textContent).toBe('Empty child');
+  expect(document.activeElement).not.toBe(reopenedHeading);
+
   await act(async () => root.unmount());
   root = createRoot(host);
   await mount('/library?folder=Shelf%2FEmpty%20child');
@@ -474,23 +493,29 @@ it('validates a single new folder name and rejects duplicate targets', async () 
   expect(document.activeElement).toBe(addBooks);
 });
 
-it('does not reveal an explicit hidden folder before privacy access is granted', async () => {
+it('does not reveal hidden-derived or explicit hidden folders before access', async () => {
   folderCatalog.hidden = ['Private shelf'];
   localStorage.setItem(
     'privacy-folder-test',
     JSON.stringify({
       version: 1,
-      books: { [books[0].id]: 'hidden' },
+      books: {
+        [books[0].id]: 'hidden',
+        [books[1].id]: 'hidden',
+        [books[2].id]: 'hidden',
+      },
       credential: { salt: 'a'.repeat(32), hash: 'b'.repeat(64) },
     }),
   );
   await mount('/library');
+  expect(host.querySelector('[aria-label="Open folder Shelf"]')).toBeNull();
   expect(host.textContent).not.toContain('Private shelf');
   await click('View');
   await click('Hidden books');
   expect(host.querySelector('[role="dialog"] h2')?.textContent).toBe(
     'Unlock private books',
   );
+  expect(host.querySelector('[aria-label="Open folder Shelf"]')).toBeNull();
   expect(host.textContent).not.toContain('Private shelf');
 });
 

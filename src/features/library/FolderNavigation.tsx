@@ -18,6 +18,7 @@ export function FolderNavigation({
   count,
   childCount = 0,
   focusKey,
+  onFocused,
   href,
   onOpen,
   onNewFolder,
@@ -28,6 +29,7 @@ export function FolderNavigation({
   count: number;
   childCount?: number;
   focusKey?: string;
+  onFocused?(): void;
   href?: (path: string) => string;
   onOpen(path: string): void;
   onNewFolder(origin?: HTMLElement): void;
@@ -57,8 +59,10 @@ export function FolderNavigation({
     })),
   ];
   useLayoutEffect(() => {
-    if (focusKey === path) heading.current?.focus({ preventScroll: true });
-  }, [focusKey, path]);
+    if (focusKey !== path || !heading.current) return;
+    heading.current.focus({ preventScroll: true });
+    if (document.activeElement === heading.current) onFocused?.();
+  }, [focusKey, onFocused, path]);
   return (
     <div className="folder-navigation">
       <nav aria-label="Folder breadcrumbs" className="folder-breadcrumbs">

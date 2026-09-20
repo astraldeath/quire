@@ -1343,6 +1343,7 @@ function AppContent({
                 count={folderBooks.length}
                 childCount={childFolders(folders, folder).length}
                 focusKey={focusFolder}
+                onFocused={() => setFocusFolder('')}
                 href={hostedWeb ? folderHref : undefined}
                 onOpen={goFolder}
                 onNewFolder={(origin) => void openNewFolder(origin)}
