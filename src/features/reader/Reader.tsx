@@ -123,6 +123,7 @@ export function Reader({
   >(null);
   const [comic, setComic] = useState<ReaderBook | null>(null);
   const [comicPosition, setComicPosition] = useState(book.position);
+  const [readerPosition, setReaderPosition] = useState(book.position);
   const current = useRef({ preferences, onPosition, onActivity });
   current.current = { preferences, onPosition, onActivity };
   const [toc, setToc] = useState<TocItem[]>([]);
@@ -386,14 +387,16 @@ export function Reader({
         href: locationHref,
         atEnd: view.renderer.atEnd,
       });
-      current.current.onPosition({
+      const position = {
         cfi: location.cfi,
         fraction,
         section: location.tocItem?.label ?? '',
         ...(completedChapter !== null ? { completedChapter } : {}),
         ...(currentChapter !== null ? { currentChapter } : {}),
         updatedAt: Date.now(),
-      });
+      };
+      setReaderPosition(position);
+      current.current.onPosition(position);
     });
     void (async () => {
       const opened = await openBook(bytes, book.format);
@@ -790,7 +793,8 @@ export function Reader({
           }}
           toolbar={toolbar.current!}
           view={viewRef.current}
-          book={book}
+          book={{ ...book, position: readerPosition }}
+          fixedLayout={viewRef.current.isFixedLayout}
           visible={chromeVisible}
           onSave={onAnnotations}
           navigate={navigate}

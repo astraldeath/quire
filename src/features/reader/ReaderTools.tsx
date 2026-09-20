@@ -29,6 +29,7 @@ interface Props {
   view: View;
   book: Book;
   visible: boolean;
+  fixedLayout?: boolean;
   onSave(items: Annotation[]): Promise<void>;
   navigate(cfi: string): Promise<boolean>;
 }
@@ -39,6 +40,7 @@ export function ReaderTools({
   view,
   book,
   visible,
+  fixedLayout = view.isFixedLayout,
   onSave,
   navigate,
 }: Props) {
@@ -343,8 +345,10 @@ export function ReaderTools({
         createPortal(
           <div className="reader-tools" aria-label="Reading tools">
             <button
-              title="Bookmarks and highlights"
-              aria-label="Bookmarks and highlights"
+              title={fixedLayout ? 'Bookmarks' : 'Bookmarks and highlights'}
+              aria-label={
+                fixedLayout ? 'Bookmarks' : 'Bookmarks and highlights'
+              }
               onClick={() => {
                 setPanel('saved');
                 setMessage('');
@@ -430,7 +434,9 @@ export function ReaderTools({
           onClose={close}
           label={
             panel === 'saved'
-              ? 'Bookmarks and highlights'
+              ? fixedLayout
+                ? 'Bookmarks'
+                : 'Bookmarks and highlights'
               : panel === 'note'
                 ? 'Edit note'
                 : panel === 'define'
@@ -441,7 +447,9 @@ export function ReaderTools({
           <div className="reader-panel-heading">
             <h2>
               {panel === 'saved'
-                ? 'Bookmarks & highlights'
+                ? fixedLayout
+                  ? 'Bookmarks'
+                  : 'Bookmarks & highlights'
                 : panel === 'note'
                   ? 'Note'
                   : panel === 'define'
@@ -463,7 +471,11 @@ export function ReaderTools({
                 {marked ? 'Remove bookmark' : 'Bookmark this page'}
               </button>
               {!items.length && (
-                <p>No bookmarks or highlights. Select text to highlight it.</p>
+                <p>
+                  {fixedLayout
+                    ? 'No bookmarks.'
+                    : 'No bookmarks or highlights. Select text to highlight it.'}
+                </p>
               )}
               {items.map((item) => (
                 <article key={item.id}>
