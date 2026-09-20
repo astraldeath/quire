@@ -3510,6 +3510,7 @@ dialog:focus {
 }
 /* Application settings only; reading settings retain their tab layout. */
 dialog:has(.settings-layout) {
+  bottom: auto;
   width: min(900px, calc(100vw - 32px));
   height: auto;
 }
