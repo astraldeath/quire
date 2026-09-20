@@ -16,12 +16,20 @@ function readingTime(ms: number) {
     ? `${minutes} min`
     : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
-export function Statistics({ books }: { books: Book[] }) {
+export function Statistics({
+  books,
+  onLibrary,
+}: {
+  books: Book[];
+  onLibrary(): void;
+}) {
   const [period, setPeriod] = useState<StatisticsPeriod>('all');
   const [records, setRecords] = useState<ReadingActivity[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
-  const [hint, setHint] = useState<'time' | 'speed' | null>(null);
+  const [hint, setHint] = useState<
+    'time' | 'speed' | 'chapters' | 'volumes' | null
+  >(null);
   useEffect(() => {
     let disposed = false;
     const load = () =>
@@ -47,6 +55,11 @@ export function Statistics({ books }: { books: Book[] }) {
     };
   }, []);
   const stats = aggregateStatistics(books, records, period);
+  const hasHistory =
+    stats.activeMs > 0 ||
+    stats.chapters > 0 ||
+    stats.volumes > 0 ||
+    stats.wordsPerMinute !== null;
   const number = (n: number) => n.toLocaleString();
   return (
     <section className="statistics" aria-label="Reading statistics">
@@ -101,6 +114,18 @@ export function Statistics({ books }: { books: Book[] }) {
           <p role="status" className="muted">
             Loading history…
           </p>
+        ) : !hasHistory ? (
+          <div className="statistics-empty">
+            <p>
+              {period === 'all'
+                ? 'No reading history yet.'
+                : 'No reading history for this period.'}
+            </p>
+            <button onClick={onLibrary}>
+              <BookOpen />
+              Go to library
+            </button>
+          </div>
         ) : (
           <>
             <dl className="statistics-grid">
@@ -108,15 +133,47 @@ export function Statistics({ books }: { books: Book[] }) {
                 <dt>
                   <ListOrdered />
                   Chapters read
+                  <button
+                    className="statistics-info"
+                    aria-label="About chapters read"
+                    aria-expanded={hint === 'chapters'}
+                    onClick={() =>
+                      setHint(hint === 'chapters' ? null : 'chapters')
+                    }
+                  >
+                    <Info />
+                  </button>
                 </dt>
                 <dd>{number(stats.chapters)}</dd>
+                {hint === 'chapters' && (
+                  <dd className="statistics-hint">
+                    Distinct completed chapters. All time also includes saved
+                    chapter progress.
+                  </dd>
+                )}
               </div>
               <div>
                 <dt>
                   <Layers />
                   Volumes read
+                  <button
+                    className="statistics-info"
+                    aria-label="About volumes read"
+                    aria-expanded={hint === 'volumes'}
+                    onClick={() =>
+                      setHint(hint === 'volumes' ? null : 'volumes')
+                    }
+                  >
+                    <Info />
+                  </button>
                 </dt>
                 <dd>{number(stats.volumes)}</dd>
+                {hint === 'volumes' && (
+                  <dd className="statistics-hint">
+                    Finished books with a volume number. History is retained
+                    after a book is removed.
+                  </dd>
+                )}
               </div>
               <div>
                 <dt>

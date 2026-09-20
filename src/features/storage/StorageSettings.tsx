@@ -63,7 +63,7 @@ export function StorageSettings({ onConnect }: { onConnect(): void }) {
       <h3>Storage</h3>
       {summary && (
         <p>
-          {summary.books} downloaded books ·{' '}
+          {summary.books} downloaded {summary.books === 1 ? 'book' : 'books'} ·{' '}
           {(summary.bytes / 1073741824).toFixed(2)} GiB
         </p>
       )}

@@ -59,3 +59,39 @@ it('shows Docker instructions only to admins and disables controls during instal
   ).toBe(true);
   await act(async () => root.unmount());
 });
+
+it.each([false, true])(
+  'unsupported reader has one explanation and correct release destination (hosted=%s)',
+  async (hosted) => {
+    vi.stubEnv('VITE_HOSTED', String(hosted));
+    mocks.state.reader = {
+      version: 'dev',
+      supported: false,
+      checking: false,
+      installing: false,
+      error: 'Could not check for reader updates. Try again.',
+    };
+    mocks.state.server = { checking: false };
+    const node = document.createElement('div');
+    const r = createRoot(node);
+    await act(async () => r.render(<UpdateSettings />));
+    const reader = node.querySelector('[aria-label="Reader updates"]')!;
+    expect(reader.textContent).not.toContain('app distributor');
+    expect(reader.textContent).not.toContain('Could not check');
+    if (hosted) {
+      expect(reader.textContent).toContain(
+        'web reader updates with your server',
+      );
+      expect(reader.querySelector('a')).toBeNull();
+    } else {
+      expect(reader.textContent).toContain(
+        'Automatic updates are unavailable in this build',
+      );
+      expect(reader.querySelector('a')?.getAttribute('href')).toBe(
+        'https://github.com/astraldeath/quire/releases/latest',
+      );
+    }
+    await act(async () => r.unmount());
+    vi.unstubAllEnvs();
+  },
+);

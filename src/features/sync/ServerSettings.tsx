@@ -1,7 +1,7 @@
 import { TaskError } from '../../components/TaskError';
 import { SyncStatus } from './SyncStatus';
 import { useDraftGuard } from '../../components/useDraftGuard';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ConflictChoices } from './ConflictChoices';
 import {
   Cloud,
@@ -31,6 +31,7 @@ export function ServerSettings({ books }: { books: Book[] }) {
   const [account, setAccount] = useState('');
   const [url, setURL] = useState('');
   const [password, setPassword] = useState('');
+  const passwordInput = useRef<HTMLInputElement>(null);
   const [server, setServer] = useState<{
     name: string;
     origin: string;
@@ -38,6 +39,9 @@ export function ServerSettings({ books }: { books: Book[] }) {
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  useEffect(() => {
+    if (server && !busy && !state.enabled) passwordInput.current?.focus();
+  }, [server, busy, state.enabled]);
   const guard = useDraftGuard({
     dirty: !state.enabled && !!(account || url || password),
     busy,
@@ -229,6 +233,7 @@ export function ServerSettings({ books }: { books: Book[] }) {
               <label>
                 Password
                 <input
+                  ref={passwordInput}
                   type="password"
                   autoComplete="current-password"
                   value={password}

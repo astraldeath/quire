@@ -4,7 +4,7 @@ import { expect, it, vi } from 'vitest';
 import { ServerSettings } from '../src/features/sync/ServerSettings';
 import { SyncStatus } from '../src/features/sync/SyncStatus';
 const { discover } = vi.hoisted(() => ({
-  discover: vi.fn(async () => {
+  discover: vi.fn(async (): Promise<{ name: string; origin: string }> => {
     throw new Error('unavailable');
   }),
 }));
@@ -145,5 +145,30 @@ it('retains shared sync context without directions to the current settings page'
   );
   expect(t.host.textContent).toContain('2 changes need review');
   expect(t.host.textContent).not.toContain('Settings → Sync');
+  await t.close();
+});
+
+it('focuses the password after discovery completes', async () => {
+  discover.mockResolvedValueOnce({
+    name: 'Quire',
+    origin: 'https://books.example.com',
+  });
+  const t = await mount(<ServerSettings books={[]} />);
+  await act(async () => {
+    const i = t.host.querySelector('input')!;
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )!.set!.call(i, 'alice@books.example.com');
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () =>
+    t.host
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  expect(document.activeElement).toBe(
+    t.host.querySelector('input[type=password]'),
+  );
   await t.close();
 });

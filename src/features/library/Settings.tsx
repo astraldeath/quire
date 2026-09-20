@@ -52,7 +52,6 @@ export function Settings({
   };
   const [working, setWorking] = useState(false);
   const privacy = usePrivacy();
-  void onLibrary;
   const [connected, setConnected] = useState(
     import.meta.env.VITE_HOSTED === 'true',
   );
@@ -201,7 +200,7 @@ export function Settings({
             id: 'statistics',
             label: 'Statistics',
             icon: ChartNoAxesCombined,
-            content: <Statistics books={books} />,
+            content: <Statistics books={books} onLibrary={onLibrary} />,
           },
           {
             id: 'server',

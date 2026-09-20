@@ -1,5 +1,5 @@
 import { TaskError } from '../../components/TaskError';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, Upload, LoaderCircle } from 'lucide-react';
 import type { Book, Preferences } from '../../domain/models';
 import { Segments, Switch } from '../../components/Controls';
@@ -30,7 +30,21 @@ export function BackupSettings({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const input = useRef<HTMLInputElement>(null);
+  const exportButton = useRef<HTMLButtonElement>(null);
+  const restoreExportFocus = useRef(false);
+  useEffect(() => {
+    if (!busy && restoreExportFocus.current) {
+      restoreExportFocus.current = false;
+      if (
+        document.activeElement === document.body &&
+        exportButton.current?.isConnected
+      )
+        exportButton.current.focus({ preventScroll: true });
+    }
+  }, [busy]);
   const run = async (label: string, work: () => Promise<void>) => {
+    restoreExportFocus.current =
+      document.activeElement === exportButton.current;
     setBusy(label);
     onBusy(true);
     setMessage('');
@@ -104,6 +118,7 @@ export function BackupSettings({
                     </span>
                   </p>
                   <button
+                    ref={exportButton}
                     className="primary backup-main-action"
                     onClick={() =>
                       void run('Saving backup', async () => {
@@ -121,6 +136,7 @@ export function BackupSettings({
                 </div>
               ) : (
                 <button
+                  ref={exportButton}
                   className="primary backup-main-action"
                   onClick={() =>
                     void run('Preparing backup', async () => {

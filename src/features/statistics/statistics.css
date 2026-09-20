@@ -96,3 +96,24 @@
     font-size: 21px;
   }
 }
+.statistics > section:first-child .statistics-grid > div {
+  border: 0;
+  padding: 0 4px;
+}
+.statistics-empty {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.statistics-empty p {
+  margin: 0 0 12px;
+}
+.statistics-empty button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.statistics-empty svg {
+  width: 18px;
+  height: 18px;
+}

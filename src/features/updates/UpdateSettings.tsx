@@ -1,3 +1,4 @@
+import { ReleaseNotes } from './ReleaseNotes';
 import { Download, RefreshCw } from 'lucide-react';
 import { useEffect } from 'react';
 import { checkUpdates, installReaderUpdate, useUpdates } from './service';
@@ -14,7 +15,7 @@ function Notes({
   return text.trim() ? (
     <details className="update-notes">
       <summary>{label}</summary>
-      <div>{text}</div>
+      <ReleaseNotes text={text} />
     </details>
   ) : null;
 }
@@ -58,12 +59,10 @@ export function UpdateSettings({
             {reader.checking
               ? 'Checking for updates…'
               : reader.supported
-                ? reader.error
-                  ? 'Unable to check for updates.'
-                  : 'You have the latest reader.'
+                ? reader.error || 'You have the latest reader.'
                 : import.meta.env.VITE_HOSTED === 'true'
                   ? 'The web reader updates with your server.'
-                  : 'Install new versions through your app distributor.'}
+                  : 'Automatic updates are unavailable in this build.'}
           </p>
         )}
         {reader.installing && (
@@ -80,7 +79,16 @@ export function UpdateSettings({
             </span>
           </div>
         )}
-        {reader.error && (
+        {!reader.supported && import.meta.env.VITE_HOSTED !== 'true' && (
+          <a
+            href="https://github.com/astraldeath/quire/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download reader releases
+          </a>
+        )}
+        {reader.available && reader.error && (
           <p className="update-error" role="status">
             {reader.error}
           </p>
@@ -111,15 +119,13 @@ export function UpdateSettings({
             {server.checking
               ? 'Checking for updates…'
               : server.data
-                ? server.data.error || server.error
-                  ? 'Version check unavailable.'
-                  : 'You have the latest server.'
-                : server.error
-                  ? 'Unable to check this server.'
-                  : 'Connect a server to check for updates.'}
+                ? server.data.error ||
+                  server.error ||
+                  'You have the latest server.'
+                : server.error || 'Connect a server to check for updates.'}
           </p>
         )}
-        {(server.error || server.data?.error) && (
+        {server.data?.available && (server.error || server.data?.error) && (
           <p role="status" className="update-error">
             {server.error || server.data?.error}
           </p>
