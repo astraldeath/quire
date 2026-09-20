@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   useLayoutEffect,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -13,6 +14,13 @@ interface Tab {
   icon: LucideIcon;
   content: ReactNode;
 }
+const mobileQuery = '(max-width: 600px)';
+const subscribeViewport = (notify: () => void) => {
+  const media = window.matchMedia?.(mobileQuery);
+  media?.addEventListener('change', notify);
+  return () => media?.removeEventListener('change', notify);
+};
+const mobileSnapshot = () => window.matchMedia?.(mobileQuery).matches ?? false;
 export function SettingsTabs({
   tabs,
   label,
@@ -28,6 +36,12 @@ export function SettingsTabs({
   active?: string;
   onActiveChange?: (id: string) => void;
 }) {
+  const mobile = useSyncExternalStore(
+    subscribeViewport,
+    mobileSnapshot,
+    () => false,
+  );
+  const vertical = layout === 'settings' && !mobile;
   const [localActive, setLocalActive] = useState(tabs[0].id);
   const active = controlled ?? localActive;
   const setActive = (id: string) => {
@@ -60,28 +74,11 @@ export function SettingsTabs({
     <div
       className={`settings-tabs${layout === 'settings' ? ' settings-layout' : ''}`}
     >
-      {layout === 'settings' && (
-        <label className="settings-section-selector">
-          Section
-          <select
-            aria-label={label}
-            disabled={disabled}
-            value={active}
-            onChange={(e) => setActive(e.target.value)}
-          >
-            {tabs.map((tab) => (
-              <option key={tab.id} value={tab.id}>
-                {tab.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
       <div
         className="settings-tablist"
         role="tablist"
         aria-label={label}
-        aria-orientation={layout === 'settings' ? 'vertical' : 'horizontal'}
+        aria-orientation={vertical ? 'vertical' : 'horizontal'}
       >
         {tabs.map((tab, index) => (
           <button
@@ -101,9 +98,9 @@ export function SettingsTabs({
             onClick={() => setActive(tab.id)}
             onKeyDown={(e) => {
               const next =
-                e.key === (layout === 'settings' ? 'ArrowDown' : 'ArrowRight')
+                e.key === (vertical ? 'ArrowDown' : 'ArrowRight')
                   ? (index + 1) % tabs.length
-                  : e.key === (layout === 'settings' ? 'ArrowUp' : 'ArrowLeft')
+                  : e.key === (vertical ? 'ArrowUp' : 'ArrowLeft')
                     ? (index + tabs.length - 1) % tabs.length
                     : e.key === 'Home'
                       ? 0
