@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Check, EyeOff, Globe, Pencil, RefreshCw } from 'lucide-react';
 import { Switch } from '../../components/Controls';
+import { useDraftGuard } from '../../components/useDraftGuard';
+import { TaskError } from '../../components/TaskError';
 import { trackingRequest, type TrackingSession } from './client';
 import { syncNow } from '../sync/engine';
 import {
@@ -14,49 +16,107 @@ export function TrackerEntryPanel({
   account,
   seriesId,
   refreshKey,
+  onGuardChange,
+  onRequestLeave,
 }: {
   account: TrackingSession;
   seriesId: number;
   refreshKey: number;
+  onGuardChange?: (dirty: boolean, busy: boolean) => void;
+  onRequestLeave?: (action: () => void) => void;
 }) {
   const [entry, setEntry] = useState<TrackerEntry | null>();
   const [draft, setDraft] = useState<TrackerEntry>();
   const [editBase, setEditBase] = useState<TrackerEntry>();
   const [accountId, setAccountId] = useState('');
-  const [busy, setBusy] = useState(false),
+  const [loading, setLoading] = useState(false),
+    [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [reload, setReload] = useState(0);
   const [privateEntry, setPrivateEntry] = useState(true);
+  const statusInput = useRef<HTMLSelectElement>(null);
+  const generation = useRef(0);
+  const mutation = useRef(false);
+  const identity =
+    account.kind === 'native'
+      ? `native:${seriesId}`
+      : JSON.stringify([account.account, seriesId]);
+  const previousIdentity = useRef(identity);
+  const currentAccountId = useRef('');
+  const dirty =
+    (!!draft && JSON.stringify(draft) !== JSON.stringify(editBase)) ||
+    (entry === null && !privateEntry);
+  // The containing dialog owns navigation protection when embedded. Standalone
+  // panels retain their own guard, without registering duplicate blockers.
+  const guard = useDraftGuard({
+    dirty: !onRequestLeave && (dirty || busy),
+    busy,
+  });
+  const requestLeave = onRequestLeave ?? guard.requestLeave;
+  useLayoutEffect(() => {
+    if (draft) statusInput.current?.focus({ preventScroll: true });
+  }, [!!draft]);
+  useLayoutEffect(() => {
+    onGuardChange?.(dirty, busy);
+  }, [dirty, busy, onGuardChange]);
+  useLayoutEffect(() => () => onGuardChange?.(false, false), [onGuardChange]);
   const path = `/v1/tracking/entries/${seriesId}`;
-  useEffect(() => {
+  useLayoutEffect(() => {
     let alive = true;
-    setBusy(true);
+    const requestGeneration = ++generation.current;
+    const controller = new AbortController();
+    if (previousIdentity.current !== identity) {
+      previousIdentity.current = identity;
+      setEntry(undefined);
+      setDraft(undefined);
+      setEditBase(undefined);
+      setPrivateEntry(true);
+      setAccountId('');
+      currentAccountId.current = '';
+    }
+    setLoading(true);
     setError('');
-    void trackingRequest(account, path)
+    void trackingRequest(account, path, undefined, undefined, {
+      signal: controller.signal,
+    })
       .then((data) => {
         const value = data.entry === null ? null : parseEntry(data.entry);
         if (typeof data.accountId !== 'string' || !data.accountId)
           throw new Error(
             'Reload the tracker to verify your MangaBaka account.',
           );
-        if (alive) {
+        if (alive && requestGeneration === generation.current) {
+          if (
+            currentAccountId.current &&
+            currentAccountId.current !== data.accountId
+          ) {
+            setDraft(undefined);
+            setEditBase(undefined);
+            setPrivateEntry(true);
+          }
+          currentAccountId.current = data.accountId;
           setEntry(value);
           setAccountId(data.accountId);
         }
       })
       .catch((e) => {
-        if (alive)
+        if (alive && requestGeneration === generation.current)
           setError(e instanceof Error ? e.message : 'Could not load tracker.');
       })
       .finally(() => {
-        if (alive) setBusy(false);
+        if (alive && requestGeneration === generation.current)
+          setLoading(false);
       });
     return () => {
       alive = false;
+      generation.current++;
+      controller.abort();
     };
-  }, [account, path, refreshKey, reload]);
+  }, [identity, path, refreshKey, reload]);
   async function save(create = false) {
-    if (busy || (!create && (!entry || !draft))) return;
+    if (mutation.current || loading || (!create && (!entry || !draft))) return;
+    mutation.current = true;
+    const requestGeneration = generation.current;
     setBusy(true);
     setError('');
     try {
@@ -73,6 +133,7 @@ export function TrackerEntryPanel({
         )
       )
         await syncNow();
+      if (requestGeneration !== generation.current) return;
       const data = await trackingRequest(
         account,
         path,
@@ -81,11 +142,15 @@ export function TrackerEntryPanel({
           : { expectedAccountId: accountId, changes },
         create ? 'POST' : 'PUT',
       );
-      setEntry(parseEntry(data.entry));
-      setDraft(undefined);
+      if (requestGeneration === generation.current) {
+        setEntry(parseEntry(data.entry));
+        setDraft(undefined);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save tracker.');
+      if (requestGeneration === generation.current)
+        setError(e instanceof Error ? e.message : 'Could not save tracker.');
     } finally {
+      mutation.current = false;
       setBusy(false);
     }
   }
@@ -125,17 +190,13 @@ export function TrackerEntryPanel({
       : 'Not set';
   return (
     <section className="tracker-entry" aria-label="MangaBaka reading status">
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <TaskError summary={error} detail="" />}
       {entry === undefined ? (
         <div className="tracker-entry-heading">
           <span className="muted">
-            {busy ? 'Loading reading status…' : 'Reading status unavailable'}
+            {loading ? 'Loading reading status…' : 'Reading status unavailable'}
           </span>
-          {!busy && (
+          {!loading && (
             <button
               className="icon"
               aria-label="Reload reading status"
@@ -173,6 +234,7 @@ export function TrackerEntryPanel({
             <label>
               Reading status
               <select
+                ref={statusInput}
                 value={draft.state}
                 onChange={(e) => field('state', e.target.value)}
               >
@@ -218,7 +280,7 @@ export function TrackerEntryPanel({
             <button
               type="button"
               disabled={busy}
-              onClick={() => setDraft(undefined)}
+              onClick={() => requestLeave(() => setDraft(undefined))}
             >
               Cancel
             </button>
@@ -239,8 +301,8 @@ export function TrackerEntryPanel({
               <button
                 className="icon"
                 disabled={busy}
-                aria-label="Refresh reading status"
-                title="Refresh reading status"
+                aria-label="Refresh status"
+                title="Refresh status"
                 onClick={() => setReload((n) => n + 1)}
               >
                 <RefreshCw size={16} />
@@ -253,7 +315,7 @@ export function TrackerEntryPanel({
                 }}
               >
                 <Pencil size={16} />
-                Edit
+                Edit status
               </button>
             </div>
           </div>
@@ -287,6 +349,7 @@ export function TrackerEntryPanel({
           </dl>
         </>
       )}
+      {guard.confirmation}
     </section>
   );
 }

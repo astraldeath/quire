@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   Check,
@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Switch } from '../../components/Controls';
+import { useDraftGuard } from '../../components/useDraftGuard';
+import { TaskError } from '../../components/TaskError';
 import type { Book } from '../../domain/models';
 import { inferSeriesVolume } from '../../domain/book-structure';
 import { isTauri } from '@tauri-apps/api/core';
@@ -23,6 +25,13 @@ import {
 
 import { syncNow } from '../sync/engine';
 import { TrackerEntryPanel } from './TrackerEntryPanel';
+import { rankMatches } from './matching';
+import {
+  progressMode,
+  trackingVolume,
+  type ProgressMode,
+} from './progressMode';
+import './tracking.css';
 
 type Match = {
   id: number;
@@ -33,6 +42,7 @@ type Match = {
   description: string;
   cover: string;
   sources: string[];
+  alternateTitles?: string[];
 };
 type Link = {
   bookId: string;
@@ -80,8 +90,25 @@ export function TrackingDialog({
   const inferredVolume = inferSeriesVolume(book.title, '', book).volume ?? 0;
   const [account, setAccount] = useState<TrackingSession>(),
     [state, setState] = useState<Tracking>(),
-    [busy, setBusy] = useState('Loading'),
+    [busy, setBusy] = useState(''),
     [error, setError] = useState('');
+  const [loading, setLoading] = useState(true),
+    [searching, setSearching] = useState(false);
+  const [mode, setMode] = useState<ProgressMode>(progressMode(inferredVolume));
+  const [draftChanged, setDraftChanged] = useState(false);
+  const [entryGuard, setEntryGuard] = useState({ dirty: false, busy: false });
+  const updateEntryGuard = useCallback(
+    (dirty: boolean, busy: boolean) => setEntryGuard({ dirty, busy }),
+    [],
+  );
+  const generation = useRef(0),
+    searchGeneration = useRef(0);
+  const searchController = useRef<AbortController | null>(null);
+  const statusController = useRef<AbortController | null>(null);
+  const mutating = useRef(false);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const modeInput = useRef<HTMLSelectElement>(null);
+  const saveButton = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false),
     [editAccountId, setEditAccountId] = useState(''),
     [query, setQuery] = useState(title),
@@ -108,51 +135,162 @@ export function TrackingDialog({
   const linkedAuto = series
     ? seriesLinks.length > 0 && seriesLinks.every((l) => l.auto)
     : !!link?.auto;
-  useEffect(() => {
-    if (isTauri()) {
+  const guard = useDraftGuard({
+    dirty: draftChanged || entryGuard.dirty || !!busy || entryGuard.busy,
+    busy: !!busy || entryGuard.busy,
+  });
+  function invalidateSearch() {
+    searchGeneration.current++;
+    searchController.current?.abort();
+    setSearching(false);
+  }
+  function close() {
+    if (mutating.current || entryGuard.busy) return;
+    guard.requestLeave(() => {
+      generation.current++;
+      invalidateSearch();
+      statusController.current?.abort();
+      onClose();
+    });
+  }
+  const currentAccountId = useRef<string | undefined>(undefined);
+  function acceptState(data: Tracking) {
+    if (
+      currentAccountId.current !== undefined &&
+      currentAccountId.current !== (data.accountId ?? '')
+    ) {
+      invalidateSearch();
+      setEditing(false);
+      setSelected(undefined);
+      setResults([]);
+      setDraftChanged(false);
       setAutomatic(false);
-      setEditAccountId(state?.accountId ?? '');
     }
-  }, [state?.accountId]);
+    currentAccountId.current = data.accountId ?? '';
+    setState(data);
+  }
   async function refresh(a = account) {
     if (a) {
-      setState(await trackingRequest(a, '/v1/tracking'));
-      setEntryRefresh((n) => n + 1);
+      const requestGeneration = generation.current;
+      statusController.current?.abort();
+      const controller = new AbortController();
+      statusController.current = controller;
+      const data = await trackingRequest(
+        a,
+        '/v1/tracking',
+        undefined,
+        undefined,
+        { signal: controller.signal },
+      );
+      if (requestGeneration === generation.current) {
+        acceptState(data);
+        setEntryRefresh((n) => n + 1);
+      }
     }
   }
   useEffect(() => {
     let alive = true;
-    void trackingSession()
-      .then(async (session) => {
-        const data = await trackingRequest(session, '/v1/tracking');
-        if (alive) {
-          setAccount(session);
-          setState(data);
+    let sessionKey: string | undefined;
+    let latestLoad = 0;
+    const keyFor = (s: TrackingSession) =>
+      s.kind === 'native' ? 'native' : JSON.stringify(s.account);
+    const load = async () => {
+      const loadId = ++latestLoad;
+      const checkGeneration = generation.current;
+      try {
+        const session = await trackingSession();
+        if (
+          !alive ||
+          loadId !== latestLoad ||
+          checkGeneration !== generation.current
+        )
+          return;
+        const key = keyFor(session);
+        if (key === sessionKey) return;
+        sessionKey = key;
+        const requestGeneration = ++generation.current;
+        invalidateSearch();
+        statusController.current?.abort();
+        const controller = new AbortController();
+        statusController.current = controller;
+        setLoading(true);
+        setState(undefined);
+        setAccount(undefined);
+        setEditing(false);
+        setDraftChanged(false);
+        setSelected(undefined);
+        setResults([]);
+        const data = await trackingRequest(
+          session,
+          '/v1/tracking',
+          undefined,
+          undefined,
+          { signal: controller.signal },
+        );
+        if (
+          session.kind === 'hosted' &&
+          keyFor(await trackingSession()) !== key
+        ) {
+          if (alive && requestGeneration === generation.current) {
+            sessionKey = undefined;
+            void load();
+          }
+          return;
         }
-      })
-      .catch((e) => {
-        if (alive) setError(e.message);
-      })
-      .finally(() => {
-        if (alive) setBusy('');
-      });
+        if (alive && requestGeneration === generation.current) {
+          setAccount(session);
+          acceptState(data);
+          setLoading(false);
+          setError('');
+        }
+      } catch (e) {
+        if (alive && loadId === latestLoad) {
+          generation.current++;
+          invalidateSearch();
+          statusController.current?.abort();
+          sessionKey = undefined;
+          setState(undefined);
+          setAccount(undefined);
+          setEditing(false);
+          setSelected(undefined);
+          setResults([]);
+          setDraftChanged(false);
+          setError(e instanceof Error ? e.message : 'Could not load tracking.');
+          setLoading(false);
+        }
+      }
+    };
+    void load();
+    window.addEventListener('quire-storage', load);
     return () => {
       alive = false;
+      generation.current++;
+      searchGeneration.current++;
+      searchController.current?.abort();
+      statusController.current?.abort();
+      window.removeEventListener('quire-storage', load);
     };
   }, [book.id, series]);
   useEffect(() => {
     if (!account || account.kind !== 'native') return;
     let alive = true;
     let reading = false;
+    let controller: AbortController | undefined;
     const update = () => {
-      if (document.hidden || reading) return;
+      if (document.hidden || reading || mutating.current) return;
       reading = true;
-      void trackingRequest(account, '/v1/tracking')
+      const requestGeneration = generation.current;
+      controller = new AbortController();
+      void trackingRequest(account, '/v1/tracking', undefined, undefined, {
+        signal: controller.signal,
+      })
         .then((data) => {
-          if (alive) setState(data);
+          if (alive && requestGeneration === generation.current)
+            acceptState(data);
         })
         .catch((e) => {
-          if (alive) setError(String(e));
+          if (alive && requestGeneration === generation.current)
+            setError(String(e));
         })
         .finally(() => {
           reading = false;
@@ -162,24 +300,35 @@ export function TrackingDialog({
     document.addEventListener('visibilitychange', update);
     return () => {
       alive = false;
+      controller?.abort();
       clearInterval(timer);
       document.removeEventListener('visibilitychange', update);
     };
   }, [account]);
-  async function run(label: string, fn: () => Promise<void>) {
+  async function run(
+    label: string,
+    fn: (current: () => boolean) => Promise<void>,
+  ) {
+    if (mutating.current) return;
+    mutating.current = true;
+    const requestGeneration = generation.current;
     setBusy(label);
     setError('');
     try {
-      await fn();
+      await fn(() => requestGeneration === generation.current);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Tracking could not be updated.',
-      );
+      if (requestGeneration === generation.current)
+        setError(
+          e instanceof Error ? e.message : 'Tracking could not be updated.',
+        );
     } finally {
+      mutating.current = false;
       setBusy('');
     }
   }
   function edit() {
+    invalidateSearch();
+    setDraftChanged(false);
     setEditing(true);
     setEditAccountId(state?.accountId ?? '');
     setPrivateEntry(link?.private ?? true);
@@ -188,23 +337,54 @@ export function TrackingDialog({
     setSearched(false);
     setScope(series || link?.seriesKey ? 'series' : 'book');
     setVolume(link?.volume ?? inferredVolume);
+    setMode(progressMode(link?.volume ?? inferredVolume));
     setAutomatic(linkedAuto);
     setComplete(link?.completeEntry ?? inferredVolume > 0);
     setQuery(title);
+    if (!link) void search(title);
   }
-  async function search() {
-    if (!account) return;
+  async function search(value = query) {
+    if (!account || !value.trim() || mutating.current) return;
+    invalidateSearch();
+    const requestGeneration = searchGeneration.current;
+    const accountGeneration = generation.current;
+    const controller = new AbortController();
+    searchController.current = controller;
+    setSearching(true);
+    setError('');
+    setSearched(false);
+    setResults([]);
     setSelected(undefined);
-    await run('Searching', async () => {
+    try {
       const data = await trackingRequest(
         account,
-        '/v1/tracking/search?q=' + encodeURIComponent(query.trim()),
+        '/v1/tracking/search?q=' + encodeURIComponent(value.trim()),
+        undefined,
+        undefined,
+        { signal: controller.signal },
       );
-      setResults(data.matches);
+      if (
+        requestGeneration !== searchGeneration.current ||
+        accountGeneration !== generation.current
+      )
+        return;
+      setResults(rankMatches(data.matches, value, book.format));
       setSearched(true);
-    });
+    } catch (e) {
+      if (
+        requestGeneration === searchGeneration.current &&
+        accountGeneration === generation.current
+      )
+        setError(
+          e instanceof Error ? e.message : 'Could not search MangaBaka.',
+        );
+    } finally {
+      if (requestGeneration === searchGeneration.current) setSearching(false);
+    }
   }
   function selectScope(value: 'book' | 'series') {
+    invalidateSearch();
+    setDraftChanged(true);
     setScope(value);
     setSelected(
       value === 'series' && seriesLink ? matchFor(seriesLink) : undefined,
@@ -212,6 +392,7 @@ export function TrackingDialog({
     const saved =
       link && (link.seriesKey ? 'series' : 'book') === value ? link : undefined;
     setVolume(saved?.volume ?? inferredVolume);
+    setMode(progressMode(saved?.volume ?? inferredVolume));
     setComplete(
       value === 'book' && (saved?.completeEntry ?? inferredVolume > 0),
     );
@@ -221,15 +402,16 @@ export function TrackingDialog({
   }
   async function connect() {
     if (!account) return;
-    await run('Opening MangaBaka', async () => {
+    await run('Opening MangaBaka', async (current) => {
       await connectTracking(account);
-      if (account.kind === 'native') await refresh();
+      if (current() && account.kind === 'native') await refresh();
     });
   }
   async function save() {
     if (!account || !selected) return;
-    await run('Saving', async () => {
+    await run('Saving', async (current) => {
       if (!isTauri()) await syncNow();
+      if (!current()) return;
       if (series)
         await trackingRequest(
           account,
@@ -257,7 +439,7 @@ export function TrackingDialog({
             seriesId: selected.id,
             title: selected.title,
             seriesKey: scope === 'series' ? book.series : '',
-            volume,
+            volume: trackingVolume(mode, volume),
             auto: automatic && !!state?.connected,
             ...(!link || link.seriesId !== selected.id
               ? { private: privateEntry }
@@ -269,6 +451,7 @@ export function TrackingDialog({
           },
           'PUT',
         );
+      if (!current()) return;
       if (state?.connected && (!link || link.seriesId !== selected.id))
         await trackingRequest(
           account,
@@ -276,16 +459,18 @@ export function TrackingDialog({
           { expectedAccountId: editAccountId, is_private: privateEntry },
           'POST',
         );
+      if (!current()) return;
       setEditing(false);
+      setDraftChanged(false);
       await refresh();
-      if (automatic) {
+      if (current() && automatic) {
         await trackingRequest(account, '/v1/tracking/sync', {}, 'POST');
-        await refresh();
+        if (current()) await refresh();
       }
     });
   }
   async function remove() {
-    await run('Unlinking', async () => {
+    await run('Unlinking', async (current) => {
       if (series)
         await trackingRequest(
           account!,
@@ -300,6 +485,7 @@ export function TrackingDialog({
           undefined,
           'DELETE',
         );
+      if (!current()) return;
       setUnlink(false);
       await refresh();
     });
@@ -307,21 +493,19 @@ export function TrackingDialog({
   return (
     <Modal
       title={series ? 'Series tracking' : 'Tracking'}
-      onClose={() => {
-        if (!busy) onClose();
-      }}
+      onClose={close}
+      initialFocus={selected ? (series ? saveButton : modeInput) : searchInput}
+      focusKey={editing ? (selected ? 'mapping' : 'search') : 'summary'}
     >
       <div className="tracker-body">
         <p className="tracker-context">{title}</p>
         {(error || state?.error) && (
-          <p role="alert" className="error">
-            {error || state?.error}
-          </p>
+          <TaskError summary={error || state?.error || ''} detail="" />
         )}
-        {busy && (
+        {(busy || loading || searching) && (
           <p className="tracker-status" role="status">
             <LoaderCircle className="spinning" />
-            {busy}…
+            {busy || (loading ? 'Loading' : 'Searching')}…
           </p>
         )}
         {state?.pending && !busy && (
@@ -373,39 +557,45 @@ export function TrackingDialog({
                       account={account}
                       seriesId={link.seriesId}
                       refreshKey={entryRefresh}
+                      onGuardChange={updateEntryGuard}
+                      onRequestLeave={guard.requestLeave}
                     />
                   )}
                   <div className="tracker-actions tracker-primary-actions">
-                    <button disabled={!!busy} onClick={edit}>
+                    <button
+                      disabled={!!busy || entryGuard.busy}
+                      onClick={() => guard.requestLeave(edit)}
+                    >
                       <Link2 />
-                      Match & auto-track
+                      Change match
                     </button>
                     {state.connected && linkedAuto && (
                       <button
-                        disabled={!!busy}
+                        disabled={!!busy || entryGuard.busy}
                         onClick={() =>
-                          void run('Updating', async () => {
+                          void run('Updating', async (current) => {
                             if (!isTauri()) await syncNow();
+                            if (!current()) return;
                             await trackingRequest(
                               account!,
                               '/v1/tracking/sync',
                               {},
                               'POST',
                             );
-                            await refresh();
+                            if (current()) await refresh();
                           })
                         }
                       >
                         <RefreshCw />
-                        Update now
+                        Send reading progress
                       </button>
                     )}
                     <button
                       className="icon"
                       title="Unlink tracker"
                       aria-label="Unlink tracker"
-                      disabled={!!busy}
-                      onClick={() => setUnlink(true)}
+                      disabled={!!busy || entryGuard.busy}
+                      onClick={() => guard.requestLeave(() => setUnlink(true))}
                     >
                       <Unlink />
                     </button>
@@ -424,7 +614,10 @@ export function TrackingDialog({
                         >
                           Cancel
                         </button>
-                        <button disabled={!!busy} onClick={() => void remove()}>
+                        <button
+                          disabled={!!busy || entryGuard.busy}
+                          onClick={() => void remove()}
+                        >
                           Unlink
                         </button>
                       </div>
@@ -448,23 +641,29 @@ export function TrackingDialog({
                 </summary>
                 <div className="tracker-actions">
                   {state.oauthAvailable && (
-                    <button disabled={!!busy} onClick={() => void connect()}>
+                    <button
+                      disabled={!!busy || entryGuard.busy}
+                      onClick={() => guard.requestLeave(() => void connect())}
+                    >
                       <RefreshCw />
                       Reconnect
                     </button>
                   )}
                   <button
-                    disabled={!!busy}
+                    disabled={!!busy || entryGuard.busy}
                     onClick={() =>
-                      void run('Disconnecting', async () => {
-                        await trackingRequest(
-                          account!,
-                          '/v1/tracking/account',
-                          undefined,
-                          'DELETE',
-                        );
-                        await refresh();
-                      })
+                      guard.requestLeave(
+                        () =>
+                          void run('Disconnecting', async (current) => {
+                            await trackingRequest(
+                              account!,
+                              '/v1/tracking/account',
+                              undefined,
+                              'DELETE',
+                            );
+                            if (current()) await refresh();
+                          }),
+                      )
                     }
                   >
                     <Unlink />
@@ -532,11 +731,17 @@ export function TrackingDialog({
                     maxLength={300}
                     disabled={!!busy}
                     value={query}
+                    ref={searchInput}
                     placeholder="Title or MangaBaka link"
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                      invalidateSearch();
+                      setResults([]);
+                      setSearched(false);
+                      setQuery(e.target.value);
+                    }}
                   />
                 </label>
-                <button disabled={!!busy || !query.trim()}>
+                <button disabled={!!busy || searching || !query.trim()}>
                   <Search />
                   Search
                 </button>
@@ -583,7 +788,12 @@ export function TrackingDialog({
                   <button
                     className="tracker-change"
                     disabled={!!busy}
-                    onClick={() => setSelected(undefined)}
+                    onClick={() => {
+                      invalidateSearch();
+                      setSelected(undefined);
+                      setResults([]);
+                      setSearched(false);
+                    }}
                   >
                     <Search size={16} />
                     Change match
@@ -598,7 +808,11 @@ export function TrackingDialog({
                     key={match.id}
                     className="tracker-result"
                     disabled={!!busy}
-                    onClick={() => setSelected(match)}
+                    onClick={() => {
+                      invalidateSearch();
+                      setSelected(match);
+                      setDraftChanged(true);
+                    }}
                   >
                     {match.cover && (
                       <img
@@ -624,11 +838,55 @@ export function TrackingDialog({
             {selected && (
               <>
                 <div className="tracker-preferences">
+                  {!series && (
+                    <div className="tracker-mapping">
+                      <label>
+                        Progress mode
+                        <select
+                          ref={modeInput}
+                          value={mode}
+                          disabled={!!busy}
+                          onChange={(e) => {
+                            setMode(e.target.value as ProgressMode);
+                            setDraftChanged(true);
+                          }}
+                        >
+                          <option value="chapters">Chapters</option>
+                          <option value="volumes">Volumes</option>
+                        </select>
+                      </label>
+                      {mode === 'volumes' && (
+                        <label>
+                          Volume on completion
+                          <input
+                            type="number"
+                            min={0.01}
+                            max={10000}
+                            step="any"
+                            disabled={!!busy}
+                            value={volume}
+                            onChange={(e) => {
+                              setVolume(Number(e.target.value));
+                              setDraftChanged(true);
+                            }}
+                          />
+                        </label>
+                      )}
+                      <p className="muted tracker-hint">
+                        {mode === 'chapters'
+                          ? 'Sync completed chapters.'
+                          : `Mapped to volume ${volume || '—'} on completion.`}
+                      </p>
+                    </div>
+                  )}
                   <fieldset disabled={!!busy || !state.connected}>
                     <Switch
                       label="Automatically sync progress"
                       checked={automatic && state.connected}
-                      onChange={setAutomatic}
+                      onChange={(value) => {
+                        setAutomatic(value);
+                        setDraftChanged(true);
+                      }}
                     />
                   </fieldset>
                   {(!link || selected.id !== link.seriesId) && (
@@ -636,13 +894,20 @@ export function TrackingDialog({
                       <Switch
                         label="Track privately on MangaBaka"
                         checked={privateEntry}
-                        onChange={setPrivateEntry}
+                        onChange={(value) => {
+                          setPrivateEntry(value);
+                          setDraftChanged(true);
+                        }}
                       />
                     </fieldset>
                   )}
                   {!state.connected && (
                     <div className="tracker-connect-row">
-                      <span className="muted">Connect to enable syncing</span>
+                      <span className="muted">
+                        {state.oauthAvailable
+                          ? 'Connect to enable syncing.'
+                          : 'MangaBaka sign-in is not configured on this server. You can save this match.'}
+                      </span>
                       <button
                         disabled={!!busy || !state.oauthAvailable}
                         onClick={() => void connect()}
@@ -665,30 +930,15 @@ export function TrackingDialog({
                         </p>
                       ) : (
                         <>
-                          <label>
-                            Volume on completion
-                            <input
-                              type="number"
-                              min={0}
-                              max={10000}
-                              step="any"
-                              disabled={!!busy}
-                              value={volume}
-                              onChange={(e) =>
-                                setVolume(Number(e.target.value))
-                              }
-                            />
-                          </label>
-                          <p className="muted tracker-hint">
-                            Set to 0 to sync completed chapters without changing
-                            volume progress.
-                          </p>
                           {scope === 'book' && (
                             <fieldset disabled={!!busy}>
                               <Switch
                                 label="Mark entry completed when finished"
                                 checked={complete}
-                                onChange={setComplete}
+                                onChange={(value) => {
+                                  setComplete(value);
+                                  setDraftChanged(true);
+                                }}
                               />
                             </fieldset>
                           )}
@@ -735,27 +985,43 @@ export function TrackingDialog({
               </>
             )}
             <div className="tracker-footer">
-              <button disabled={!!busy} onClick={() => setEditing(false)}>
+              <button
+                disabled={!!busy}
+                onClick={() =>
+                  guard.requestLeave(() => {
+                    invalidateSearch();
+                    setEditing(false);
+                    setDraftChanged(false);
+                  })
+                }
+              >
                 Cancel
               </button>
               <button
+                ref={saveButton}
                 className="primary"
                 disabled={
                   !!busy ||
                   !selected ||
-                  !Number.isFinite(volume) ||
-                  volume < 0 ||
-                  volume > 10000
+                  (mode === 'volumes' &&
+                    (!Number.isFinite(volume) || volume <= 0 || volume > 10000))
                 }
                 onClick={() => void save()}
               >
                 <Check />
-                {series ? 'Track series' : link ? 'Save' : 'Track'}
+                {!state.connected
+                  ? 'Save match'
+                  : link
+                    ? 'Save'
+                    : series
+                      ? 'Track series'
+                      : 'Track'}
               </button>
             </div>
           </>
         )}
       </div>
+      {guard.confirmation}
     </Modal>
   );
 }

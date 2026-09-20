@@ -18,10 +18,11 @@ export function trackingRequest(
   path: string,
   body?: unknown,
   method?: string,
+  options?: { signal?: AbortSignal },
 ): Promise<any> {
   return session.kind === 'native'
     ? nativeTrackingRequest(path, body, method)
-    : accountRequest(session.account, path, body, method);
+    : accountRequest(session.account, path, body, method, options);
 }
 export async function connectTracking(session: TrackingSession) {
   if (session.kind === 'native') {

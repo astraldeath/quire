@@ -143,7 +143,11 @@ async function web(
   body?: unknown,
   token?: string,
   method = body ? 'POST' : 'GET',
+  options?: { signal?: AbortSignal },
 ) {
+  const timeout = AbortSignal.timeout(
+    path.startsWith('/v1/admin/watches') && method === 'POST' ? 300000 : 30000,
+  );
   const response = await fetch(origin + path, {
     method,
     redirect: 'error',
@@ -153,11 +157,9 @@ async function web(
       ...requestHeaders(token),
     },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(
-      path.startsWith('/v1/admin/watches') && method === 'POST'
-        ? 300000
-        : 30000,
-    ),
+    signal: options?.signal
+      ? AbortSignal.any([options.signal, timeout])
+      : timeout,
   });
   if (response.status === 409 && path === '/v1/sync')
     throw new SyncConflictError();
@@ -509,8 +511,9 @@ export async function accountRequest(
   path: string,
   body?: unknown,
   method?: string,
+  options?: { signal?: AbortSignal },
 ) {
-  return web(a.origin, path, body, webToken(a), method);
+  return web(a.origin, path, body, webToken(a), method, options);
 }
 
 export async function uploadSharedFile(

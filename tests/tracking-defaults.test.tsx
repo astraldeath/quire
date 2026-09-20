@@ -91,9 +91,8 @@ it.each([
           />,
         ),
       );
-      await click(saved ? 'Match & auto-track' : 'Add tracker');
+      await click(saved ? 'Change match' : 'Add tracker');
       if (!saved) {
-        await click('Search');
         await click('Matched novel');
         expect(
           host.querySelector<HTMLInputElement>(
@@ -101,10 +100,15 @@ it.each([
           )?.checked,
         ).toBe(true);
       }
-      expect(
-        host.querySelector<HTMLInputElement>('input[type="number"]')?.value,
-      ).toBe(String(volume));
-      await click(saved ? 'Save' : 'Track');
+      expect(host.querySelector<HTMLSelectElement>('select')?.value).toBe(
+        volume === 0 ? 'chapters' : 'volumes',
+      );
+      if (volume > 0)
+        expect(
+          host.querySelector<HTMLInputElement>('input[type="number"]')?.value,
+        ).toBe(String(volume));
+      else expect(host.querySelector('input[type="number"]')).toBeNull();
+      await click('Save match');
       expect(
         vi
           .mocked(trackingRequest)
