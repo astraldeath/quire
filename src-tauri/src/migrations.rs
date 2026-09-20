@@ -13,6 +13,11 @@ pub fn sync_sql() -> &'static str {
     SQL.get_or_init(|| include_str!("sync.sql").replace("\r\n", "\n"))
 }
 
+pub fn folder_catalog_sql() -> &'static str {
+    static SQL: OnceLock<String> = OnceLock::new();
+    SQL.get_or_init(|| include_str!("folder_catalog.sql").replace("\r\n", "\n"))
+}
+
 #[tauri::command]
 pub async fn prepare_library<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     let path = app
@@ -319,4 +324,32 @@ mod tests {
             connection.close().await.unwrap();
         });
     }
+    #[test]
+    fn folder_catalog_upgrade_is_atomic_and_preserves_historical_checksum_repair() {
+        tauri::async_runtime::block_on(async {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("quire.db");
+            fixture(&path, &variants()[1], true).await;
+            let mut connection = open(&path).await;
+            connection.execute(folder_catalog_sql()).await.unwrap();
+            let payload = serde_json::json!({"sync":{"cursor":13},"writes":[{"book":{"id":"two","folders":["Empty/Nested"]},"fileMode":"keep"}],"deleted":[],"folders":{"selected":"device","states":{"device":{"value":{"library":["Empty/Nested"],"hidden":[]}}}}});
+            sqlx::query("INSERT INTO sync_commits(payload) VALUES (?)").bind(payload.to_string()).execute(&mut connection).await.unwrap();
+            let mut invalid = payload.clone();
+            invalid["sync"] = serde_json::Value::Null;
+            invalid["folders"]["states"]["device"]["value"]["library"] = serde_json::json!(["Broken"]);
+            invalid["writes"][0]["book"]["folders"] = serde_json::json!(["Broken"]);
+            assert!(sqlx::query("INSERT INTO sync_commits(payload) VALUES (?)").bind(invalid.to_string()).execute(&mut connection).await.is_err());
+            let folders:String = sqlx::query_scalar("SELECT value FROM folder_catalog_storage WHERE key='device'").fetch_one(&mut connection).await.unwrap();
+            assert!(folders.contains("Empty/Nested") && !folders.contains("Broken"));
+            let membership:String = sqlx::query_scalar("SELECT metadata FROM books WHERE id='two'").fetch_one(&mut connection).await.unwrap();
+            assert!(membership.contains("Empty/Nested") && !membership.contains("Broken"));
+            connection.close().await.unwrap();
+            repair_existing(&path).await.unwrap();
+            validate_migrations(&path).await.unwrap();
+            let mut connection = open(&path).await;
+            let restored:String = sqlx::query_scalar("SELECT value FROM folder_catalog_storage WHERE key='device'").fetch_one(&mut connection).await.unwrap();
+            assert_eq!(restored,folders);
+        });
+    }
+
 }

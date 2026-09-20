@@ -59,7 +59,15 @@ vi.mock('../src/storage', () => ({
   listBooks: async () => books,
   loadPreferences: async () => defaults,
   loadSync: async () => ({ enabled: false }),
+  loadFolderCatalog: async () => ({ value: { library: [], hidden: [] } }),
   saveBook,
+  editFolderCatalog: async (
+    edit: (state: any) => void,
+    memberships?: (books: any[]) => any[],
+  ) => {
+    edit({ value: { library: [], hidden: [] } });
+    for (const book of memberships?.(books) ?? []) await saveBook(book);
+  },
   putBook,
   saveReadingPosition: vi.fn(),
   saveBookAnnotations: vi.fn(),

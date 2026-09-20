@@ -30,6 +30,7 @@ interface Privacy {
   state: PrivacyState;
   current(): PrivacyState;
   unlocked: boolean;
+  isUnlocked(): boolean;
   access(id: string): boolean;
   authenticate(force?: boolean): Promise<boolean>;
   update(
@@ -241,6 +242,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
         state,
         current: () => readPrivacy(key),
         unlocked,
+        isUnlocked: () => unlockedRef.current,
         access: (id) => canAccess(stateRef.current, id, unlockedRef.current),
         authenticate,
         update,

@@ -173,3 +173,10 @@ export function validatePreferences(value: unknown): Preferences {
   };
 }
 import { validFolder, validFolders } from '../library/folders';
+
+import {
+  emptyFolderCatalog,
+  validateFolderCatalog,
+} from '../library/folderCatalog';
+export const validateBackupFolders = (value: unknown) =>
+  validateFolderCatalog(value === undefined ? emptyFolderCatalog() : value);

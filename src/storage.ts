@@ -1,4 +1,9 @@
 import {
+  emptyFolderCatalog,
+  validateFolderCatalog,
+  type FolderCatalogState,
+} from './features/library/folderCatalog';
+import {
   deleteNativeFile,
   nativeFileId,
   readNativeFile,
@@ -44,7 +49,10 @@ interface LibraryDB extends DBSchema {
   };
   activityCursor: { key: string; value: number };
   books: { key: string; value: Record };
-  preferences: { key: string; value: Preferences | SyncState };
+  preferences: {
+    key: string;
+    value: Preferences | SyncState | FolderCatalogStorage;
+  };
   files: { key: string; value: Uint8Array | Blob };
 }
 let browserName = 'quire-library';
@@ -191,6 +199,117 @@ export async function loadSync(): Promise<SyncState> {
       SyncState | undefined) ?? emptySync()
   );
 }
+interface FolderCatalogStorage {
+  selected: string;
+  states: { [key: string]: FolderCatalogState };
+}
+const folderAccountKey = (account: Account) =>
+  JSON.stringify([account.origin, account.username]);
+async function readFolderCatalogStorage(): Promise<FolderCatalogStorage> {
+  if (isTauri()) {
+    const rows = await (
+      await sql()
+    ).select<{ key: string; value: string }[]>(
+      'SELECT key, value FROM folder_catalog_storage',
+    );
+    const states: FolderCatalogStorage['states'] = {};
+    let selected = 'device';
+    for (const row of rows) {
+      if (row.key === 'selected') selected = row.value;
+      else states[row.key] = JSON.parse(row.value);
+    }
+    return { selected, states };
+  }
+  return (
+    ((await (await idb()).get('preferences', 'folders')) as
+      FolderCatalogStorage | undefined) ?? { selected: 'device', states: {} }
+  );
+}
+function selectFolderCatalog(
+  sync: SyncState,
+  folders: FolderCatalogStorage,
+): FolderCatalogState {
+  const owner =
+    sync.enabled && sync.account ? folderAccountKey(sync.account) : undefined;
+  if (owner) {
+    if (!folders.states[owner]) {
+      // A device-only catalog joins its first account; owned catalogs never cross accounts.
+      folders.states[owner] = {
+        value:
+          folders.selected === 'device'
+            ? (folders.states.device?.value ?? emptyFolderCatalog())
+            : emptyFolderCatalog(),
+        sync: { account: owner, revision: 0, baseline: emptyFolderCatalog() },
+      };
+      delete folders.states.device;
+    }
+    folders.selected = owner;
+  }
+  return (folders.states[folders.selected] ??= { value: emptyFolderCatalog() });
+}
+/** Select and persist the account's catalog without exposing a previous account's folders. */
+export function loadFolderCatalog(): Promise<FolderCatalogState> {
+  return serial(async () => {
+    const sync = await loadSync(),
+      folders = await readFolderCatalogStorage();
+    const previous = JSON.stringify(folders);
+    const state = selectFolderCatalog(sync, folders);
+    if (previous !== JSON.stringify(folders))
+      await commit(sync, [], [], [], folders);
+    return structuredClone(state);
+  });
+}
+/** Folder membership edits and catalog edits share the same outbox transaction. */
+export function editFolderCatalog(
+  update: (state: FolderCatalogState) => void,
+  memberships?: (books: Book[]) => Book[],
+): Promise<void> {
+  return serial(async () => {
+    const sync = await loadSync(),
+      folders = await readFolderCatalogStorage();
+    const state = selectFolderCatalog(sync, folders);
+    update(state);
+    state.value = validateFolderCatalog(state.value);
+    const books = memberships ? await listBooks() : [];
+    const writes = (memberships?.(books) ?? []).map((book) => ({
+      book,
+      fileMode: 'keep' as const,
+    }));
+    for (const w of writes)
+      queueChanges(
+        sync,
+        books.find((b) => b.id === w.book.id),
+        w.book,
+      );
+    await commit(sync, writes, [], [], folders);
+    if (typeof window !== 'undefined')
+      window.dispatchEvent(new Event('quire-folders-changed'));
+  });
+}
+/** The captured session is checked inside the serialized transaction before acknowledging a response. */
+export function folderCatalogTransaction<T>(
+  account: Account,
+  update: (state: FolderCatalogState) => T,
+): Promise<T | undefined> {
+  return serial(async () => {
+    const sync = await loadSync();
+    if (
+      !sync.enabled ||
+      !sync.account ||
+      folderAccountKey(sync.account) !== folderAccountKey(account) ||
+      sync.account.sessionId !== account.sessionId
+    )
+      return;
+    const folders = await readFolderCatalogStorage();
+    const before = JSON.stringify(folders);
+    const state = selectFolderCatalog(sync, folders);
+    const result = update(state);
+    state.value = validateFolderCatalog(state.value);
+    if (before !== JSON.stringify(folders))
+      await commit(sync, [], [], [], folders);
+    return result;
+  });
+}
 interface Write {
   book: Book;
   fileMode: 'keep' | 'set' | 'remove';
@@ -201,6 +320,7 @@ async function commit(
   writes: Write[] = [],
   deleted: string[] = [],
   activities: ReadingActivity[] = [],
+  folders?: FolderCatalogStorage,
 ) {
   writes = writes.map((write) => ({
     ...write,
@@ -237,6 +357,7 @@ async function commit(
         writes: storedWrites,
         deleted,
         activities: history,
+        folders,
       }),
     ]);
     // A reader may have selected the previous reference before this commit.
@@ -279,6 +400,7 @@ async function commit(
         if (!old) await tx.objectStore('activity').put(item);
       }
       await tx.objectStore('preferences').put(sync, 'sync');
+      if (folders) await tx.objectStore('preferences').put(folders, 'folders');
       await tx.done;
     } catch (e) {
       try {
@@ -480,7 +602,9 @@ export function syncTransaction<T>(
           JSON.stringify(books.find((b) => b.id === book.id)),
       )
       .map((book) => ({ book, fileMode: 'keep' as const }));
-    await commit(sync, writes);
+    const folders = await readFolderCatalogStorage();
+    selectFolderCatalog(sync, folders);
+    await commit(sync, writes, [], [], folders);
     return out.result;
   });
 }

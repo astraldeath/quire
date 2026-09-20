@@ -18,7 +18,7 @@ async fn request(origin:&str,path:&str,method:Method,body:Option<Value>,token:Op
  let mut response=req.send().await.map_err(|_|"Server unavailable. Your local changes are saved.".to_string())?;
  if !response.status().is_success(){if response.status().as_u16()==404 && path=="/v1/updates" {return Err("Update Quire Server to enable version checks.".into())}if response.status().as_u16()==404 && path=="/v1/privacy/sync" {return Err("Update Quire Server to sync private library settings.".into())}return Err(match response.status().as_u16(){401=>"Sign in again; this session expired or was revoked.",409=>"Sync conflict requires attention. Your local changes are saved.",429=>"Server is busy. Try again shortly.",_=>"The server could not complete this request."}.into())}
  if response.status().as_u16()==204{return Ok(Value::Null)}
- let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Server response was interrupted.")?{if bytes.len()+chunk.len()>64*1024*1024{return Err("Server response is too large.".into())}bytes.extend_from_slice(&chunk)}
+ let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Server response was interrupted.")?{if bytes.len()+chunk.len()>if path=="/v1/folders/sync" {(1<<20)+128} else {64*1024*1024}{return Err("Server response is too large.".into())}bytes.extend_from_slice(&chunk)}
  serde_json::from_slice(&bytes).map_err(|_|"Invalid server response.".into())
 }
 #[tauri::command]
@@ -37,6 +37,27 @@ pub async fn sync_call(server:String,username:String,body:Value)->Result<Value,S
 pub async fn statistics_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/statistics/sync",Method::POST,Some(body),Some(token)).await}
 #[tauri::command]
 pub async fn privacy_call(server:String,username:String,body:Value)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/privacy/sync",Method::POST,Some(body),Some(token)).await}
+#[tauri::command]
+pub async fn folder_catalog_call(server:String,username:String,body:Value)->Result<Value,String>{
+ let o=origin(&server)?;
+ validate_folder_request(&body)?;
+ let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;
+ request(&o,"/v1/folders/sync",Method::POST,Some(body),Some(token)).await
+}
+fn validate_folder_request(body:&Value)->Result<(),String>{
+ if body.to_string().len()>(1<<20)+128 || body["revision"].as_u64().filter(|v|*v<=9007199254740991).is_none() || body.get("state").is_none() {return Err("Invalid folder sync request.".into())}
+ if !body["state"].is_null() {
+  if body["state"].to_string().len()>1<<20 {return Err("Folder catalog is too large.".into())}
+  for scope in ["library","hidden"] {
+   let paths=body["state"][scope].as_array().filter(|v|v.len()<=5000).ok_or("Invalid folder catalog.")?;
+   for path in paths {
+    let path=path.as_str().ok_or("Invalid folder path.")?;
+    if path.is_empty() || path.len()>1024 || path.split('/').count()>32 || path.split('/').any(|part|part.is_empty()||part.trim()!=part||part.len()>255||part=="."||part==".."||part.chars().any(|c| c=='\\'||c==':'||c.is_control())) {return Err("Invalid folder path.".into())}
+   }
+  }
+ }
+ Ok(())
+}
 #[tauri::command]
 pub async fn sync_logout(server:String,username:String,session:String)->Result<(),String>{
  let o=origin(&server)?;if !session.bytes().all(|c|c.is_ascii_hexdigit())||session.len()!=64{return Err("Invalid session.".into())}let entry=credential(&o,&username)?;
@@ -141,4 +162,18 @@ mod transfer_tests {
   for value in ["-1","+1","1.5","18446744073709551616","11"] { assert!(download_length(Some(value),10).is_err()); }
   assert_eq!(download_length(Some("10"),10).unwrap(),Some(10));
  }
+}
+
+#[cfg(test)]
+mod folder_catalog_tests {
+    use super::*;
+    #[test]
+    fn validates_bounded_folder_requests() {
+        assert!(validate_folder_request(&json!({"revision":0,"state":null})).is_ok());
+        assert!(validate_folder_request(&json!({"revision":1,"state":{"library":["Empty/Nested"],"hidden":[]}})).is_ok());
+        for request in [json!({"revision":-1,"state":null}),json!({"revision":0}),json!({"revision":0,"state":{"library":["../bad"],"hidden":[]}}),json!({"revision":0,"state":{"library":vec!["a";5001],"hidden":[]}})] {
+            assert!(validate_folder_request(&request).is_err());
+        }
+        assert!(origin("https://example.com/other").is_err());
+    }
 }

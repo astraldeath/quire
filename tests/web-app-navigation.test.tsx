@@ -38,6 +38,7 @@ vi.mock('../src/storage', () => ({
   listBooks: async () => books,
   loadPreferences: async () => defaults,
   loadSync: async () => ({ enabled: false }),
+  loadFolderCatalog: async () => ({ value: { library: [], hidden: [] } }),
   saveReadingPosition: vi.fn(),
   saveBookAnnotations: vi.fn(),
   listReadingActivity: async () => [],

@@ -1,3 +1,7 @@
+import {
+  syncFolderCatalog,
+  FolderCatalogUnavailable,
+} from '../library/folderSync';
 import { syncReadingActivity } from '../statistics/sync';
 import { syncPrivacy, privacyChanged } from '../privacy/sync';
 import { fetchCovers } from './library';
@@ -123,12 +127,20 @@ export function syncNow(): Promise<void> {
         if (!more) {
           await fetchCovers(batch.account);
           await syncReadingActivity();
+          let folderNote = '';
+          try {
+            await syncFolderCatalog();
+          } catch (error) {
+            if (error instanceof FolderCatalogUnavailable)
+              folderNote = error.message;
+            else throw error;
+          }
           const s = await loadSync();
           const conflicts = conflictsForReview(s).length;
           report(
             conflicts
               ? `${conflicts} ${conflicts === 1 ? 'change needs' : 'changes need'} review in Settings → Sync`
-              : 'Up to date',
+              : folderNote || 'Up to date',
           );
           window.dispatchEvent(new Event('quire-synced'));
           if (import.meta.env.VITE_HOSTED === 'true')
@@ -186,6 +198,7 @@ export function startSync() {
   };
   window.addEventListener('quire-statistics', activityChanged);
   window.addEventListener(privacyChanged, activityChanged);
+  window.addEventListener('quire-folders-changed', activityChanged);
   window.addEventListener('quire-storage', changed);
   window.addEventListener('online', run);
   document.addEventListener('visibilitychange', foreground);
@@ -199,6 +212,7 @@ export function startSync() {
     clearInterval(interval);
     window.removeEventListener('quire-statistics', activityChanged);
     window.removeEventListener(privacyChanged, activityChanged);
+    window.removeEventListener('quire-folders-changed', activityChanged);
     window.removeEventListener('quire-storage', changed);
     window.removeEventListener('online', run);
     document.removeEventListener('visibilitychange', foreground);

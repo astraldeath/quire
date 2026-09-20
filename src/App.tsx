@@ -1,3 +1,9 @@
+import {
+  emptyFolderCatalog,
+  mergeFolderCatalog,
+  type FolderCatalogState,
+} from './features/library/folderCatalog';
+import { loadFolderCatalog, editFolderCatalog } from './storage';
 import { startDesktopOpen } from './features/desktop/open-files';
 import {
   startStorageManagement,
@@ -183,6 +189,7 @@ function AppContent({
   const [folder, setFolder] = useState('');
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [renameFolder, setRenameFolder] = useState(false);
+  const [folderCatalog, setFolderCatalog] = useState(emptyFolderCatalog);
   const [addAnchor, setAddAnchor] = useState<ActionAnchor | null>(null);
   const directoryInput = useRef<HTMLInputElement>(null);
   const [seriesSort, setSeriesSort] = useState<Preferences['sort']>('volume');
@@ -228,6 +235,24 @@ function AppContent({
   };
   const replace = (book: Book) =>
     refresh([...booksRef.current.filter((b) => b.id !== book.id), book]);
+  useEffect(() => {
+    let active = true;
+    const update = () => {
+      void loadFolderCatalog()
+        .then((state) => {
+          if (active) setFolderCatalog(state.value);
+        })
+        .catch((e) => {
+          if (active) setError(String(e));
+        });
+    };
+    update();
+    window.addEventListener('quire-storage', update);
+    return () => {
+      active = false;
+      window.removeEventListener('quire-storage', update);
+    };
+  }, []);
   useEffect(() => {
     const update = () => {
       void enqueue(async () => refresh(await listBooks())).catch(() => {});
@@ -666,8 +691,10 @@ function AppContent({
   };
   const prepareBackup = (kind: Backup['kind']) =>
     enqueue(async () => {
+      const catalog = (await loadFolderCatalog()).value;
       if (
-        Object.keys(privacy.state.books).some((id) => !privacy.access(id)) &&
+        (Object.keys(privacy.state.books).some((id) => !privacy.access(id)) ||
+          (catalog.hidden.length > 0 && !privacy.isUnlocked())) &&
         !(await privacy.authenticate())
       )
         throw new Error('Unlock private books to export a backup.');
@@ -694,10 +721,12 @@ function AppContent({
         kind,
         activities,
         protection,
+        catalog,
       );
       if (
         !samePrivacy(protection, sharedPrivacy(privacy.current())) ||
-        Object.keys(protection.books).some((id) => !privacy.access(id))
+        Object.keys(protection.books).some((id) => !privacy.access(id)) ||
+        (catalog.hidden.length > 0 && !privacy.isUnlocked())
       )
         throw new Error(
           'Private library settings changed. Unlock private books and create the backup again.',
@@ -725,6 +754,13 @@ function AppContent({
         file,
       }));
       await restoreBooks(records, backup.activities ?? []);
+      await editFolderCatalog((state) => {
+        state.value = mergeFolderCatalog(
+          emptyFolderCatalog(),
+          state.value,
+          backup.folders ?? emptyFolderCatalog(),
+        );
+      });
       await preserveExistingProgress(records.map((r) => r.book));
       refresh(await listBooks());
       if (settings) {
@@ -807,7 +843,20 @@ function AppContent({
           ),
     [shelfBooks, libraryScope, serverLibraries],
   );
-  const folders = useMemo(() => folderPaths(scopedBooks), [scopedBooks]);
+  const folders = useMemo(
+    () =>
+      folderPaths(
+        scopedBooks,
+        libraryScope === 'all' || libraryScope === 'personal'
+          ? hiddenBooks
+            ? privacy.unlocked
+              ? folderCatalog.hidden
+              : []
+            : folderCatalog.library
+          : [],
+      ),
+    [scopedBooks, folderCatalog, hiddenBooks, privacy.unlocked, libraryScope],
+  );
   const folderBooks = useMemo(
     () => scopedBooks.filter((book) => bookInFolder(book, folder)),
     [scopedBooks, folder],
@@ -830,27 +879,32 @@ function AppContent({
   const updateBookFolders = async (
     ids: string[],
     update: (paths: string[]) => string[],
+    catalogEdit?: (state: FolderCatalogState) => void,
   ) => {
     if (
-      ids.some((id) => !privacy.access(id)) &&
+      (ids.some((id) => !privacy.access(id)) ||
+        (hiddenBooks && !privacy.isUnlocked())) &&
       !(await privacy.authenticate())
     )
       throw new Error('Unlock private books to change their folders.');
     await enqueue(async () => {
-      const updates = ids.flatMap((id) => {
-        const book = booksRef.current.find((book) => book.id === id);
-        if (!book) return [];
-        if (!privacy.access(id))
-          throw new Error('Unlock private books to change their folders.');
-        const paths = normalizeFolders(update(bookFolders(book)));
-        if (JSON.stringify(paths) === JSON.stringify(bookFolders(book)))
-          return [];
-        return [{ ...book, folders: paths, folder: paths[0] ?? '' }];
-      });
-      for (const book of updates) {
-        await saveBook(book);
-        replace(book);
-      }
+      await editFolderCatalog(
+        (state) => {
+          if (hiddenBooks && !privacy.isUnlocked())
+            throw new Error('Unlock private books to change their folders.');
+          catalogEdit?.(state);
+        },
+        (current) =>
+          ids.flatMap((id) => {
+            const book = current.find((book) => book.id === id);
+            if (!book) return [];
+            if (!privacy.access(id))
+              throw new Error('Unlock private books to change their folders.');
+            const paths = normalizeFolders(update(bookFolders(book)));
+            return [{ ...book, folders: paths, folder: paths[0] ?? '' }];
+          }),
+      );
+      refresh(await listBooks());
     });
     setSelected([]);
   };
@@ -878,6 +932,14 @@ function AppContent({
             ? path + current.slice(folder.length)
             : current,
         ),
+      (state) => {
+        const scope = hiddenBooks ? 'hidden' : 'library';
+        state.value[scope] = state.value[scope].map((current) =>
+          folderContains(folder, current)
+            ? path + current.slice(folder.length)
+            : current,
+        );
+      },
     );
     goFolder(path);
   };
@@ -1211,6 +1273,12 @@ function AppContent({
                       .map((book) => book.id),
                     (paths) =>
                       paths.filter((path) => !folderContains(folder, path)),
+                    (state) => {
+                      const scope = hiddenBooks ? 'hidden' : 'library';
+                      state.value[scope] = state.value[scope].filter(
+                        (path) => !folderContains(folder, path),
+                      );
+                    },
                   );
                   goFolder(
                     folder.includes('/')

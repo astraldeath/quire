@@ -263,3 +263,19 @@ it('keeps Blob-input restore files as Blobs after validating their identities', 
   expect(file.size).toBe(bytes.length);
   expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes);
 });
+
+it('roundtrips only folder catalog values and defaults missing v1 catalogs to empty', async () => {
+  const catalog = { library: ['Empty/Nested'], hidden: ['Secret'] };
+  const archive = await createBackup(
+    [],
+    defaults,
+    'data',
+    [],
+    undefined,
+    catalog,
+  );
+  expect((await readBackup(archive)).folders).toEqual(catalog);
+  expect(
+    (await readBackup(await createBackup([], defaults, 'data'))).folders,
+  ).toEqual({ library: [], hidden: [] });
+});

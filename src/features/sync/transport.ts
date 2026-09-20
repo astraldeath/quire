@@ -13,6 +13,7 @@ const folderCapabilities = new Map<
   {
     supported: boolean;
     currentChapter: boolean;
+    folderCatalog: boolean;
     checkedAt: number;
     limits: ServerLimits;
   }
@@ -236,6 +237,7 @@ export async function discover(origin: string) {
   };
   folderCapabilities.set(origin, {
     limits,
+    folderCatalog: v.capabilities?.includes('folder-catalog') ?? false,
     currentChapter:
       Array.isArray(v.capabilities) &&
       v.capabilities.includes('current-chapter'),
@@ -617,4 +619,24 @@ export async function downloadServerBackup(
     throw e;
   }
   return new Blob(parts, { type: 'application/zip' });
+}
+
+export async function supportsFolderCatalog(origin: string): Promise<boolean> {
+  const cached = folderCapabilities.get(origin);
+  if (cached && Date.now() - cached.checkedAt < 30000)
+    return cached.folderCatalog;
+  await discover(origin);
+  return folderCapabilities.get(origin)!.folderCatalog;
+}
+export async function folderCall(
+  account: Account,
+  body: unknown,
+): Promise<unknown> {
+  return isTauri()
+    ? invoke('folder_catalog_call', {
+        server: account.origin,
+        username: account.username,
+        body,
+      })
+    : accountRequest(account, '/v1/folders/sync', body);
 }

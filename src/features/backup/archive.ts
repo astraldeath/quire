@@ -1,4 +1,9 @@
 import {
+  emptyFolderCatalog,
+  type FolderCatalog,
+} from '../library/folderCatalog';
+import { validateBackupFolders } from './validation';
+import {
   ZipReader,
   ZipWriter,
   Uint8ArrayReader,
@@ -25,6 +30,7 @@ export interface Backup<File = Uint8Array | Blob> {
   records: BackupRecord<File>[];
   activities?: ReadingActivity[];
   privacy?: SharedPrivacy;
+  folders?: FolderCatalog;
 }
 // Allow large stored archives while retaining a bounded decompression budget.
 const MAX_EXPANSION_BYTES = 512 * 1024 * 1024;
@@ -90,10 +96,18 @@ export async function createBackup(
   kind: Backup['kind'],
   activities: ReadingActivity[] = [],
   privacy?: SharedPrivacy,
+  folders: FolderCatalog = emptyFolderCatalog(),
 ): Promise<Uint8Array> {
   return new Uint8Array(
     await (
-      await createBackupBlob(records, preferences, kind, activities, privacy)
+      await createBackupBlob(
+        records,
+        preferences,
+        kind,
+        activities,
+        privacy,
+        folders,
+      )
     ).arrayBuffer(),
   );
 }
@@ -104,6 +118,7 @@ export async function createBackupBlob(
   kind: Backup['kind'],
   activities: ReadingActivity[] = [],
   privacy?: SharedPrivacy,
+  folders: FolderCatalog = emptyFolderCatalog(),
 ): Promise<Blob> {
   const files = kind === 'full' ? records.filter((r) => r.file) : [];
   const manifest = {
@@ -115,6 +130,7 @@ export async function createBackupBlob(
     books: records.map((r) => validateBook(r.book)),
     files: files.map((r) => r.book.id),
     activities: validateActivities(activities),
+    folders: validateBackupFolders(folders),
     ...(privacy ? { privacy: validatePrivacy(privacy) } : {}),
   };
   const data = new TextEncoder().encode(JSON.stringify(manifest));
@@ -239,6 +255,7 @@ export async function readBackup(bytes: Uint8Array | Blob): Promise<Backup> {
       preferences,
       records,
       activities: validateActivities(manifest.activities ?? []),
+      folders: validateBackupFolders(manifest.folders),
       ...(manifest.privacy !== undefined
         ? { privacy: validatePrivacy(manifest.privacy) }
         : {}),

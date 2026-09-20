@@ -51,6 +51,12 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
           'utf8',
         ),
       );
+      database.exec(
+        readFileSync(
+          new URL('../src-tauri/src/folder_catalog.sql', import.meta.url),
+          'utf8',
+        ),
+      );
       return {
         execute: async (query: string, bindings: SQLInputValue[] = []) =>
           database
@@ -421,4 +427,50 @@ it('backup activity conflict rolls back restored metadata and files', async () =
   expect(
     (await s.listReadingActivity()).find((r) => r.id === a.id)?.finished,
   ).toBe(true);
+});
+
+it('commits folder catalog and book membership together and rolls both back on invalid writes', async () => {
+  const s = await import('../src/storage');
+  await s.editFolderCatalog((c) => {
+    c.value.library = ['Before'];
+  });
+  const book: Book = {
+    id: 'catalog-book',
+    title: 'Book',
+    author: '',
+    series: '',
+    volume: null,
+    cover: '',
+    addedAt: 1,
+    local: false,
+    folders: ['Before'],
+  };
+  await s.saveBook(book);
+  await s.editFolderCatalog(
+    (c) => {
+      c.value.library = ['After'];
+    },
+    (books) =>
+      books
+        .filter((b) => b.id === book.id)
+        .map((b) => ({ ...b, folders: ['After'] })),
+  );
+  expect((await s.loadFolderCatalog()).value.library).toEqual(['After']);
+  expect((await s.listBooks()).find((b) => b.id === book.id)?.folders).toEqual([
+    'After',
+  ]);
+  await expect(
+    s.editFolderCatalog(
+      (c) => {
+        c.value.library = ['Broken'];
+      },
+      () => [
+        { ...book, id: undefined as unknown as string, folders: ['Broken'] },
+      ],
+    ),
+  ).rejects.toThrow();
+  expect((await s.loadFolderCatalog()).value.library).toEqual(['After']);
+  expect((await s.listBooks()).find((b) => b.id === book.id)?.folders).toEqual([
+    'After',
+  ]);
 });

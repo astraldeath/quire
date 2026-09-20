@@ -2,7 +2,14 @@ import 'fake-indexeddb/auto';
 import { createHash } from 'node:crypto';
 import { beforeEach, expect, it, vi } from 'vitest';
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false }));
-vi.mock('../src/features/sync/transport', () => ({ download: vi.fn() }));
+vi.mock('../src/features/sync/transport', () => ({
+  download: vi.fn(),
+  serverLimits: async () => ({
+    maxUploadBytes: 128 * 1024 * 1024,
+    maxDownloadBytes: 128 * 1024 * 1024,
+    serverAssignedUpload: false,
+  }),
+}));
 import { download } from '../src/features/sync/transport';
 import { keepDownloaded } from '../src/features/storage/keepDownloaded';
 import { readPolicy, writePolicy } from '../src/features/storage/policy';

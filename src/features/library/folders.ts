@@ -59,9 +59,12 @@ export const bookInFolder = (book: FolderBook, parent: string) =>
   !parent || bookFolders(book).some((path) => folderContains(parent, path));
 export const bookDirectlyInFolder = (book: FolderBook, parent: string) =>
   parent ? bookFolders(book).includes(parent) : bookFolders(book).length === 0;
-export function folderPaths(books: FolderBook[]) {
+export function folderPaths(
+  books: FolderBook[],
+  explicit: readonly string[] = [],
+) {
   const paths = new Set<string>();
-  for (const book of books) {
+  for (const book of [...books, ...explicit.map((folder) => ({ folder }))]) {
     for (const folder of bookFolders(book)) {
       const parts = folder.split('/');
       for (let i = 1; i <= parts.length; i++)

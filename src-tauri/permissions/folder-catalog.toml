@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-folder-catalog-call"
+description = "Sync the account folder catalog through its bounded fixed endpoint."
+commands.allow = ["folder_catalog_call"]
