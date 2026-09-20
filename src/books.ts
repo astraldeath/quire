@@ -44,6 +44,11 @@ interface Section {
   size: number;
 }
 export interface ReaderBook {
+  rendition?: {
+    layout?: string;
+    spread?: string;
+    viewport?: string | Record<string, unknown>;
+  };
   comicPages?: {
     name: string;
     blob(signal?: AbortSignal): Blob | Promise<Blob>;
@@ -162,6 +167,10 @@ export async function openBook(
     let publication: ReaderBook | undefined;
     try {
       publication = await new EPUB(archive).init();
+      publication.rendition = {
+        ...publication.rendition,
+        layout: archive.layout,
+      };
       const structure = detectBookStructure(archive);
       const destroy = publication.destroy.bind(publication);
       publication.destroy = () => {

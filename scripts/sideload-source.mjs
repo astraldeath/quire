@@ -64,7 +64,7 @@ export function createSource(releases) {
         developerName: 'astraldeath',
         subtitle: 'Offline book reader',
         localizedDescription:
-          'Read EPUB, CBZ, FB2, and DRM-free Kindle books. Organize your library, track reading progress, and optionally sync with Quire Server.',
+          'Read EPUB, PDF, CBZ, CBR, CB7, FB2, and DRM-free Kindle books. Organize your library, track reading progress, and optionally sync with Quire Server.',
         iconURL,
         tintColor: '728EAE',
         category: 'books',

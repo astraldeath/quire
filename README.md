@@ -14,7 +14,7 @@ An offline-first book reader for Windows, Linux, Android, iOS, and the browser. 
 - MangaBaka book or series tracking directly from the installed app, with no Quire server required.
 - Optional server sync and shared libraries.
 
-Supported formats: reflowable EPUB, PDF, CBZ comics, FB2 (including FBZ and FB2.ZIP), and DRM-free MOBI/AZW3. CBR and fixed-layout EPUBs are not supported. PDFs use paged image rendering with reading progress and bookmarks; text selection, search, form editing, and password-protected PDFs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
+Supported formats: reflowable and fixed-layout EPUB, PDF, CBZ/CBR/CB7 comics, FB2 (including FBZ and FB2.ZIP), and DRM-free MOBI/AZW3. CBR and fixed-layout EPUBs are not supported. PDFs use paged image rendering with reading progress and bookmarks; text selection, search, form editing, and password-protected PDFs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
 
 Comic reading settings offer single pages, double-page spreads, and continuous Webtoon scrolling, with left-to-right or right-to-left navigation. Taps and swipes can be enabled independently.
 
