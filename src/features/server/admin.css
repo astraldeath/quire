@@ -89,3 +89,9 @@
 .admin-settings-form select {
   width: 100%;
 }
+
+/* The shell receives programmatic focus on entry; interactive controls keep
+   their existing focus-visible indicators. */
+.admin-shell[tabindex='-1']:focus {
+  outline: none;
+}

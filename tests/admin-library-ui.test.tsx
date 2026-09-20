@@ -114,6 +114,8 @@ it('keeps collection summaries compact and member mutations scoped to visible se
     await act(async () =>
       root.render(<Management account={account} tab="libraries" />),
     );
+    expect(host.textContent).toContain('2 books · 0 members');
+    expect(host.textContent).toContain('1 book · 1 member');
     expect(host.querySelector('[data-upload]')).toBeNull();
     await act(async () =>
       [...host.querySelectorAll('button')]
@@ -124,6 +126,7 @@ it('keeps collection summaries compact and member mutations scoped to visible se
       'one',
     );
     expect(host.querySelector('h2')?.textContent).toBe('First');
+    expect(host.textContent).toContain('2 books · 0 members');
     await act(async () =>
       [...host.querySelectorAll('button')]
         .find((b) => b.textContent === 'Access')!
@@ -177,6 +180,8 @@ it('keeps collection summaries compact and member mutations scoped to visible se
     expect(
       state.request.mock.calls.filter((c) => c[3] === 'DELETE'),
     ).toHaveLength(0);
+    await act(async () => navigateWeb('/admin/libraries?library=two'));
+    expect(host.textContent).toContain('1 book · 1 member');
   } finally {
     await act(async () => root.unmount());
     host.remove();

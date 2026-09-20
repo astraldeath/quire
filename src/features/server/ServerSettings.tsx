@@ -8,7 +8,7 @@ export function ServerSettings({ account }: { account: Account }) {
   const [baseline, setBaseline] = useState<Config>(),
     [draft, setDraft] = useState<Config>(),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
+    [error, setError] = useState<{ summary: string; detail: string }>(),
     [notice, setNotice] = useState('');
   const active = useRef(false),
     dirtyRef = useRef(false);
@@ -30,7 +30,14 @@ export function ServerSettings({ account }: { account: Account }) {
           }
         })
         .catch((e) => {
-          if (mounted) setError(e.message);
+          if (mounted)
+            setError({
+              summary: 'Could not load server settings.',
+              detail:
+                e instanceof Error
+                  ? e.message
+                  : 'Check your connection and try again.',
+            });
         });
     };
     refresh();
@@ -44,7 +51,7 @@ export function ServerSettings({ account }: { account: Account }) {
     if (active.current || !draft || !dirty || !draft.name.trim()) return;
     active.current = true;
     setBusy(true);
-    setError('');
+    setError(undefined);
     setNotice('');
     const submitted = { ...draft };
     try {
@@ -52,9 +59,13 @@ export function ServerSettings({ account }: { account: Account }) {
       setBaseline(submitted);
       setNotice('Settings saved.');
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Check your connection and try again.',
-      );
+      setError({
+        summary: 'Could not save server settings.',
+        detail:
+          e instanceof Error
+            ? e.message
+            : 'Check your connection and try again.',
+      });
     } finally {
       active.current = false;
       setBusy(false);
@@ -63,12 +74,7 @@ export function ServerSettings({ account }: { account: Account }) {
   return (
     <>
       <h2>Server settings</h2>
-      {error && (
-        <TaskError
-          summary="Could not save or load server settings."
-          detail={error}
-        />
-      )}
+      {error && <TaskError summary={error.summary} detail={error.detail} />}
       {notice && <p role="status">{notice}</p>}
       {draft ? (
         <form
@@ -116,7 +122,7 @@ export function ServerSettings({ account }: { account: Account }) {
               disabled={busy || !dirty}
               onClick={() => {
                 setDraft(baseline);
-                setError('');
+                setError(undefined);
                 setNotice('');
               }}
             >

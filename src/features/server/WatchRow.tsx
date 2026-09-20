@@ -20,6 +20,20 @@ export interface Scan {
   skippedFiles?: unknown;
   omittedSkippedFiles?: unknown;
 }
+function skipReasonLabel(reason: string) {
+  switch (reason) {
+    case 'unsupported-format':
+      return 'Unsupported file format';
+    case 'too-large':
+      return 'File exceeds the size limit';
+    case 'symlink':
+      return 'Symbolic link';
+    case 'not-regular':
+      return 'Not a regular file';
+    default:
+      return reason;
+  }
+}
 export function WatchRow({
   account,
   watch,
@@ -117,7 +131,7 @@ export function WatchRow({
               <ul>
                 {details.map((d, i) => (
                   <li key={i}>
-                    <span>{d.path}</span>: {d.reason}
+                    <span>{d.path}</span>: {skipReasonLabel(d.reason)}
                   </li>
                 ))}
               </ul>

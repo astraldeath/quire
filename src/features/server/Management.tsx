@@ -192,7 +192,9 @@ export function Management({
                   <div>
                     <strong>{l.name}</strong>
                     <p className="muted">
-                      {l.books} books · {l.members.length} members
+                      {l.books} {l.books === 1 ? 'book' : 'books'} ·{' '}
+                      {l.members.length}{' '}
+                      {l.members.length === 1 ? 'member' : 'members'}
                     </p>
                   </div>
                   <button

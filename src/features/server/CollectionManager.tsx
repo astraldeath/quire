@@ -76,7 +76,9 @@ export function CollectionManager({
             {library.name}
           </h2>
           <p className="muted">
-            {library.books} books · {library.members.length} members
+            {library.books} {library.books === 1 ? 'book' : 'books'} ·{' '}
+            {library.members.length}{' '}
+            {library.members.length === 1 ? 'member' : 'members'}
           </p>
         </div>
         <LibraryActions

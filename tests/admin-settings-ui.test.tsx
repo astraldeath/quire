@@ -1,10 +1,12 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { it, expect, vi } from 'vitest';
+import { ServerSettings } from '../src/features/server/ServerSettings';
 import { AdminPanel } from '../src/features/server/AdminPanel';
 import { navigateWeb } from '../src/features/navigation/routes';
 const state = vi.hoisted(() => ({
   fail: false,
+  failLoad: false,
   config: { name: 'Quire', scanSeconds: 300 },
   request: vi.fn(
     async (
@@ -14,6 +16,8 @@ const state = vi.hoisted(() => ({
       method?: string,
     ): Promise<any> => {
       if (path.endsWith('/settings')) {
+        if (!method && state.failLoad)
+          throw new Error('Connection unavailable');
         if (method) {
           if (state.fail) throw new Error('Settings unavailable');
           state.config = { ...body };
@@ -101,6 +105,9 @@ it('keeps settings drafts separate, reverts values, preserves failures and share
           new Event('submit', { bubbles: true, cancelable: true }),
         ),
     );
+    expect(host.querySelector('[role=alert]')?.textContent).toBe(
+      'Could not save server settings.',
+    );
     expect(host.textContent).toContain('Settings unavailable');
     expect(input.value).toBe('Draft');
     state.fail = false;
@@ -136,6 +143,34 @@ it('keeps settings drafts separate, reverts values, preserves failures and share
     expect(host.querySelector('form')).toBeNull();
   } finally {
     state.fail = false;
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
+it('identifies a settings loading failure separately from saving', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  state.failLoad = true;
+  try {
+    await act(async () =>
+      root.render(
+        <ServerSettings
+          account={{
+            origin: 'https://example.test',
+            username: 'admin',
+            sessionId: 'current',
+          }}
+        />,
+      ),
+    );
+    expect(host.querySelector('[role=alert]')?.textContent).toBe(
+      'Could not load server settings.',
+    );
+    expect(host.textContent).toContain('Connection unavailable');
+  } finally {
+    state.failLoad = false;
     await act(async () => root.unmount());
     host.remove();
   }

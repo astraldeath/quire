@@ -102,3 +102,53 @@ it('keeps full paths and supplied diagnostics in Details, supports old scans, an
     host.remove();
   }
 });
+
+it('labels known skip reasons and preserves an unknown server reason', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () =>
+      root.render(
+        <WatchRow
+          account={{
+            origin: 'https://example.test',
+            username: 'admin',
+            sessionId: 'current',
+          }}
+          watch={{ id: 'watch', path: '/books', username: 'admin' }}
+          destination="Books"
+          onChange={async () => {}}
+          scan={{
+            id: 'watch',
+            lastAt: 1700000000,
+            error: '',
+            imported: 0,
+            existing: 0,
+            skipped: 5,
+            skippedFiles: [
+              'unsupported-format',
+              'too-large',
+              'symlink',
+              'not-regular',
+              'future-server-reason',
+            ].map((reason, i) => ({ path: `file-${i}`, reason })),
+          }}
+        />,
+      ),
+    );
+    const text = host.querySelector('details')!.textContent;
+    for (const label of [
+      'Unsupported file format',
+      'File exceeds the size limit',
+      'Symbolic link',
+      'Not a regular file',
+      'future-server-reason',
+    ])
+      expect(text).toContain(label);
+    expect(text).not.toContain('unsupported-format');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
