@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.6.1",
-      "versionDate": "2026-09-19T22:48:49.000Z",
-      "versionDescription": "- Detect chapters in books with underscore-separated titles, recap entries, and isolated numbering errors, restoring chapter progress for tracking.\n- Count completed chapters when reading past a short final page, while excluding chapter jumps from reading activity.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.1/Quire_0.6.1_ios-unsigned.ipa",
-      "size": 7651068,
+      "version": "0.6.2",
+      "versionDate": "2026-09-19T23:21:55.000Z",
+      "versionDescription": "- Fix the startup event-listener permission error in installed apps.\n- Show unresolved sync conflicts in the library with a direct link to review them.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.2/Quire_0.6.2_ios-unsigned.ipa",
+      "size": 7648886,
       "versions": [
+        {
+          "version": "0.6.2",
+          "date": "2026-09-19T23:21:55.000Z",
+          "localizedDescription": "- Fix the startup event-listener permission error in installed apps.\n- Show unresolved sync conflicts in the library with a direct link to review them.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.6.2/Quire_0.6.2_ios-unsigned.ipa",
+          "size": 7648886
+        },
         {
           "version": "0.6.1",
           "date": "2026-09-19T22:48:49.000Z",
