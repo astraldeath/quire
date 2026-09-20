@@ -510,7 +510,13 @@ it('does not reveal hidden-derived or explicit hidden folders before access', as
   await mount('/library');
   expect(host.querySelector('[aria-label="Open folder Shelf"]')).toBeNull();
   expect(host.textContent).not.toContain('Private shelf');
-  await click('View');
+  await act(async () =>
+    (
+      host.querySelector(
+        '[aria-label="Current library: All books"]',
+      ) as HTMLButtonElement
+    ).click(),
+  );
   await act(async () =>
     [...document.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === 'Hidden books')!
@@ -521,6 +527,12 @@ it('does not reveal hidden-derived or explicit hidden folders before access', as
   );
   expect(host.querySelector('[aria-label="Open folder Shelf"]')).toBeNull();
   expect(host.textContent).not.toContain('Private shelf');
+  const before = window.location.pathname;
+  await click('Cancel privacy');
+  expect(window.location.pathname).toBe(before);
+  expect(
+    host.querySelector('[aria-label="Current library: All books"]'),
+  ).not.toBeNull();
 });
 
 it('labels an empty parent by its child folders with a folder-specific frame', async () => {

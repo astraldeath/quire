@@ -5,7 +5,8 @@ import { Download } from 'lucide-react';
 import { PrivacySettings } from '../privacy/PrivacySettings';
 import { usePrivacy } from '../privacy/Privacy';
 import { Shield } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadSync } from '../../storage';
 import {
   Archive,
   Library,
@@ -42,6 +43,25 @@ export function Settings({
 }) {
   const [working, setWorking] = useState(false);
   const privacy = usePrivacy();
+  const [connected, setConnected] = useState(
+    import.meta.env.VITE_HOSTED === 'true',
+  );
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void loadSync()
+        .then((state) => {
+          if (alive) setConnected(!!state.enabled && !!state.account);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    window.addEventListener('quire-storage', refresh);
+    return () => {
+      alive = false;
+      window.removeEventListener('quire-storage', refresh);
+    };
+  }, []);
   return (
     <Modal
       title="Settings"
@@ -162,7 +182,7 @@ export function Settings({
             id: 'privacy',
             label: 'Privacy',
             icon: Shield,
-            content: <PrivacySettings />,
+            content: <PrivacySettings connected={connected} />,
           },
           {
             id: 'statistics',

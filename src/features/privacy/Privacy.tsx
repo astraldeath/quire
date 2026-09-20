@@ -46,6 +46,7 @@ export function usePrivacy() {
   return useContext(Context)!;
 }
 export function PrivacyProvider({ children }: { children: ReactNode }) {
+  const passcodeInput = useRef<HTMLInputElement>(null);
   const key = devicePrivacyKey();
   const [initial] = useState(() => {
     try {
@@ -265,6 +266,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
       {prompt && (
         <Modal
           title={state.credential ? 'Unlock private books' : 'Create passcode'}
+          initialFocus={passcodeInput}
           onClose={() => finish(false)}
         >
           <form
@@ -277,7 +279,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
             <label>
               Passcode
               <input
-                autoFocus
+                ref={passcodeInput}
                 type="password"
                 inputMode="numeric"
                 autoComplete="off"

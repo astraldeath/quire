@@ -1,3 +1,4 @@
+import { TaskError } from '../../components/TaskError';
 import { useEffect, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { Lock } from 'lucide-react';
@@ -5,13 +6,27 @@ import { Switch } from '../../components/Controls';
 import { usePrivacy } from './Privacy';
 import { credential } from './model';
 import { ScreenCaptureSettings } from './ScreenCaptureSettings';
-export function PrivacySettings() {
+export function PrivacySettings({
+  connected = false,
+}: {
+  connected?: boolean;
+}) {
   const p = usePrivacy();
   const [biometric, setBiometric] = useState(false);
   const [change, setChange] = useState(false);
   const [code, setCode] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const cancel = () => {
+    setChange(false);
+    setCode('');
+    setConfirm('');
+    setError('');
+  };
+  useEffect(() => {
+    if (!p.unlocked) cancel();
+  }, [p.unlocked]);
   useEffect(() => {
     if (isTauri())
       void invoke<boolean>('plugin:privacy|available')
@@ -19,11 +34,14 @@ export function PrivacySettings() {
         .catch(() => {});
   }, []);
   const run = async (action: () => Promise<void>) => {
+    setBusy(true);
     try {
       setError('');
       await action();
-    } catch (e) {
-      setError(String(e));
+    } catch {
+      setError('Could not update privacy settings. Try again.');
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -31,14 +49,21 @@ export function PrivacySettings() {
       <section className="backup-settings">
         <h3>Private books</h3>
         <p className="muted">
-          Passcode and book privacy sync with your server account. Files and
-          backups are not encrypted.
+          {connected
+            ? 'Passcode and book privacy sync with your server account.'
+            : 'Privacy settings stay on this device. Connect a server to sync them.'}{' '}
+          Files and backups are not encrypted. Passcodes cannot be recovered.
         </p>
         <button
+          disabled={busy}
           onClick={() =>
             void run(async () => {
               if (p.state.credential) {
-                if (await p.authenticate(true)) setChange(true);
+                if (await p.authenticate(true)) {
+                  setCode('');
+                  setConfirm('');
+                  setChange(true);
+                }
               } else await p.authenticate();
             })
           }
@@ -55,10 +80,21 @@ export function PrivacySettings() {
                   setChange(false);
                   return;
                 }
-                if (code !== confirm)
-                  throw new Error('Passcodes do not match.');
+                if (code !== confirm) {
+                  setError('Passcodes do not match.');
+                  return;
+                }
+                if (!/^\d{6,12}$/.test(code)) {
+                  setError('Use 6�12 digits.');
+                  return;
+                }
+                const nextCredential = await credential(code);
+                if (!p.isUnlocked()) {
+                  cancel();
+                  return;
+                }
                 p.update({
-                  credential: await credential(code),
+                  credential: nextCredential,
                   failures: 0,
                   retryAt: 0,
                 });
@@ -90,14 +126,19 @@ export function PrivacySettings() {
                 onChange={(e) => setConfirm(e.target.value)}
               />
             </label>
-            <button className="primary">Save passcode</button>
+            <button className="primary" disabled={busy}>
+              {busy ? 'Saving�' : 'Save passcode'}
+            </button>
+            <button type="button" disabled={busy} onClick={cancel}>
+              Cancel
+            </button>
           </form>
         )}
         {p.state.credential && (
           <>
             {biometric && (
               <Switch
-                label="Use Face ID or Touch ID"
+                label="Biometric unlock"
                 checked={p.state.biometrics}
                 onChange={(value) =>
                   void run(async () => {
@@ -146,11 +187,7 @@ export function PrivacySettings() {
         )}
       </section>
       <ScreenCaptureSettings />
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <TaskError summary={error} detail="" />}
     </div>
   );
 }

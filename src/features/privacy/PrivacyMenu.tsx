@@ -79,7 +79,18 @@ export function PrivacyMenu({
             }}
           >
             <Icon />
-            {['Normal', 'Locked', 'Hidden'][index]}
+            <span className="privacy-menu-label">
+              <span>{['Normal', 'Locked', 'Hidden'][index]}</span>
+              <small>
+                {
+                  [
+                    'Visible in your library',
+                    'Unlock to open',
+                    'Shown only in Hidden books',
+                  ][index]
+                }
+              </small>
+            </span>
             {selected && <Check className="privacy-check" />}
           </ActionMenuItem>
         );

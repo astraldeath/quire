@@ -1,3 +1,4 @@
+import { LibraryDestination } from './features/library/LibraryDestination';
 import {
   emptyFolderCatalog,
   mergeFolderCatalog,
@@ -1411,19 +1412,62 @@ function AppContent({
                   )}
                   <h1>
                     {group ??
-                      (hiddenBooks
-                        ? 'Hidden books'
-                        : reading
-                          ? 'Currently reading'
-                          : folder
-                            ? folder.split('/').at(-1)
-                            : 'All books')}
+                      (reading ? (
+                        'Currently reading'
+                      ) : folder ? (
+                        folder.split('/').at(-1)
+                      ) : (
+                        <LibraryDestination
+                          hidden={hiddenBooks}
+                          onLibrary={() => {
+                            setHiddenBooks(false);
+                            goLibrary(false);
+                          }}
+                          onHidden={() => {
+                            void privacy.authenticate().then((ok) => {
+                              if (ok) {
+                                goLibrary(false);
+                                goFolder('');
+                                setHiddenBooks(true);
+                                setGroup(null);
+                                setQuery('');
+                              }
+                            });
+                          }}
+                        />
+                      ))}
                   </h1>
                   <span className="muted">
                     {browsingFolders
                       ? folderBooks.length
                       : entries.reduce((n, e) => n + e.books.length, 0)}
                   </span>
+                  {group && (
+                    <button
+                      aria-label="Series actions"
+                      aria-haspopup="menu"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        void showActions(
+                          {
+                            key: group,
+                            title: group,
+                            series: true,
+                            books: seriesBooks,
+                          },
+                          false,
+                          {
+                            left: rect.left,
+                            top: rect.top,
+                            bottom: rect.bottom,
+                            element: e.currentTarget,
+                          },
+                        );
+                      }}
+                    >
+                      <Ellipsis />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -1453,30 +1497,6 @@ function AppContent({
                     onClick={() => goTracking(seriesBooks[0], group)}
                   />
                 )}
-                <button
-                  aria-label="Series actions"
-                  aria-haspopup="menu"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    void showActions(
-                      {
-                        key: group,
-                        title: group,
-                        series: true,
-                        books: seriesBooks,
-                      },
-                      false,
-                      {
-                        left: rect.left,
-                        top: rect.top,
-                        bottom: rect.bottom,
-                        element: e.currentTarget,
-                      },
-                    );
-                  }}
-                >
-                  <Ellipsis />
-                </button>
               </div>
             )}
             <div className="shelf-controls">
@@ -1539,21 +1559,6 @@ function AppContent({
                     </select>
                   )}
                   <LibraryControls
-                    onHidden={
-                      hiddenBooks
-                        ? undefined
-                        : () => {
-                            void privacy.authenticate().then((ok) => {
-                              if (ok) {
-                                goLibrary(false);
-                                goFolder('');
-                                setHiddenBooks(true);
-                                setGroup(null);
-                                setQuery('');
-                              }
-                            });
-                          }
-                    }
                     collections={serverLibraries}
                     collection={libraryScope}
                     preferences={shelfPreferences}

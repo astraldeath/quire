@@ -2,8 +2,6 @@ import { useId, useState } from 'react';
 import {
   ArrowDownWideNarrow,
   CheckSquare,
-  ChevronRight,
-  EyeOff,
   Grid2X2,
   ListFilter,
   X,
@@ -33,9 +31,7 @@ export function LibraryControls({
   onSelect,
   collections = [],
   collection = 'all',
-  onHidden,
 }: {
-  onHidden?: () => void;
   collections?: { id: string; name: string }[];
   collection?: string;
   preferences: Preferences;
@@ -219,19 +215,6 @@ export function LibraryControls({
             )}
             {panel === 'View' && (
               <>
-                {onHidden && (
-                  <button
-                    className="library-destination"
-                    onClick={() => {
-                      setPanel('');
-                      onHidden();
-                    }}
-                  >
-                    <EyeOff />
-                    Hidden books
-                    <ChevronRight className="menu-chevron" />
-                  </button>
-                )}
                 <ViewOptions preferences={preferences} onChange={onChange} />
               </>
             )}
