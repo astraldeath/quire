@@ -1,0 +1,38 @@
+.password-field {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.password-input {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+.password-input input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+.password-input button {
+  flex: 0 0 44px;
+  justify-content: center;
+}
+.password-input svg {
+  width: 18px;
+  height: 18px;
+}
+.session-created {
+  display: block;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+.hosted-entry .hosted-card {
+  max-width: 440px;
+}
+.hosted-entry input,
+.hosted-password input {
+  font-size: 16px;
+}
+.hosted-password {
+  max-width: 32rem;
+}

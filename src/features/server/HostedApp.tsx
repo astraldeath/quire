@@ -6,6 +6,13 @@ import {
 } from '../navigation/routes';
 import { useEffect, useState } from 'react';
 import { LogOut, Shield, UserRound } from 'lucide-react';
+import {
+  ActionPopover,
+  type ActionAnchor,
+} from '../../components/ActionPopover';
+import { PasswordField } from '../../components/PasswordField';
+import { TaskError } from '../../components/TaskError';
+import './account.css';
 import { AccountPanel } from './AccountPanel';
 import { App } from '../../App';
 import { Wordmark } from '../../components/Wordmark';
@@ -43,7 +50,7 @@ export function HostedApp() {
   const webPath = useWebPath();
   const route = parseWebRoute(webPath);
   const [trackingResult, setTrackingResult] = useState('');
-  const [accountMenu, setAccountMenu] = useState(false);
+  const [accountMenu, setAccountMenu] = useState<ActionAnchor>();
   const [setup, setSetup] = useState<boolean>();
   const [invite, setInvite] = useState(location.hash.startsWith('#invite='));
   const [code, setCode] = useState(
@@ -183,41 +190,56 @@ export function HostedApp() {
               <div className="hosted-account">
                 <button
                   aria-label="Account menu"
-                  onClick={() => setAccountMenu(true)}
+                  aria-haspopup="menu"
+                  aria-expanded={!!accountMenu}
+                  onClick={(e) => {
+                    const element = e.currentTarget;
+                    const { left, top, bottom } =
+                      element.getBoundingClientRect();
+                    setAccountMenu({ left, top, bottom, element });
+                  }}
                 >
                   <UserRound />
                   <span className="account-name">{session.user.username}</span>
                 </button>
                 {accountMenu && (
-                  <Modal
+                  <ActionPopover
                     title={session.user.username}
-                    onClose={() => setAccountMenu(false)}
+                    anchor={accountMenu}
+                    onClose={() => setAccountMenu(undefined)}
                   >
                     <div className="book-action-list">
                       {error && <span role="alert">{error}</span>}
                       <button
+                        role="menuitem"
                         onClick={() => {
-                          setAccountMenu(false);
+                          setAccountMenu(undefined);
                           navigateWeb('/account');
                         }}
                       >
-                        Account settings
+                        <UserRound size={16} /> Account settings
                       </button>
                       {session.user.admin && (
                         <button
+                          role="menuitem"
                           onClick={() => {
-                            setAccountMenu(false);
+                            setAccountMenu(undefined);
                             navigateWeb('/admin/overview');
                           }}
                         >
                           <Shield size={16} /> Administration
                         </button>
                       )}
-                      <button disabled={busy} onClick={() => void signOut()}>
+                      <hr role="separator" />
+                      <button
+                        role="menuitem"
+                        disabled={busy}
+                        onClick={() => void signOut()}
+                      >
                         <LogOut size={16} /> Sign out
                       </button>
                     </div>
-                  </Modal>
+                  </ActionPopover>
                 )}
               </div>
             }
@@ -274,30 +296,53 @@ export function HostedApp() {
                 maxLength={64}
                 autoCapitalize="none"
                 autoComplete="username"
+                aria-describedby={
+                  setup || invite ? 'username-requirements' : undefined
+                }
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
             </label>
-            <label>
-              Password
-              <input
-                required
-                type="password"
-                minLength={setup || invite ? 12 : undefined}
-                maxLength={1024}
-                autoComplete={
-                  setup || invite ? 'new-password' : 'current-password'
-                }
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
+            {(setup || invite) && (
+              <p className="muted" id="username-requirements">
+                1�64 lowercase letters, numbers, dots, underscores or hyphens.
+                Start with a letter or number.
+              </p>
+            )}
+            <PasswordField
+              label="Password"
+              required
+              minLength={setup || invite ? 12 : undefined}
+              maxLength={1024}
+              autoComplete={
+                setup || invite ? 'new-password' : 'current-password'
+              }
+              value={password}
+              aria-describedby={
+                setup || invite ? 'password-requirements' : 'password-reset'
+              }
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {setup || invite ? (
+              <p className="muted" id="password-requirements">
+                At least 12 characters.
+              </p>
+            ) : (
+              <p className="muted" id="password-reset">
+                Forgot your password? Ask your server administrator to reset it.
+              </p>
+            )}
             {setup && (
               <p className="muted">
                 Use the one-time code printed in your server console.
               </p>
             )}
-            {error && <p role="alert">{error}</p>}
+            {error && (
+              <TaskError
+                summary={error}
+                detail="Check your details and try again."
+              />
+            )}
             <button className="primary" disabled={busy}>
               {busy
                 ? setup || invite
@@ -314,6 +359,7 @@ export function HostedApp() {
                 type="button"
                 onClick={() => {
                   setInvite(!invite);
+                  setPassword('');
                   setError('');
                 }}
               >
