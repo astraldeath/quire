@@ -153,7 +153,11 @@ export function HostedApp() {
       };
       await openAccount(account);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not sign in. Check your details and try again.',
+      );
     } finally {
       setBusy(false);
     }
@@ -305,7 +309,7 @@ export function HostedApp() {
             </label>
             {(setup || invite) && (
               <p className="muted" id="username-requirements">
-                1�64 lowercase letters, numbers, dots, underscores or hyphens.
+                1–64 lowercase letters, numbers, dots, underscores or hyphens.
                 Start with a letter or number.
               </p>
             )}

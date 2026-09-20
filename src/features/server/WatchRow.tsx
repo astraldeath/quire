@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
+import { adminConsequence } from './adminActions';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { TaskError } from '../../components/TaskError';
 import { accountRequest } from '../sync/transport';
@@ -87,13 +88,13 @@ export function WatchRow({
       <div>
         <strong>{basename}</strong>
         <p className="muted">
-          {destination} � Watch {watch.id.slice(-8)}
+          {destination} · Watch {watch.id.slice(-8)}
         </p>
         <p>
           {scan
             ? scan.error
               ? 'Scan failed'
-              : `${scan.imported} imported � ${scan.existing} existing � ${scan.skipped} skipped`
+              : `${scan.imported} imported · ${scan.existing} existing · ${scan.skipped} skipped`
             : 'Not scanned yet'}
         </p>
         {scan?.lastAt ? (
@@ -107,7 +108,7 @@ export function WatchRow({
           {scan?.error && <p>{scan.error}</p>}
           {scan && (
             <p>
-              {scan.imported} imported � {scan.existing} existing �{' '}
+              {scan.imported} imported · {scan.existing} existing ·{' '}
               {scan.skipped} skipped
             </p>
           )}
@@ -139,7 +140,7 @@ export function WatchRow({
       <div className="admin-actions">
         <button disabled={busy} onClick={() => void run(false)}>
           <RefreshCw />
-          {busy ? 'Working�' : 'Scan now'}
+          {busy ? 'Working…' : 'Scan now'}
         </button>
         <button
           disabled={busy}
@@ -154,10 +155,8 @@ export function WatchRow({
       </div>
       {confirm && (
         <ConfirmDialog
-          title={`Stop watching ${basename}?`}
-          description={`Stop watching ${watch.path}. Its books will no longer be available from this collection unless uploaded separately. Original files and members� reading data stay intact.${error ? ' ' + error : ''}`}
-          confirmLabel="Stop watching"
-          danger
+          {...adminConsequence('stop-watch', basename)}
+          description={`${watch.path}. ${adminConsequence('stop-watch', basename).description}${error ? ' ' + error : ''}`}
           busy={busy}
           onCancel={() => setConfirm(false)}
           onConfirm={() => void run(true)}

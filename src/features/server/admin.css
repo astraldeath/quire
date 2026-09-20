@@ -81,3 +81,11 @@
     align-items: stretch;
   }
 }
+
+.admin-shell .admin-settings-form {
+  max-width: 36rem;
+}
+.admin-settings-form input,
+.admin-settings-form select {
+  width: 100%;
+}

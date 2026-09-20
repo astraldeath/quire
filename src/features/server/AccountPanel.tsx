@@ -34,7 +34,11 @@ export function AccountPanel({
       await action();
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not update your account. Try again.',
+      );
     } finally {
       setBusy(false);
     }
@@ -98,7 +102,7 @@ export function AccountPanel({
             <div key={s.id} className="setting-row">
               <span>
                 {s.deviceName}
-                {s.id === account.sessionId ? ' � Current session' : ''}
+                {s.id === account.sessionId ? ' · Current session' : ''}
                 <small className="session-created">
                   Signed in{' '}
                   <time

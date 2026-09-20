@@ -1,3 +1,4 @@
+import { ServerSettings } from './ServerSettings';
 import { CollectionManager } from './CollectionManager';
 import { WatchRow, type Watch, type Scan } from './WatchRow';
 import { useWebPath, parseWebRoute, navigateWeb } from '../navigation/routes';
@@ -41,7 +42,6 @@ export function Management({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
-    [config, setConfig] = useState({ name: 'Quire', scanSeconds: 300 }),
     [scans, setScans] = useState<Scan[]>([]),
     [loaded, setLoaded] = useState(false);
   const route = parseWebRoute(useWebPath());
@@ -71,10 +71,8 @@ export function Management({
     setWatches(w);
     setUsers(u);
     setOverview(o);
-    const config = await accountRequest(account, '/v1/admin/settings');
     const scans = await accountRequest(account, '/v1/admin/scans');
     if (current.current !== identity) return;
-    setConfig(config);
     setScans(scans);
   }
   useEffect(() => {
@@ -95,7 +93,11 @@ export function Management({
       await refresh();
       await syncNow();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not complete this administration action. Try again.',
+      );
       await refresh().catch(() => {});
     } finally {
       setBusy(false);
@@ -116,53 +118,7 @@ export function Management({
           <RefreshCw /> Scanning books…
         </p>
       )}
-      {tab === 'settings' && (
-        <>
-          <h2>Server settings</h2>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                await accountRequest(
-                  account,
-                  '/v1/admin/settings',
-                  config,
-                  'PUT',
-                );
-                setNotice('Settings saved.');
-              });
-            }}
-          >
-            <label>
-              Server name
-              <input
-                required
-                maxLength={100}
-                value={config.name}
-                onChange={(e) => setConfig({ ...config, name: e.target.value })}
-              />
-            </label>
-            <label>
-              Scan interval
-              <select
-                value={config.scanSeconds}
-                onChange={(e) =>
-                  setConfig({ ...config, scanSeconds: Number(e.target.value) })
-                }
-              >
-                <option value={0}>Manual scans only</option>
-                <option value={60}>Every minute</option>
-                <option value={300}>Every 5 minutes</option>
-                <option value={900}>Every 15 minutes</option>
-                <option value={3600}>Every hour</option>
-              </select>
-            </label>
-            <button className="primary" disabled={busy}>
-              Save settings
-            </button>
-          </form>
-        </>
-      )}
+      {tab === 'settings' && <ServerSettings account={account} />}
       {tab === 'overview' && (
         <>
           <h2>Your server</h2>
@@ -236,7 +192,7 @@ export function Management({
                   <div>
                     <strong>{l.name}</strong>
                     <p className="muted">
-                      {l.books} books � {l.members.length} members
+                      {l.books} books · {l.members.length} members
                     </p>
                   </div>
                   <button

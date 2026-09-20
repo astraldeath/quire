@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { adminConsequence } from './adminActions';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { TaskError } from '../../components/TaskError';
 import { Modal } from '../../components/Modal';
@@ -18,7 +19,10 @@ export function LibraryActions({
     [name, setName] = useState(library.name),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const active = useRef(false);
   async function save() {
+    if (active.current) return;
+    active.current = true;
     setBusy(true);
     setError('');
     try {
@@ -31,8 +35,13 @@ export function LibraryActions({
       setMode(undefined);
       await onChange();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not update this library. Try again.',
+      );
     } finally {
+      active.current = false;
       setBusy(false);
     }
   }
@@ -59,10 +68,11 @@ export function LibraryActions({
       </div>
       {mode === 'delete' && (
         <ConfirmDialog
-          title={`Delete ${library.name}?`}
-          description={`This removes shared access, stops its folder watches and deletes its uploaded server files and cached snapshots. Watched originals and members� downloaded books, notes and reading progress stay intact.${error ? ' ' + error : ''}`}
-          confirmLabel="Delete library and server files"
-          danger
+          {...adminConsequence('delete-library', library.name)}
+          description={
+            adminConsequence('delete-library', library.name).description +
+            (error ? ' ' + error : '')
+          }
           busy={busy}
           onCancel={() => setMode(undefined)}
           onConfirm={() => void save()}
@@ -107,7 +117,7 @@ export function LibraryActions({
                 Cancel
               </button>
               <button className="primary" disabled={busy}>
-                {busy ? 'Saving�' : 'Save name'}
+                {busy ? 'Saving…' : 'Save name'}
               </button>
             </div>
           </form>

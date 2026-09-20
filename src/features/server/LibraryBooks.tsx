@@ -1,6 +1,9 @@
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { TaskError } from '../../components/TaskError';
+import { adminConsequence } from './adminActions';
 import { Pencil, Trash2 } from 'lucide-react';
 import { syncNow } from '../sync/engine';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Account } from '../sync/model';
 import { accountRequest } from '../sync/transport';
 type Book = {
@@ -25,7 +28,9 @@ export function LibraryBooks({
     [books, setBooks] = useState<Book[]>([]),
     [editing, setEditing] = useState<Book>(),
     [error, setError] = useState(''),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState<string[]>([]),
+    [deleting, setDeleting] = useState<Book>();
+  const active = useRef(new Set<string>());
   async function refresh() {
     setBooks(
       await accountRequest(account, `/v1/admin/libraries/${library}/books`),
@@ -39,8 +44,10 @@ export function LibraryBooks({
     window.addEventListener('quire-synced', update);
     return () => window.removeEventListener('quire-synced', update);
   }, [library]);
-  async function run(action: () => Promise<unknown>) {
-    setBusy(true);
+  async function run(id: string, action: () => Promise<unknown>) {
+    if (active.current.has(id)) return;
+    active.current.add(id);
+    setBusy((ids) => [...ids, id]);
     setError('');
     try {
       await action();
@@ -48,14 +55,46 @@ export function LibraryBooks({
       await onChange();
       await syncNow();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not update this book. Try again.',
+      );
     } finally {
-      setBusy(false);
+      active.current.delete(id);
+      setBusy((ids) => ids.filter((v) => v !== id));
     }
   }
   return (
     <div>
-      {error && <p role="alert">{error}</p>}
+      {deleting && (
+        <ConfirmDialog
+          {...adminConsequence('delete-upload', deleting.title || 'Untitled')}
+          description={
+            adminConsequence('delete-upload', deleting.title || 'Untitled')
+              .description + (error ? ' ' + error : '')
+          }
+          busy={busy.includes(deleting.id)}
+          onCancel={() => setDeleting(undefined)}
+          onConfirm={() =>
+            void run(deleting.id, async () => {
+              await accountRequest(
+                account,
+                `/v1/admin/libraries/${library}/books/${deleting.id}`,
+                undefined,
+                'DELETE',
+              );
+              setDeleting(undefined);
+            })
+          }
+        />
+      )}
+      {error && (
+        <TaskError
+          summary="Could not update this collection’s books."
+          detail={error}
+        />
+      )}
       {
         <div>
           <label className="admin-search">
@@ -79,7 +118,7 @@ export function LibraryBooks({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      void run(async () => {
+                      void run(b.id, async () => {
                         const { title, author, series, volume } = editing;
                         await accountRequest(
                           account,
@@ -139,7 +178,7 @@ export function LibraryBooks({
                         }
                       />
                     </label>
-                    <button className="primary" disabled={busy}>
+                    <button className="primary" disabled={busy.includes(b.id)}>
                       Save metadata
                     </button>
                     <button type="button" onClick={() => setEditing(undefined)}>
@@ -158,28 +197,18 @@ export function LibraryBooks({
                         : 'Uploaded'}
                     </p>
                     <div className="admin-actions">
-                      <button onClick={() => setEditing(b)}>
+                      <button
+                        disabled={busy.includes(b.id)}
+                        onClick={() => setEditing(b)}
+                      >
                         <Pencil /> Edit metadata
                       </button>
                       {b.uploaded && (
                         <button
-                          disabled={busy}
+                          disabled={busy.includes(b.id)}
                           onClick={() => {
-                            if (
-                              window.confirm(
-                                b.watched
-                                  ? 'Delete the uploaded file? The watched copy remains available. Original files and reading data stay intact.'
-                                  : 'Delete this uploaded server file? Members will keep downloaded copies and reading data, but cannot download it again from this library.',
-                              )
-                            )
-                              void run(() =>
-                                accountRequest(
-                                  account,
-                                  `/v1/admin/libraries/${library}/books/${b.id}`,
-                                  undefined,
-                                  'DELETE',
-                                ),
-                              );
+                            setError('');
+                            setDeleting(b);
                           }}
                         >
                           <Trash2 /> Delete uploaded file

@@ -1,4 +1,6 @@
 import { useWebPath, parseWebRoute, navigateWeb } from '../navigation/routes';
+import { AdminUserRow } from './AdminUserRow';
+import { TaskError } from '../../components/TaskError';
 import { ServerBackups } from './ServerBackups';
 import { Management } from './Management';
 import { useEffect, useState, useRef } from 'react';
@@ -17,6 +19,7 @@ interface Invite {
   id: string;
   status: string;
   expiresAt: number;
+  libraries?: unknown;
 }
 export function AdminPanel({
   account,
@@ -26,6 +29,8 @@ export function AdminPanel({
   onClose(): void;
 }) {
   const panel = useRef<HTMLElement>(null);
+  const linkInput = useRef<HTMLInputElement>(null);
+  const creating = useRef(false);
   useEffect(() => {
     panel.current?.focus();
   }, []);
@@ -44,6 +49,8 @@ export function AdminPanel({
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [link, setLink] = useState(''),
+    [copyResult, setCopyResult] = useState(''),
+    [revoking, setRevoking] = useState<string[]>([]),
     [libraries, setLibraries] = useState<{ id: string; name: string }[]>([]),
     [grants, setGrants] = useState<string[]>([]);
   async function refresh() {
@@ -59,14 +66,21 @@ export function AdminPanel({
     void refresh().catch((e) => setError(e.message));
   }, []);
   async function run(action: () => Promise<unknown>) {
+    if (creating.current) return;
+    creating.current = true;
     setBusy(true);
     setError('');
     try {
       await action();
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not complete this administration action. Try again.',
+      );
     } finally {
+      creating.current = false;
       setBusy(false);
     }
   }
@@ -77,7 +91,15 @@ export function AdminPanel({
         tabIndex={-1}
         className="admin-shell"
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose();
+          if (
+            e.key === 'Escape' &&
+            !e.defaultPrevented &&
+            !(
+              e.target instanceof Element &&
+              e.target.closest('dialog,[role=dialog]')
+            )
+          )
+            onClose();
         }}
       >
         <header>
@@ -93,7 +115,12 @@ export function AdminPanel({
           </button>
         </header>
         <AdminNavigation active={tab} onChange={setTab} />
-        {error && <p role="alert">{error}</p>}
+        {error && (
+          <TaskError
+            summary="Could not complete this administration action."
+            detail={error}
+          />
+        )}
         {tab === 'backups' ? (
           <ServerBackups account={account} />
         ) : tab === 'overview' ||
@@ -106,66 +133,12 @@ export function AdminPanel({
             <h2>Accounts</h2>
             <div className="admin-rows">
               {users.map((u) => (
-                <article key={u.id}>
-                  <div>
-                    <strong>{u.username}</strong>
-                    <p className="muted">
-                      {u.admin ? 'Administrator' : 'Member'}
-                      {u.disabled ? ' · Disabled' : ''}
-                    </p>
-                  </div>
-                  <div className="admin-actions">
-                    {u.username !== account.username && (
-                      <>
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            void run(() =>
-                              accountRequest(
-                                account,
-                                '/v1/admin/users/' + u.id,
-                                { admin: u.admin, disabled: !u.disabled },
-                                'PUT',
-                              ),
-                            )
-                          }
-                        >
-                          {u.disabled ? 'Enable' : 'Disable'}
-                        </button>
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            void run(() =>
-                              accountRequest(
-                                account,
-                                '/v1/admin/users/' + u.id,
-                                { admin: !u.admin, disabled: u.disabled },
-                                'PUT',
-                              ),
-                            )
-                          }
-                        >
-                          {u.admin ? 'Make member' : 'Make admin'}
-                        </button>
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            void run(() =>
-                              accountRequest(
-                                account,
-                                '/v1/admin/users/' + u.id + '/sessions',
-                                undefined,
-                                'DELETE',
-                              ),
-                            )
-                          }
-                        >
-                          Sign out devices
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </article>
+                <AdminUserRow
+                  key={u.id}
+                  account={account}
+                  user={u}
+                  onChange={refresh}
+                />
               ))}
             </div>
           </>
@@ -175,47 +148,65 @@ export function AdminPanel({
             <p className="muted">
               Invites are single-use and expire after seven days.
             </p>
-            <fieldset className="admin-access">
-              <legend>Shared library access</legend>
-              {libraries.map((l) => (
-                <label className="admin-member" key={l.id}>
-                  <input
-                    type="checkbox"
-                    checked={grants.includes(l.id)}
-                    onChange={(e) =>
-                      setGrants(
-                        e.target.checked
-                          ? [...grants, l.id]
-                          : grants.filter((id) => id !== l.id),
-                      )
-                    }
-                  />
-                  <span className="access-check" aria-hidden="true">
-                    <Check />
-                  </span>
-                  <span>{l.name}</span>
-                </label>
-              ))}
-            </fieldset>
+            {libraries.length > 0 ? (
+              <fieldset className="admin-access">
+                <legend>Shared library access</legend>
+                {libraries.map((l) => (
+                  <label className="admin-member" key={l.id}>
+                    <input
+                      type="checkbox"
+                      disabled={busy}
+                      checked={grants.includes(l.id)}
+                      onChange={(e) =>
+                        setGrants(
+                          e.target.checked
+                            ? [...grants, l.id]
+                            : grants.filter((id) => id !== l.id),
+                        )
+                      }
+                    />
+                    <span className="access-check" aria-hidden="true">
+                      <Check />
+                    </span>
+                    <span>{l.name}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : (
+              <p className="muted">
+                New members have a personal library. No shared libraries are
+                available.
+              </p>
+            )}
             <button
               className="primary"
               disabled={busy}
               onClick={() =>
                 void run(async () => {
+                  setLink('');
+                  setCopyResult('');
                   const v = await accountRequest(
                     account,
                     '/v1/admin/invites',
                     {},
                     'POST',
                   );
-                  for (const id of grants)
-                    await accountRequest(
-                      account,
-                      `/v1/admin/invites/${v.id}/libraries/${id}`,
-                      undefined,
-                      'PUT',
+                  try {
+                    for (const id of grants)
+                      await accountRequest(
+                        account,
+                        `/v1/admin/invites/${v.id}/libraries/${id}`,
+                        undefined,
+                        'PUT',
+                      );
+                  } catch (e) {
+                    await refresh();
+                    throw new Error(
+                      `Invitation ${v.id.slice(-8)} was created, but shared access could not be saved. Revoke it and create another invite. ${e instanceof Error ? e.message : ''}`,
                     );
+                  }
                   setLink(location.origin + '/#invite=' + v.code);
+                  setCopyResult('');
                 })
               }
             >
@@ -225,34 +216,84 @@ export function AdminPanel({
               <label>
                 Invitation link
                 <input
+                  ref={linkInput}
                   readOnly
                   value={link}
                   onFocus={(e) => e.target.select()}
                 />
               </label>
             )}
+            {link && (
+              <>
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(link);
+                      setCopyResult('Link copied.');
+                    } catch {
+                      linkInput.current?.focus();
+                      linkInput.current?.select();
+                      setCopyResult(
+                        'Could not copy automatically. Copy the selected link.',
+                      );
+                    }
+                  }}
+                >
+                  Copy link
+                </button>
+                {copyResult && <p role="status">{copyResult}</p>}
+              </>
+            )}
             <div className="admin-rows">
               {invites.map((i) => (
                 <article key={i.id}>
                   <div>
-                    <strong>{i.status}</strong>
+                    <strong>
+                      {i.status} · {i.id.slice(-8)}
+                    </strong>
+                    <p className="muted">
+                      {Array.isArray(i.libraries) &&
+                      i.libraries.every(
+                        (l) =>
+                          l &&
+                          typeof l.id === 'string' &&
+                          typeof l.name === 'string',
+                      )
+                        ? i.libraries.length
+                          ? 'Shared access: ' +
+                            i.libraries.map((l) => l.name).join(', ')
+                          : 'Personal library only'
+                        : 'Access information unavailable from this server'}
+                    </p>
                     <p className="muted">
                       Expires {new Date(i.expiresAt * 1000).toLocaleString()}
                     </p>
                   </div>
                   {i.status === 'pending' && (
                     <button
-                      disabled={busy}
-                      onClick={() =>
-                        void run(() =>
-                          accountRequest(
+                      disabled={revoking.includes(i.id)}
+                      onClick={async () => {
+                        if (revoking.includes(i.id)) return;
+                        setRevoking((ids) => [...ids, i.id]);
+                        setError('');
+                        try {
+                          await accountRequest(
                             account,
                             '/v1/admin/invites/' + i.id,
                             undefined,
                             'DELETE',
-                          ),
-                        )
-                      }
+                          );
+                          await refresh();
+                        } catch (e) {
+                          setError(
+                            e instanceof Error
+                              ? e.message
+                              : 'Could not revoke this invitation. Try again.',
+                          );
+                        } finally {
+                          setRevoking((ids) => ids.filter((id) => id !== i.id));
+                        }
+                      }}
                     >
                       Revoke
                     </button>
