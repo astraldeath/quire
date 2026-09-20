@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0]
+
+- Simplify library controls, book actions, details editing, and folder management. Create empty nested folders and preserve them through backups and server sync.
+- Keep settings navigation in place when switching sections, with labeled desktop tabs and a compact phone selector.
+- Improve tracking search and status editing, hidden-library navigation, and sync conflict comparisons.
+- Protect unsaved edits and improve keyboard focus, confirmations, and recovery from failed operations.
+- Clarify backup contents and storage usage, improve reading statistics, and format update notes for easier reading.
+- Support larger shared-library uploads with cancellation and retry, and streamline account and server administration.
+- Update Quire Server to use empty-folder sync and the improved shared-upload flow.
+
 ## [0.6.2]
 
 - Fix the startup event-listener permission error in installed apps.
