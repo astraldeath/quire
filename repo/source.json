@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.7.0",
-      "versionDate": "2026-09-20T19:06:40.000Z",
-      "versionDescription": "- Simplify library controls, book actions, details editing, and folder management. Create empty nested folders and preserve them through backups and server sync.\n- Keep settings navigation in place when switching sections, with labeled desktop tabs and a compact phone selector.\n- Improve tracking search and status editing, hidden-library navigation, and sync conflict comparisons.\n- Protect unsaved edits and improve keyboard focus, confirmations, and recovery from failed operations.\n- Clarify backup contents and storage usage, improve reading statistics, and format update notes for easier reading.\n- Support larger shared-library uploads with cancellation and retry, and streamline account and server administration.\n- Update Quire Server to use empty-folder sync and the improved shared-upload flow.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.0/Quire_0.7.0_ios-unsigned.ipa",
-      "size": 7693145,
+      "version": "0.7.1",
+      "versionDate": "2026-09-20T19:35:32.000Z",
+      "versionDescription": "- Fix native command permission errors introduced in v0.7.0, including file opening, screen capture settings, local storage, sync, tracking, and update checks.\n- If v0.7.0 cannot check for updates, download and install this release manually over your existing installation. Do not uninstall Quire or clear its app data.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.1/Quire_0.7.1_ios-unsigned.ipa",
+      "size": 7698141,
       "versions": [
+        {
+          "version": "0.7.1",
+          "date": "2026-09-20T19:35:32.000Z",
+          "localizedDescription": "- Fix native command permission errors introduced in v0.7.0, including file opening, screen capture settings, local storage, sync, tracking, and update checks.\n- If v0.7.0 cannot check for updates, download and install this release manually over your existing installation. Do not uninstall Quire or clear its app data.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.1/Quire_0.7.1_ios-unsigned.ipa",
+          "size": 7698141
+        },
         {
           "version": "0.7.0",
           "date": "2026-09-20T19:06:40.000Z",
