@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.7.2",
-      "versionDate": "2026-09-20T22:00:07.000Z",
-      "versionDescription": "- Restore labeled settings tabs on mobile in two compact rows, replacing the section dropdown.\n- Keep mobile tabs visible and stationary while settings content scrolls, with keyboard navigation adapted to the layout.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.7.2/Quire_0.7.2_ios-unsigned.ipa",
-      "size": 7701792,
+      "version": "0.8.0",
+      "versionDate": "2026-09-21T18:59:10.000Z",
+      "versionDescription": "- Count chapters completed by swiping into the next chapter in reading statistics.\n- Open CBR (RAR4/RAR5) and CB7 comics with existing page modes, preloading, bookmarks, and reading progress. Include these formats in server imports, backups, exports, and desktop file associations.\n- Read fixed-layout EPUBs with publisher fonts, artwork, reading direction, and spreads intact. Save page bookmarks and resume at the correct page.\n- Release fixed EPUB spreads when leaving them and cancel abandoned comic extraction without blocking the next page.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.8.0/Quire_0.8.0_ios-unsigned.ipa",
+      "size": 8164193,
       "versions": [
+        {
+          "version": "0.8.0",
+          "date": "2026-09-21T18:59:10.000Z",
+          "localizedDescription": "- Count chapters completed by swiping into the next chapter in reading statistics.\n- Open CBR (RAR4/RAR5) and CB7 comics with existing page modes, preloading, bookmarks, and reading progress. Include these formats in server imports, backups, exports, and desktop file associations.\n- Read fixed-layout EPUBs with publisher fonts, artwork, reading direction, and spreads intact. Save page bookmarks and resume at the correct page.\n- Release fixed EPUB spreads when leaving them and cancel abandoned comic extraction without blocking the next page.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.8.0/Quire_0.8.0_ios-unsigned.ipa",
+          "size": 8164193
+        },
         {
           "version": "0.7.2",
           "date": "2026-09-20T22:00:07.000Z",
