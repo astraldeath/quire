@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.8.0]
 
 - Count chapters completed by swiping into the next chapter in reading statistics.
 - Open CBR (RAR4/RAR5) and CB7 comics with existing page modes, preloading, bookmarks, and reading progress. Include these formats in server imports, backups, exports, and desktop file associations.
