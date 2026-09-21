@@ -423,6 +423,15 @@ export function Reader({
         sectionBuffer?.relocate(detail.index);
         const { reason } = detail;
         syncAvailability();
+        // A swipe crosses the trailing spacer through renderer.snap(), without
+        // calling view.next(). Preserve that intent for the next section's anchor.
+        if (
+          reason === 'snap' &&
+          current.current.preferences.flow === 'paginated' &&
+          (detail.fraction ?? 0) >= 1 &&
+          !view.renderer.atEnd
+        )
+          forwardUntil = performance.now() + 2500;
         if (view.isFixedLayout) {
           collector.relocate(
             {

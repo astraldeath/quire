@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Count chapters completed by swiping into the next chapter in reading statistics.
 - Open CBR (RAR4/RAR5) and CB7 comics with existing page modes, preloading, bookmarks, and reading progress. Include these formats in server imports, backups, exports, and desktop file associations.
 - Read fixed-layout EPUBs with publisher fonts, artwork, reading direction, and spreads intact. Save page bookmarks and resume at the correct page.
 - Release fixed EPUB spreads when leaving them and cancel abandoned comic extraction without blocking the next page.
