@@ -23,6 +23,7 @@ export function ReadingSettings({
     onPreferences({ ...preferences, ...value });
   return (
     <SettingsTabs
+      layout="settings"
       label="Reading settings sections"
       tabs={[
         ...(fixedLayout

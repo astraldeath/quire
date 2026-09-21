@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Align reading settings with the main settings: desktop sidebar, compact mobile tabs, consistent spacing, and a stable dialog when switching sections.
+
 ## [0.8.0]
 
 - Count chapters completed by swiping into the next chapter in reading statistics.

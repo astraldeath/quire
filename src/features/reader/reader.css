@@ -727,6 +727,31 @@
   margin-top: 8px;
 }
 
+.reader .reader-dialog:has(.settings-layout) {
+  width: min(900px, 100%);
+  height: min(680px, 100%);
+}
+.reader-dialog > .settings-layout {
+  flex: 1;
+  overflow: hidden;
+}
+.reader-dialog .settings-layout .reader-settings {
+  margin-top: 0;
+}
+.reader-dialog:has(.settings-layout) .reader-panel-heading h2 {
+  margin: 0;
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .reader .reader-dialog:has(.settings-layout) {
+    height: 100%;
+    padding: 16px;
+  }
+  .reader-dialog .settings-layout .settings-panels {
+    padding-inline: 4px;
+  }
+}
+
 .reader .reader-settings.reader-behavior {
   gap: 6px;
   margin-top: 0;

@@ -3508,7 +3508,7 @@ dialog:focus {
 .privacy-menu button > svg {
   flex-shrink: 0;
 }
-/* Application settings only; reading settings retain their tab layout. */
+/* Shared settings navigation: desktop sidebar and compact mobile tabs. */
 dialog:has(.settings-layout) {
   bottom: auto;
   width: min(900px, calc(100vw - 32px));
