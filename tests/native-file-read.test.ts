@@ -29,3 +29,42 @@ it('rejects truncated native reads', async () => {
   );
   await expect(readNativeFile('file')).rejects.toThrow('Incomplete');
 });
+it('rejects an already cancelled read before contacting native storage', async () => {
+  invoke.mockClear();
+  const controller = new AbortController();
+  controller.abort();
+  await expect(
+    readNativeFile('file', undefined, controller.signal),
+  ).rejects.toMatchObject({ name: 'AbortError' });
+  expect(invoke).not.toHaveBeenCalled();
+});
+it('does not allocate or start chunks when cancelled during size lookup', async () => {
+  const controller = new AbortController();
+  invoke.mockReset();
+  invoke.mockImplementation(async (command) => {
+    if (command === 'book_file_size') {
+      controller.abort();
+      return 64 * 1024 * 1024;
+    }
+    throw new Error('Read started after cancellation');
+  });
+  await expect(
+    readNativeFile('file', undefined, controller.signal).then(() => undefined),
+  ).rejects.toMatchObject({ name: 'AbortError' });
+  expect(invoke).toHaveBeenCalledTimes(1);
+});
+it('stops scheduling chunks when cancelled during pipelined readback', async () => {
+  const controller = new AbortController();
+  let chunks = 0;
+  invoke.mockImplementation(async (command, args) => {
+    if (command === 'book_file_size') return nativeChunkSize * 10;
+    chunks++;
+    await Promise.resolve();
+    controller.abort();
+    return new ArrayBuffer(args.length);
+  });
+  await expect(
+    readNativeFile('file', undefined, controller.signal).then(() => undefined),
+  ).rejects.toMatchObject({ name: 'AbortError' });
+  expect(chunks).toBe(4);
+});

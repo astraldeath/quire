@@ -128,6 +128,7 @@ async function native(
     const bytes = await readNativeFile(
       result.id,
       kind === 'cover' ? 8 * 1024 * 1024 : 8 * 1024 * 1024 * 1024,
+      signal,
     );
     signal.throwIfAborted();
     return new Blob([bytes as Uint8Array<ArrayBuffer>], {

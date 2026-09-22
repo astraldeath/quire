@@ -37,8 +37,11 @@ export async function writeNativeFile(
 export async function readNativeFile(
   id: string,
   limit = 8 * 1024 * 1024 * 1024,
+  signal?: AbortSignal,
 ): Promise<Uint8Array> {
+  signal?.throwIfAborted();
   const size = await invoke<number>('book_file_size', { id });
+  signal?.throwIfAborted();
   if (!Number.isSafeInteger(size) || size < 0 || size > limit)
     throw new Error('Invalid book size.');
   const bytes = new Uint8Array(size);
@@ -50,9 +53,11 @@ export async function readNativeFile(
       nextOffset += nativeChunkSize;
       const length = Math.min(nativeChunkSize, size - offset);
       try {
+        signal?.throwIfAborted();
         const chunk = new Uint8Array(
           await invoke<ArrayBuffer>('book_file_read', { id, offset, length }),
         );
+        signal?.throwIfAborted();
         if (chunk.byteLength !== length)
           throw new Error('Incomplete stored book file.');
         bytes.set(chunk, offset);
@@ -69,6 +74,7 @@ export async function readNativeFile(
       read,
     ),
   );
+  signal?.throwIfAborted();
   return bytes;
 }
 
