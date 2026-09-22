@@ -13,8 +13,10 @@ An offline-first book reader for Windows, Linux, Android, iOS, and the browser. 
 - Reading statistics with lifetime history, active-time estimates, and optional server sync.
 - MangaBaka book or series tracking directly from the installed app, with no Quire server required.
 - Optional server sync and shared libraries.
+- [OPDS catalogs](docs/OPDS.md): browse, search, and download books, or share your server library with other readers.
+- [RSVP reading](docs/RSVP.md): one word at a time with adjustable speed and punctuation pauses.
 
-Supported formats: reflowable and fixed-layout EPUB, PDF, CBZ/CBR/CB7 comics, FB2 (including FBZ and FB2.ZIP), and DRM-free MOBI/AZW3. CBR and fixed-layout EPUBs are not supported. PDFs use paged image rendering with reading progress and bookmarks; text selection, search, form editing, and password-protected PDFs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
+Supported formats: reflowable and fixed-layout EPUB, PDF, CBZ/CBR/CB7 comics, FB2 (including FBZ and FB2.ZIP), and DRM-free MOBI/AZW3. PDFs use paged image rendering with reading progress and bookmarks; text selection, search, form editing, and password-protected PDFs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
 
 Comic reading settings offer single pages, double-page spreads, and continuous Webtoon scrolling, with left-to-right or right-to-left navigation. Taps and swipes can be enabled independently.
 
@@ -58,6 +60,8 @@ Use `npm run format` to format source and tests. Type checking rejects unused de
 
 - [Reader, backups, sync, and storage guide](docs/READER.md)
 - [Standalone MangaBaka tracking](docs/TRACKING.md)
+- [OPDS catalogs and access](docs/OPDS.md)
+- [RSVP reading](docs/RSVP.md)
 - [Build and installation guide](docs/BUILDING.md)
 - [Updates and release publishing](docs/UPDATES.md)
 - [Server setup and administration](https://github.com/astraldeath/quire-server)

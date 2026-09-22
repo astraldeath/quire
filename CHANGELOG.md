@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Browse OPDS 1.2 and 2.0 catalogs from Add books, including search, categories, covers, and direct downloads in supported formats. Save catalog sources across devices and in backups.
+- Read your Quire Server library in other OPDS apps with separate, revocable app passwords. Hidden and locked books stay excluded.
+- Add RSVP reading for reflowable text books, with adjustable speed, punctuation pauses, sentence rewind, and saved positions shared with normal reading. Playback pauses when the app loses focus; reading time and completed chapters contribute to statistics.
+
 - Align reading settings with the main settings: desktop sidebar, compact mobile tabs, consistent spacing, and a stable dialog when switching sections.
 
 ## [0.8.0]

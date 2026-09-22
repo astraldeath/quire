@@ -4,6 +4,14 @@ import type { Account } from '../sync/model';
 import { opdsAccountRequest } from './sources';
 import { supportsOpds } from '../sync/transport';
 export function OpdsAccessSettings({ account }: { account: Account }) {
+  return (
+    <AccountOpdsAccess
+      key={`${account.origin}:${account.username}:${account.sessionId}`}
+      account={account}
+    />
+  );
+}
+function AccountOpdsAccess({ account }: { account: Account }) {
   const [passwords, setPasswords] = useState<
       { id: string; name: string; createdAt: number }[]
     >([]),

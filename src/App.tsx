@@ -661,6 +661,7 @@ function AppContent({
             (
               {
                 library: 'Library',
+                catalogs: 'Catalogs',
                 reading: 'Reading',
                 settings: 'Settings',
                 admin: 'Administration',
