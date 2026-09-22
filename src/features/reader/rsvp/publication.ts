@@ -14,12 +14,18 @@ export interface RsvpLocator {
   getCFI(index: number, range?: Range): string;
   resolveNavigation(cfi: string): unknown;
 }
+export function rsvpSectionSize(section: {
+  size: number;
+  linear?: string;
+}): number {
+  return section.linear === 'no' ? 0 : Math.max(1, section.size || 1);
+}
 export function supportsRsvp(book: ReaderBook, format = 'epub'): boolean {
   return (
     !['cbz', 'cbr', 'cb7', 'pdf'].includes(format) &&
     !book.comicPages &&
     book.rendition?.layout !== 'pre-paginated' &&
-    !!book.sections?.some((s) => s.createDocument)
+    !!book.sections?.some((s) => rsvpSectionSize(s) > 0 && s.createDocument)
   );
 }
 /** Detached sanitized documents need no resource URLs or renderer load references.
@@ -82,18 +88,28 @@ export class RsvpPublication {
       bytes += css.length;
       if (bytes > 2 * 1024 * 1024) return;
       for (const match of css.matchAll(
-        /@import\s+(?:url\(\s*)?["']([^"']+)["']/gi,
+        /@import\s+(?:url\(\s*)?["']([^"']+)["']\s*\)?\s*([^;]*);/gi,
       )) {
         const resolved = new URL(match[1], `https://quire.invalid/${href}`);
-        if (resolved.origin === 'https://quire.invalid')
+        if (resolved.origin === 'https://quire.invalid') {
+          const start = result.length;
           await read(decodeURI(resolved.pathname.slice(1)));
+          if (match[2].trim())
+            for (let i = start; i < result.length; i++)
+              result[i] = `@media ${match[2]} { ${result[i]} }`;
+        }
       }
       result.push(css);
     };
     for (const link of doc.querySelectorAll('link[rel~="stylesheet"][href]')) {
       const href = link.getAttribute('href')!;
       if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href)) continue;
+      const start = result.length;
       await read(section.resolveHref(href));
+      const media = link.getAttribute('media');
+      if (media?.trim())
+        for (let i = start; i < result.length; i++)
+          result[i] = `@media ${media} { ${result[i]} }`;
     }
     return result;
   }
@@ -114,8 +130,12 @@ export class RsvpPublication {
     if (this.closed) throw new Error('RSVP is closed.');
     const count = this.book.sections?.length ?? 0;
     for (let i = Math.max(0, index); i < count; i++) {
+      if (rsvpSectionSize(this.book.sections![i]) === 0) continue;
+      let next = i + 1;
+      while (next < count && rsvpSectionSize(this.book.sections![next]) === 0)
+        next++;
       for (const key of this.documents.keys())
-        if (key !== i && key !== i + 1) this.documents.delete(key);
+        if (key !== i && key !== next) this.documents.delete(key);
       const doc = await this.document(i);
       const tokens = tokenizeRsvp(
         doc,
@@ -123,7 +143,7 @@ export class RsvpPublication {
         this.styles.get(doc),
       );
       if (!tokens.length) continue;
-      if (i + 1 < count) void this.document(i + 1).catch(() => {});
+      if (next < count) void this.document(next).catch(() => {});
       return { index: i, tokens, tokenIndex: 0 };
     }
     this.documents.clear();

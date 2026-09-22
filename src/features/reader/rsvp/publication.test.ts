@@ -109,3 +109,50 @@ it('round trips locators in the real Alice EPUB', async () => {
     opened.publication.destroy();
   }
 });
+it('skips non-linear sections during traversal and prefetch', async () => {
+  const sections = [
+    { ...section('Notes first'), linear: 'no', size: 9000 },
+    section('First chapter'),
+    { ...section('Footnotes'), linear: 'no', size: 9000 },
+    section('Second chapter'),
+    { ...section('Notes last'), linear: 'no', size: 9000 },
+  ];
+  const p = new RsvpPublication(
+    { sections, destroy() {} },
+    { getCFI: () => '', resolveNavigation: () => undefined },
+  );
+  expect((await p.open())?.index).toBe(1);
+  expect(sections[3].createDocument).toHaveBeenCalledTimes(1);
+  expect(sections[0].createDocument).not.toHaveBeenCalled();
+  expect(sections[2].createDocument).not.toHaveBeenCalled();
+  expect((await p.next(2))?.index).toBe(3);
+  expect(await p.next(4)).toBeNull();
+  expect(sections[4].createDocument).not.toHaveBeenCalled();
+  p.dispose();
+});
+it('ignores print-only linked and imported styles', async () => {
+  const s = {
+    ...section('Visible'),
+    createDocument: async () =>
+      new DOMParser().parseFromString(
+        '<html><head><link rel="stylesheet" media="print" href="print.css"/><link rel="stylesheet" href="main.css"/></head><body><p>Visible</p></body></html>',
+        'text/html',
+      ),
+    resolveHref: (href: string) => `EPUB/${href}`,
+  };
+  const book = {
+    sections: [s],
+    loadText: vi.fn(async (href: string) =>
+      href.endsWith('main.css')
+        ? '@import "import.css" print;'
+        : 'p { display:none }',
+    ),
+    destroy() {},
+  };
+  const p = new RsvpPublication(book, {
+    getCFI: () => '',
+    resolveNavigation: () => undefined,
+  });
+  expect((await p.open())?.tokens.map((t) => t.text)).toEqual(['Visible']);
+  p.dispose();
+});

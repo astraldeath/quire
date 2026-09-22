@@ -63,3 +63,28 @@ it('does not merge spaced punctuation into the preceding word range', () => {
   expect(tokens.map((t) => t.text)).toEqual(['Hello', 'world!']);
   expect(tokenRange(tokens[1]).toString()).toBe('world!');
 });
+it.each([
+  '.x { display:none }.x { display:block }',
+  '@media print { .x { display:none } }',
+  '.x { visibility:hidden }.x { visibility:visible }',
+])('preserves screen prose for visibility overrides: %s', (css) => {
+  expect(
+    tokenizeRsvp(
+      parse(`<style>${css}</style><p class="x">Visible prose</p>`),
+    ).map((t) => t.text),
+  ).toEqual(['Visible', 'prose']);
+});
+it('honors style element media and preserves inline visible overrides', () => {
+  expect(
+    tokenizeRsvp(
+      parse('<style media="print">p{display:none}</style><p>Visible</p>'),
+    ).map((t) => t.text),
+  ).toEqual(['Visible']);
+  expect(
+    tokenizeRsvp(
+      parse(
+        '<style>.x{display:none}</style><p class="x" style="display:block">Visible</p>',
+      ),
+    ).map((t) => t.text),
+  ).toEqual(['Visible']);
+});

@@ -290,3 +290,43 @@ it('flushes nonconsecutive chapter boundaries inside a single section', async ()
   });
   await act(async () => root.unmount());
 });
+it('gives non-linear sections zero progress weight', async () => {
+  vi.useFakeTimers();
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const book = {
+    ...publication,
+    sections: [
+      { ...publication.sections[0], size: 9000, linear: 'no' },
+      publication.sections[0],
+      { ...publication.sections[0], size: 9000, linear: 'no' },
+      publication.sections[0],
+    ],
+  };
+  const onPosition = vi.fn();
+  await act(async () =>
+    root.render(
+      <RsvpReader
+        bookId={'a'.repeat(64)}
+        volume={null}
+        publication={book}
+        locator={locator}
+        structure={{ chapters: [] }}
+        preferences={{ ...defaults.reader, rsvpPunctuationPauses: false }}
+        onPreferences={vi.fn()}
+        onPosition={onPosition}
+        onExit={vi.fn()}
+      />,
+    ),
+  );
+  await act(async () =>
+    (host.querySelector('[aria-label="Play"]') as HTMLButtonElement).click(),
+  );
+  await act(async () => vi.advanceTimersByTime(240));
+  await act(async () =>
+    (host.querySelector('[aria-label="Pause"]') as HTMLButtonElement).click(),
+  );
+  expect(onPosition.mock.lastCall?.[0].fraction).toBe(0.125);
+  await act(async () => root.unmount());
+});

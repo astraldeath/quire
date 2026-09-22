@@ -1,3 +1,4 @@
+import { publicationVisibility } from './visibility';
 export interface RsvpToken {
   text: string;
   startNode: Text;
@@ -17,23 +18,7 @@ export function tokenizeRsvp(
   const tokens: RsvpToken[] = [];
   let sentence = 0;
   let nodes: Text[] = [];
-  const hiddenSelectors: string[] = [];
-  for (const style of [
-    ...styles,
-    ...Array.from(
-      doc.querySelectorAll('style'),
-      (node) => node.textContent ?? '',
-    ),
-  ]) {
-    for (const rule of style.matchAll(/([^{}]+)\{([^{}]+)\}/g)) {
-      if (
-        /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))/i.test(
-          rule[2],
-        )
-      )
-        hiddenSelectors.push(rule[1].trim());
-    }
-  }
+  const visibility = publicationVisibility(doc, styles);
   let words: Intl.Segmenter | undefined;
   let sentences: Intl.Segmenter | undefined;
   if (typeof Intl.Segmenter === 'function') {
@@ -135,9 +120,9 @@ export function tokenizeRsvp(
     }
     nodes = [];
   };
-  const walk = (node: Node) => {
+  const walk = (node: Node, inheritedHidden = false) => {
     if (node.nodeType === 3) {
-      nodes.push(node as Text);
+      if (!inheritedHidden) nodes.push(node as Text);
       return;
     }
     if (node.nodeType !== 1) return;
@@ -151,25 +136,17 @@ export function tokenizeRsvp(
       )
     )
       return;
-    const style = element.style;
-    if (
-      style?.display === 'none' ||
-      ['hidden', 'collapse'].includes(style?.visibility)
-    )
-      return;
-    for (const selector of hiddenSelectors) {
-      try {
-        if (element.matches(selector)) return;
-      } catch {
-        /* unsupported publisher selector */
-      }
-    }
-    const computed = doc.defaultView?.getComputedStyle(element);
-    if (computed?.display === 'none' || computed?.visibility === 'hidden')
-      return;
+    const computed = visibility(element);
+    if (computed.display === 'none') return;
+    const hidden =
+      computed.visibility === 'visible'
+        ? false
+        : computed.visibility === 'hidden' ||
+          computed.visibility === 'collapse' ||
+          inheritedHidden;
     const block = blocks.test(element.localName);
     if (block) flush();
-    for (const child of element.childNodes) walk(child);
+    for (const child of element.childNodes) walk(child, hidden);
     if (block) flush();
   };
   walk(doc.body ?? doc.documentElement);

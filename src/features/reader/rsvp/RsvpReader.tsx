@@ -10,6 +10,7 @@ import {
 import type { ReadingActivity } from '../../statistics/model';
 import {
   RsvpPublication,
+  rsvpSectionSize,
   type RsvpLocator,
   type RsvpSection,
 } from './publication';
@@ -86,9 +87,7 @@ export function RsvpReader(props: Props) {
       const detected = props.structure.chapters.find(
         (c) => c.number === chapter,
       );
-      const sizes = props.publication.sections?.map((s) =>
-        Math.max(1, s.size || 1),
-      ) ?? [1];
+      const sizes = props.publication.sections?.map(rsvpSectionSize) ?? [1];
       const total = sizes.reduce((a, b) => a + b, 0);
       position = {
         cfi: publication.cfi(section, currentState.index),
