@@ -518,6 +518,30 @@ export async function accountRequest(
   return web(a.origin, path, body, webToken(a), method, options);
 }
 
+/** Binary OPDS proxy response retains the same account/session binding as JSON calls. */
+export async function catalogBinaryRequest(
+  a: Account,
+  id: string,
+  url: string,
+  kind: 'book' | 'cover',
+  signal: AbortSignal,
+) {
+  return fetch(
+    a.origin + '/v1/catalog-sources/' + encodeURIComponent(id) + '/fetch',
+    {
+      method: 'POST',
+      credentials: credentials(a.origin),
+      redirect: 'error',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...requestHeaders(webToken(a)),
+      },
+      body: JSON.stringify({ url, kind }),
+    },
+  );
+}
+
 export async function uploadSharedFile(
   a: Account,
   library: string,

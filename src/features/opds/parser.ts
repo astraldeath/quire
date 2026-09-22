@@ -78,7 +78,7 @@ function jsonPublication(v: any, base: string): CatalogPublication {
     id: text(metadata.identifier) || ll[0]?.url || text(metadata.title),
     title: text(metadata.title) || 'Untitled',
     authors: authors
-      .map((a) => text(typeof a === 'string' ? a : a?.name))
+      .map((a: any) => text(typeof a === 'string' ? a : a?.name))
       .filter(Boolean),
     summary: plain(text(metadata.description)),
     covers: links(v.images, base),
