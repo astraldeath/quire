@@ -160,6 +160,15 @@ const mergePreferences = (p?: Partial<Preferences>): Preferences => ({
   reader: {
     ...defaults.reader,
     ...p?.reader,
+    rsvpWpm:
+      typeof p?.reader?.rsvpWpm === 'number' &&
+      Number.isFinite(p.reader.rsvpWpm)
+        ? Math.max(60, Math.min(1000, Math.round(p.reader.rsvpWpm)))
+        : 250,
+    rsvpPunctuationPauses:
+      typeof p?.reader?.rsvpPunctuationPauses === 'boolean'
+        ? p.reader.rsvpPunctuationPauses
+        : true,
     theme:
       (p?.reader?.theme as string) === 'sepia'
         ? 'app'
