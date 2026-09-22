@@ -6,6 +6,7 @@ mod screen_capture;
 mod updates;
 mod epub_export;
 mod sync;
+mod opds;
 mod tracking;
 mod migrations;
 #[cfg(test)]
@@ -43,7 +44,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![desktop_files::desktop_open_pending, desktop_files::desktop_open_read, desktop_files::desktop_open_release, desktop_files::desktop_file_platform, desktop_files::desktop_default_apps, book_files::book_file_begin, book_files::book_file_append, book_files::book_file_finish, book_files::book_file_abort, book_files::book_file_remove, book_files::book_file_size, book_files::book_file_read, migrations::prepare_library, desktop::desktop_window, screen_capture::screen_capture, updates::updates_info, updates::updates_restart, sync::updates_call, backup::export_backup, epub_export::export_epub, sync::sync_discover, sync::sync_login, sync::sync_call, sync::statistics_call, sync::privacy_call, sync::folder_catalog_call, sync::sync_logout, sync::sync_files, sync::sync_upload_file, sync::sync_download_file, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
+        .invoke_handler(tauri::generate_handler![opds::opds_credentials, opds::opds_fetch, opds::opds_cancel, opds::opds_account_call, desktop_files::desktop_open_pending, desktop_files::desktop_open_read, desktop_files::desktop_open_release, desktop_files::desktop_file_platform, desktop_files::desktop_default_apps, book_files::book_file_begin, book_files::book_file_append, book_files::book_file_finish, book_files::book_file_abort, book_files::book_file_remove, book_files::book_file_size, book_files::book_file_read, migrations::prepare_library, desktop::desktop_window, screen_capture::screen_capture, updates::updates_info, updates::updates_restart, sync::updates_call, backup::export_backup, epub_export::export_epub, sync::sync_discover, sync::sync_login, sync::sync_call, sync::statistics_call, sync::privacy_call, sync::folder_catalog_call, sync::sync_logout, sync::sync_files, sync::sync_upload_file, sync::sync_download_file, sync::sync_metadata, tracking::tracking_status, tracking::tracking_connect, tracking::tracking_disconnect, tracking::tracking_provider])
         .plugin(tauri_plugin_sql::Builder::default().add_migrations("sqlite:quire.db", vec![Migration {
             version: 1,
             description: "local library and device preferences",

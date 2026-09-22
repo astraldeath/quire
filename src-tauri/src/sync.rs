@@ -12,6 +12,11 @@ fn credential(origin:&str,user:&str)->Result<keyring::Entry,String>{
  if !cfg!(any(target_os="windows",target_os="ios",target_os="macos",target_os="linux")){return Err("Secure sync credentials are not supported on this platform.".into())}
  keyring::Entry::new("app.quire.reader.sync",&format!("{}@{}",user,origin)).map_err(|_|"Credential storage is unavailable.".into())
 }
+pub(crate) async fn catalog_request(server: &str, username: &str, path: &str, method: Method, body: Option<Value>) -> Result<Value, String> {
+ let o = origin(server)?;
+ let token = credential(&o, username)?.get_password().map_err(|_| "Sign in to manage catalogs.")?;
+ request(&o, path, method, body, Some(token)).await
+}
 async fn request(origin:&str,path:&str,method:Method,body:Option<Value>,token:Option<String>)->Result<Value,String>{
  let client=Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(30)).build().map_err(|_|"Could not initialize secure connection.")?;
  let mut req=client.request(method,format!("{}{}",origin,path));if let Some(body)=body {if body.to_string().len()>2*1024*1024{return Err("Sync request is too large.".into())}req=req.json(&body)};if let Some(token)=token{req=req.bearer_auth(token)}

@@ -2,6 +2,10 @@
 identifier = "allow-reader-commands"
 description = "Use the reader's native storage, file handling, window, privacy, sync, tracking, and update commands."
 commands.allow = [
+  "opds_credentials",
+  "opds_fetch",
+  "opds_cancel",
+  "opds_account_call",
   "book_file_abort",
   "book_file_append",
   "book_file_begin",
