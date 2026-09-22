@@ -6,16 +6,21 @@ import {
   saveCatalogSource,
   syncCatalogSources,
   type CatalogSource,
+  type CatalogContext,
 } from './sources';
 export function SourceDialog({
   source,
+  context,
   onClose,
   onSaved,
 }: {
   source?: CatalogSource;
+  context: CatalogContext;
   onClose(): void;
   onSaved(): void;
 }) {
+  const [editorContext] = useState(context);
+  const [id] = useState(() => source?.id ?? crypto.randomUUID());
   const [name, setName] = useState(source?.name ?? ''),
     [url, setUrl] = useState(source?.url ?? '');
   const [username, setUsername] = useState(''),
@@ -39,7 +44,7 @@ export function SourceDialog({
           try {
             await saveCatalogSource(
               {
-                id: source?.id ?? crypto.randomUUID(),
+                id,
                 name: name.trim(),
                 url: catalogUrl(url),
                 revision: source?.revision ?? 0,
@@ -50,6 +55,7 @@ export function SourceDialog({
                   ? { username, password }
                   : null
                 : undefined,
+              editorContext,
             );
             await syncCatalogSources();
             onSaved();

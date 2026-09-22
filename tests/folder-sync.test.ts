@@ -5,6 +5,7 @@ const remote = vi.hoisted(() => ({
   state: { library: [] as string[], hidden: [] as string[] },
   lost: false,
   supported: true,
+  catalogConflict: false,
   hook: undefined as undefined | (() => Promise<void>),
 }));
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false }));
@@ -19,6 +20,7 @@ vi.mock('../src/features/sync/library', () => ({
   fetchCovers: async () => {},
 }));
 vi.mock('../src/features/sync/transport', () => ({
+  supportsOpds: async () => remote.catalogConflict,
   supportsMultipleFolders: async () => true,
   supportsCurrentChapter: async () => true,
   call: async () => ({
@@ -73,10 +75,16 @@ vi.mock('../src/features/sync/transport', () => ({
     };
   },
 }));
+vi.mock('../src/features/opds/sources', () => ({
+  syncCatalogSources: async () => {
+    if (remote.catalogConflict) throw new Error('Catalog changes need review');
+  },
+}));
 let s: typeof import('../src/storage');
 let sync: typeof import('../src/features/library/folderSync');
 beforeEach(async () => {
   vi.resetModules();
+  remote.catalogConflict = false;
   remote.revision = 0;
   remote.state = { library: [], hidden: [] };
   remote.lost = false;
@@ -199,4 +207,17 @@ it('does not acknowledge an old session response into a replacement session', as
     });
   await sync.syncFolderCatalog();
   expect((await s.loadFolderCatalog()).value.library).toEqual([]);
+});
+
+it('finishes library and folder sync when catalog sources need conflict review', async () => {
+  await connect();
+  remote.catalogConflict = true;
+  await s.editFolderCatalog((c) => {
+    c.value.library = ['Books'];
+  });
+  const engine = await import('../src/features/sync/engine');
+  await engine.syncNow();
+  expect((await s.loadSync()).cursor).toBe(1);
+  expect(remote.state.library).toEqual(['Books']);
+  expect(engine.snapshot().message).toContain('Catalog changes need review');
 });

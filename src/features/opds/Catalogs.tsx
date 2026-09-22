@@ -570,8 +570,9 @@ export function Catalogs({
           )}
         </div>
       </Modal>
-      {editing !== undefined && (
+      {editing !== undefined && ctx && (
         <SourceDialog
+          context={ctx}
           source={editing ?? undefined}
           onClose={() => setEditing(undefined)}
           onSaved={() => {
@@ -590,7 +591,7 @@ export function Catalogs({
               className="danger"
               onClick={() =>
                 void run(async () => {
-                  await deleteCatalogSource(removing.id);
+                  await deleteCatalogSource(removing.id, ctx);
                   setRemoving(undefined);
                   await syncCatalogSources();
                 })

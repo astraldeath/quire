@@ -173,9 +173,14 @@ export async function sourceCredentials(
 export function saveCatalogSource(
   source: CatalogSource,
   credentials?: CatalogCredentials | null,
+  expectedContext?: CatalogContext,
 ): Promise<void> {
+  const context = expectedContext
+    ? Promise.resolve(expectedContext)
+    : catalogContext();
   return serial(async () => {
-    const ctx = await catalogContext();
+    const ctx = await context;
+    await assertCatalogContext(ctx);
     const clean = validateCatalogSources([source])[0];
     const saved = await listCatalogSources(ctx);
     const existing = saved.find((s) => s.id === source.id);
@@ -190,15 +195,23 @@ export function saveCatalogSource(
       source.deleted ||
       (!!existing &&
         new URL(existing.url).origin !== new URL(clean.url).origin);
-    if (isTauri() && (credentials !== undefined || clear))
+    const replacement = source.deleted
+      ? null
+      : credentials !== undefined
+        ? credentials
+        : clear
+          ? null
+          : undefined;
+    await assertCatalogContext(ctx);
+    if (isTauri() && replacement !== undefined)
       await invoke('opds_credentials', {
         sourceKey: key,
         sourceUrl: clean.url,
-        credentials: clear ? null : credentials,
+        credentials: replacement,
       });
     else if (!ctx.account) {
-      if (credentials && !clear) sessionCredentials.set(key, credentials);
-      else if (credentials === null || clear) sessionCredentials.delete(key);
+      if (replacement) sessionCredentials.set(key, replacement);
+      else if (replacement === null) sessionCredentials.delete(key);
     }
     if (ctx.account && !isTauri() && credentials !== undefined) {
       // Hosted passwords must never enter local persistence, including offline queues.
@@ -229,18 +242,26 @@ export function saveCatalogSource(
     window.dispatchEvent(new Event('quire-catalogs-changed'));
   });
 }
-export async function deleteCatalogSource(id: string) {
-  const source = (await listCatalogSources()).find((s) => s.id === id);
-  if (source) await saveCatalogSource({ ...source, deleted: true }, null);
+export async function deleteCatalogSource(
+  id: string,
+  expectedContext?: CatalogContext,
+) {
+  const ctx = expectedContext ?? (await catalogContext());
+  await assertCatalogContext(ctx);
+  const source = (await listCatalogSources(ctx)).find((s) => s.id === id);
+  if (source) await saveCatalogSource({ ...source, deleted: true }, null, ctx);
 }
 export function syncCatalogSources(background = false): Promise<void> {
+  const context = catalogContext();
   return serial(async () => {
-    const ctx = await catalogContext();
+    const ctx = await context;
+    await assertCatalogContext(ctx);
     if (!ctx.account) return;
     if (!(await supportsOpds(ctx.account.origin))) {
       if (background) return;
       throw new Error('Update Quire Server to enable catalogs.');
     }
+    await assertCatalogContext(ctx);
     const response = await opdsAccountRequest(
       ctx.account,
       '/v1/catalog-sources',
@@ -249,8 +270,11 @@ export function syncCatalogSources(background = false): Promise<void> {
       await listCatalogSources(ctx),
       validateCatalogSources(response.sources),
     );
+    for (const source of sources.filter((s) => s.deleted && !s.conflict))
+      await clearSourceCredentials(ctx, source);
     await writeSources(ctx, sources);
     for (const source of sources.filter((s) => s.dirty && !s.conflict)) {
+      await assertCatalogContext(ctx);
       const result = await opdsAccountRequest(
         ctx.account,
         `/v1/catalog-sources/${source.id}`,
@@ -269,14 +293,19 @@ export function syncCatalogSources(background = false): Promise<void> {
     }
     if (sources.some((s) => s.conflict))
       throw new Error(
-        'A catalog changed on another device. Choose which version to keep.',
+        'Catalog changes need review in Add books → Browse catalogs.',
       );
   });
 }
 export function resolveCatalogSource(id: string, keepLocal: boolean) {
+  const context = catalogContext();
   return serial(async () => {
-    const ctx = await catalogContext(),
+    const ctx = await context,
       sources = await listCatalogSources(ctx);
+    await assertCatalogContext(ctx);
+    const source = sources.find((s) => s.id === id);
+    if (!keepLocal && source?.conflict?.deleted)
+      await clearSourceCredentials(ctx, source.conflict);
     await writeSources(
       ctx,
       sources.map((s) =>
@@ -294,6 +323,20 @@ export function resolveCatalogSource(id: string, keepLocal: boolean) {
       ),
     );
   });
+}
+async function clearSourceCredentials(
+  ctx: CatalogContext,
+  source: CatalogSource,
+) {
+  const sourceKey = await catalogSourceKey(ctx, source.id);
+  await assertCatalogContext(ctx);
+  sessionCredentials.delete(sourceKey);
+  if (isTauri())
+    await invoke('opds_credentials', {
+      sourceKey,
+      sourceUrl: source.url,
+      credentials: null,
+    });
 }
 export async function restoreCatalogSources(value: unknown) {
   for (const source of validateCatalogSources(value)) {

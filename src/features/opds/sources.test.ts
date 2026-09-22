@@ -10,6 +10,8 @@ import {
   deleteCatalogSource,
   validateCatalogSources,
   mergeCatalogSources,
+  catalogContext,
+  sourceCredentials,
 } from './sources';
 const source = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -19,6 +21,15 @@ const source = {
   deleted: false,
 };
 describe('saved catalogs', () => {
+  it('rejects a stale editor context before storing its source or password', async () => {
+    await expect(
+      saveCatalogSource(
+        source,
+        { username: 'a', password: 'b' },
+        { key: 'other-account' },
+      ),
+    ).rejects.toThrow('account changed');
+  });
   it('persists metadata and deletion without embedding credentials', async () => {
     await saveCatalogSource(source);
     expect(await listCatalogSources()).toEqual([
@@ -53,5 +64,14 @@ describe('saved catalogs', () => {
       conflict: remote,
     });
     expect(mergeCatalogSources([source], [remote])[0]).toEqual(remote);
+  });
+  it('binds explicitly replaced credentials to a newly edited origin', async () => {
+    await saveCatalogSource(source, { username: 'first', password: 'old' });
+    const changed = { ...source, url: 'https://new.test/' };
+    await saveCatalogSource(changed, { username: 'second', password: 'new' });
+    expect(await sourceCredentials(await catalogContext(), changed)).toEqual({
+      username: 'second',
+      password: 'new',
+    });
   });
 });

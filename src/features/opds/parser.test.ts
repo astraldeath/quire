@@ -17,6 +17,15 @@ describe('OPDS catalogs', () => {
     expect(feed.navigation[0].title).toBe('Fiction');
     expect(feed.next?.url).toBe('https://books.test/page2');
   });
+  it('distinguishes default alternate feed navigation from full entry details', () => {
+    const feed = parseCatalog(
+      `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Categories</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="categories"/></entry><entry><title>Full book</title><link rel="alternate" type="application/atom+xml;type=entry;profile=opds-catalog" href="book"/></entry></feed>`,
+      'application/atom+xml',
+      'https://books.test/',
+    );
+    expect(feed.navigation.map((l) => l.title)).toEqual(['Categories']);
+    expect(feed.publications.map((p) => p.title)).toEqual(['Full book']);
+  });
   it('reads JSON groups, facets, covers, search, and publication documents', () => {
     const publication = {
       metadata: {

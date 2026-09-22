@@ -172,7 +172,10 @@ async function web(
     return null;
   if (response.status === 409 && path === '/v1/sync')
     throw new SyncConflictError();
-  if (!response.ok && path.startsWith('/v1/tracking')) {
+  if (
+    !response.ok &&
+    (path.startsWith('/v1/tracking') || path.startsWith('/v1/catalog-sources'))
+  ) {
     let message = 'Tracking request failed. Try again.';
     try {
       const error = await response.json();

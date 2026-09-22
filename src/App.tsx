@@ -129,6 +129,7 @@ import {
   saveBookAnnotations,
   listBooks,
   putBook,
+  putCatalogBook,
   saveBook,
   getFile,
   removeFile,
@@ -497,8 +498,7 @@ function AppContent({
         result.book,
         booksRef.current.find((b) => b.id === result.book.id),
       );
-      await putBook(book, result.bytes);
-      replace(book);
+      replace(await putCatalogBook(book, result.bytes, context.account));
     });
     if (onImport) {
       await assertCatalogContext(context);

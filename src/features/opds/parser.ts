@@ -188,7 +188,11 @@ export function parseCatalog(
         l.rel.some((r) => r.startsWith(acquisition)),
       );
       const detail = entryLinks.find(
-        (l) => has(l, 'alternate') && /opds|atom/.test(l.type ?? ''),
+        (l) =>
+          has(l, 'alternate') &&
+          /(?:;\s*type\s*=\s*["']?entry\b)|opds-publication/i.test(
+            l.type ?? '',
+          ),
       );
       if (acquisitions.length || detail)
         out.publications.push({

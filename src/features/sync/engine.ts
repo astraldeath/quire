@@ -3,6 +3,7 @@ import {
   FolderCatalogUnavailable,
 } from '../library/folderSync';
 import { syncReadingActivity } from '../statistics/sync';
+import { syncCatalogSources } from '../opds/sources';
 import { syncPrivacy, privacyChanged } from '../privacy/sync';
 import { fetchCovers } from './library';
 import { loadSync, syncTransaction } from '../../storage';
@@ -127,7 +128,6 @@ export function syncNow(): Promise<void> {
         if (!more) {
           await fetchCovers(batch.account);
           await syncReadingActivity();
-          await (await import('../opds/sources')).syncCatalogSources(true);
           let folderNote = '';
           try {
             await syncFolderCatalog();
@@ -137,11 +137,20 @@ export function syncNow(): Promise<void> {
             else throw error;
           }
           const s = await loadSync();
+          let catalogNote = '';
+          try {
+            await syncCatalogSources(true);
+          } catch (error) {
+            catalogNote =
+              error instanceof Error
+                ? error.message
+                : 'Catalog sync failed. Open Catalogs to retry.';
+          }
           const conflicts = conflictsForReview(s).length;
           report(
             conflicts
               ? `${conflicts} ${conflicts === 1 ? 'change needs' : 'changes need'} review in Settings → Sync`
-              : folderNote || 'Up to date',
+              : catalogNote || folderNote || 'Up to date',
           );
           window.dispatchEvent(new Event('quire-synced'));
           if (import.meta.env.VITE_HOSTED === 'true')

@@ -530,6 +530,24 @@ export const removeFile = (id: string) =>
       .map((book) => ({ book, fileMode: 'remove' as const })),
   }));
 /** Validate the download owner inside the serialized file commit, retaining current metadata. */
+export const putCatalogBook = (
+  book: Book,
+  bytes: Uint8Array,
+  expected?: Account,
+) =>
+  serial(async () => {
+    const books = await listBooks(),
+      sync = await loadSync();
+    if (expected) assertCurrentAccount(sync, expected);
+    else if (sync.enabled && sync.account)
+      throw new Error('Your account or session changed. Reopen Catalogs.');
+    const old = books.find((b) => b.id === book.id);
+    const saved = old ? { ...old, cover: old.cover || book.cover } : book;
+    queueChanges(sync, old, saved);
+    await commit(sync, [{ book: saved, fileMode: 'set', file: bytes }]);
+    return { ...saved, local: true };
+  });
+/** Validate the download owner inside the serialized file commit, retaining current metadata. */
 export const putDownloadedFile = (
   id: string,
   bytes: Uint8Array,
