@@ -63,3 +63,49 @@ describe('RSVP publication', () => {
     await expect(request).rejects.toThrow('closed');
   });
 });
+it('filters locally linked publisher styles without loading network resources', async () => {
+  const s = {
+    ...section('Visible <span class="hidden">Secret</span>'),
+    createDocument: async () =>
+      new DOMParser().parseFromString(
+        '<html><head><link rel="stylesheet" href="style.css"/></head><body><p>Visible <span class="hidden">Secret</span></p></body></html>',
+        'text/html',
+      ),
+    resolveHref: (href: string) => `EPUB/${href}`,
+  };
+  const book = {
+    sections: [s],
+    loadText: vi.fn(async () => '.hidden { display:none }'),
+    destroy() {},
+  };
+  const p = new RsvpPublication(book, {
+    getCFI: () => '',
+    resolveNavigation: () => undefined,
+  });
+  expect((await p.open())?.tokens.map((t) => t.text)).toEqual(['Visible']);
+  expect(book.loadText).toHaveBeenCalledWith('EPUB/style.css');
+  p.dispose();
+});
+it('round trips locators in the real Alice EPUB', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { openBook } = await import('../../../books');
+  const bytes = new Uint8Array(
+    await readFile('tests/fixtures/alice-in-wonderland.epub'),
+  );
+  const opened = await openBook(bytes, 'epub');
+  const view = new View();
+  Object.assign(view, { book: opened.publication });
+  const p = new RsvpPublication(opened.publication, view);
+  try {
+    const first = (await p.open())!;
+    expect(first.tokens.length).toBeGreaterThan(0);
+    const index = Math.min(5, first.tokens.length - 1);
+    const cfi = p.cfi(first, index);
+    expect((await p.open(cfi))?.tokenIndex).toBe(index);
+    const next = await p.next(first.index + 1);
+    expect(next?.index).toBeGreaterThan(first.index);
+  } finally {
+    p.dispose();
+    opened.publication.destroy();
+  }
+});

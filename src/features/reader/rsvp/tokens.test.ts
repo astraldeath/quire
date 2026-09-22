@@ -48,3 +48,18 @@ describe('RSVP tokens', () => {
     }
   });
 });
+it('preserves abbreviations during sentence rewind segmentation', () => {
+  const tokens = tokenizeRsvp(
+    parse('<p>Dr. Smith said hello. Next sentence.</p>'),
+    'en',
+  );
+  expect(tokens[0].sentence).toBe(tokens[1].sentence);
+  expect(tokens.find((t) => t.text === 'Next')!.sentence).toBe(
+    tokens[0].sentence + 1,
+  );
+});
+it('does not merge spaced punctuation into the preceding word range', () => {
+  const tokens = tokenizeRsvp(parse('<p>Hello — world!</p>'));
+  expect(tokens.map((t) => t.text)).toEqual(['Hello', 'world!']);
+  expect(tokenRange(tokens[1]).toString()).toBe('world!');
+});

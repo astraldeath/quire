@@ -5,6 +5,8 @@ export class RsvpActivity {
   private completed = new Set<number>();
   private pending = new Set<number>();
   private finished = false;
+  private epoch = Date.now();
+  private origin = performance.now();
   constructor(
     private bookId: string,
     private volume: number | null,
@@ -22,7 +24,9 @@ export class RsvpActivity {
   finish() {
     this.finished = true;
   }
-  flush(now = Date.now()): ReadingActivity[] {
+  flush(
+    now = Math.round(this.epoch + performance.now() - this.origin),
+  ): ReadingActivity[] {
     let remaining = Math.round(this.milliseconds);
     const records: ReadingActivity[] = [];
     while (remaining > 0 || this.pending.size || this.finished) {

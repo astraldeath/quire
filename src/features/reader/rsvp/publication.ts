@@ -27,6 +27,7 @@ export function supportsRsvp(book: ReaderBook, format = 'epub'): boolean {
 export class RsvpPublication {
   private closed = false;
   private documents = new Map<number, Promise<Document>>();
+  private styles = new WeakMap<Document, string[]>();
   constructor(
     private book: ReaderBook,
     private locator: RsvpLocator,
@@ -39,12 +40,62 @@ export class RsvpPublication {
       const create = this.book.sections?.[index]?.createDocument;
       if (!create)
         throw new Error('This section has no readable text document.');
-      pending = Promise.resolve(create.call(this.book.sections![index]));
+      pending = Promise.resolve(create.call(this.book.sections![index])).then(
+        async (doc) => {
+          this.styles.set(doc, await this.publisherStyles(index, doc));
+          return doc;
+        },
+      );
       this.documents.set(index, pending);
     }
     const doc = await pending;
     if (this.closed) throw new Error('RSVP is closed.');
     return doc;
+  }
+  private async publisherStyles(
+    index: number,
+    doc: Document,
+  ): Promise<string[]> {
+    const book = this.book as ReaderBook & {
+      loadText?(href: string): Promise<string | null>;
+    };
+    const section = this.book.sections![index] as {
+      resolveHref?(href: string): string;
+    };
+    if (!book.loadText || !section.resolveHref) return [];
+    const result: string[] = [];
+    const visited = new Set<string>();
+    let bytes = 0;
+    const read = async (href: string) => {
+      if (
+        this.closed ||
+        visited.has(href) ||
+        visited.size >= 16 ||
+        bytes >= 2 * 1024 * 1024 ||
+        /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href)
+      )
+        return;
+      visited.add(href);
+      // This is the archive's local-file reader, never fetch or a browser URL.
+      const css = await book.loadText!(href);
+      if (!css || this.closed) return;
+      bytes += css.length;
+      if (bytes > 2 * 1024 * 1024) return;
+      for (const match of css.matchAll(
+        /@import\s+(?:url\(\s*)?["']([^"']+)["']/gi,
+      )) {
+        const resolved = new URL(match[1], `https://quire.invalid/${href}`);
+        if (resolved.origin === 'https://quire.invalid')
+          await read(decodeURI(resolved.pathname.slice(1)));
+      }
+      result.push(css);
+    };
+    for (const link of doc.querySelectorAll('link[rel~="stylesheet"][href]')) {
+      const href = link.getAttribute('href')!;
+      if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href)) continue;
+      await read(section.resolveHref(href));
+    }
+    return result;
   }
   async open(cfi?: string): Promise<RsvpSection | null> {
     const target = cfi
@@ -66,7 +117,11 @@ export class RsvpPublication {
       for (const key of this.documents.keys())
         if (key !== i && key !== i + 1) this.documents.delete(key);
       const doc = await this.document(i);
-      const tokens = tokenizeRsvp(doc, this.locale ?? doc.documentElement.lang);
+      const tokens = tokenizeRsvp(
+        doc,
+        this.locale ?? doc.documentElement.lang,
+        this.styles.get(doc),
+      );
       if (!tokens.length) continue;
       if (i + 1 < count) void this.document(i + 1).catch(() => {});
       return { index: i, tokens, tokenIndex: 0 };

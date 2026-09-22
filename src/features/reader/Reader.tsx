@@ -871,9 +871,10 @@ export function Reader({
           </div>
           <ReadingSettings
             onRsvp={
+              ready &&
               rsvpSource &&
               viewRef.current?.renderer
-                .getContents()
+                ?.getContents()
                 .some(({ doc }) => tokenizeRsvp(doc).length > 0)
                 ? () => {
                     rsvpActive.current = true;

@@ -235,3 +235,58 @@ it('completes chapters only after final dwell and does not duplicate replay', as
   expect(onActivity.mock.calls.flatMap(([a]) => a.chapters)).toEqual([7]);
   await act(async () => root.unmount());
 });
+it('flushes nonconsecutive chapter boundaries inside a single section', async () => {
+  vi.useFakeTimers();
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const book = {
+    ...publication,
+    sections: [
+      {
+        ...publication.sections[0],
+        createDocument: () =>
+          new DOMParser().parseFromString(
+            '<p id="c3">First.</p><p id="c7">Second.</p>',
+            'text/html',
+          ),
+      },
+    ],
+  };
+  const onActivity = vi.fn();
+  const onPosition = vi.fn();
+  await act(async () =>
+    root.render(
+      <RsvpReader
+        bookId={'a'.repeat(64)}
+        volume={null}
+        publication={book}
+        locator={locator}
+        structure={{
+          chapters: [3, 7].map((n) => ({
+            number: n,
+            label: `Chapter ${n}`,
+            hrefs: [`book.xhtml#c${n}`],
+            startSpineIndex: 0,
+            endSpineIndex: 0,
+          })),
+        }}
+        preferences={{ ...defaults.reader, rsvpPunctuationPauses: false }}
+        onPreferences={vi.fn()}
+        onPosition={onPosition}
+        onActivity={onActivity}
+        onExit={vi.fn()}
+      />,
+    ),
+  );
+  await act(async () =>
+    (host.querySelector('[aria-label="Play"]') as HTMLButtonElement).click(),
+  );
+  await act(async () => vi.advanceTimersByTime(240));
+  expect(onActivity.mock.calls.flatMap(([a]) => a.chapters)).toEqual([3]);
+  expect(onPosition.mock.lastCall?.[0]).toMatchObject({
+    currentChapter: 7,
+    completedChapter: 3,
+  });
+  await act(async () => root.unmount());
+});

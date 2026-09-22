@@ -9,15 +9,23 @@ export interface RsvpToken {
 }
 const blocks = /^(?:p|div|section|article|h[1-6]|li|blockquote|br|hr|tr)$/i;
 const excluded = /^(?:script|style|nav|rt|rp|noscript|template|svg|math)$/i;
-export function tokenizeRsvp(doc: Document, locale?: string): RsvpToken[] {
+export function tokenizeRsvp(
+  doc: Document,
+  locale?: string,
+  styles: string[] = [],
+): RsvpToken[] {
   const tokens: RsvpToken[] = [];
   let sentence = 0;
   let nodes: Text[] = [];
   const hiddenSelectors: string[] = [];
-  for (const style of doc.querySelectorAll('style')) {
-    for (const rule of (style.textContent ?? '').matchAll(
-      /([^{}]+)\{([^{}]+)\}/g,
-    )) {
+  for (const style of [
+    ...styles,
+    ...Array.from(
+      doc.querySelectorAll('style'),
+      (node) => node.textContent ?? '',
+    ),
+  ]) {
+    for (const rule of style.matchAll(/([^{}]+)\{([^{}]+)\}/g)) {
       if (
         /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))/i.test(
           rule[2],
@@ -88,13 +96,18 @@ export function tokenizeRsvp(doc: Document, locale?: string): RsvpToken[] {
       for (const match of text.matchAll(/\S+/gu))
         spans.push({ start: match.index, end: match.index + match[0].length });
     }
-    const sentenceEnds = sentences
+    const boundaries = sentences
       ? [...sentences.segment(text)].map(
           (s) => s.index + s.segment.trimEnd().length,
         )
       : [...text.matchAll(/[.!?。！？]+(?:["'”’)]*)\s*/gu)].map(
           (m) => m.index + m[0].trimEnd().length,
         );
+    // ICU treats honorifics followed by capitals as sentence boundaries.
+    // Preserve common title abbreviations so rewind includes the person's name.
+    const sentenceEnds = boundaries.filter(
+      (end) => !/\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St)\.$/i.test(text.slice(0, end)),
+    );
     let sentenceIndex = 0;
     for (const span of spans) {
       while (

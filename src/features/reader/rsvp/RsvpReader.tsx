@@ -45,6 +45,9 @@ export function RsvpReader(props: Props) {
   const [label, setLabel] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [speedInput, setSpeedInput] = useState(
+    String(normalizeWpm(props.preferences.rsvpWpm)),
+  );
   const playButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let closed = false;
@@ -126,10 +129,17 @@ export function RsvpReader(props: Props) {
         latest.current.preferences.rsvpPunctuationPauses !== false,
         (state) => {
           if (closed) return;
+          const previousChapter = chapterAt(s, currentState.index);
           currentState = state;
           setState(state);
           setWord(s.tokens[state.index].text);
-          if (!state.playing) flush();
+          setLabel(
+            props.structure.chapters.find(
+              (c) => c.number === chapterAt(s, state.index),
+            )?.label ?? '',
+          );
+          if (!state.playing || chapterAt(s, state.index) !== previousChapter)
+            flush();
         },
         () => {
           void advance(s);
@@ -282,6 +292,7 @@ export function RsvpReader(props: Props) {
   }, [props.bookId, props.publication, props.locator]);
   useEffect(() => {
     controls.current?.configure();
+    setSpeedInput(String(normalizeWpm(props.preferences.rsvpWpm)));
   }, [props.preferences.rsvpWpm, props.preferences.rsvpPunctuationPauses]);
   return (
     <section className="rsvp-reader" aria-label="RSVP reading">
@@ -334,14 +345,23 @@ export function RsvpReader(props: Props) {
             min={60}
             max={1000}
             step={10}
-            value={normalizeWpm(props.preferences.rsvpWpm)}
+            value={speedInput}
             onChange={(event) => {
+              setSpeedInput(event.currentTarget.value);
               const value = event.currentTarget.valueAsNumber;
-              if (Number.isFinite(value))
+              if (Number.isFinite(value) && value >= 60 && value <= 1000)
                 props.onPreferences({
                   ...props.preferences,
                   rsvpWpm: normalizeWpm(value),
                 });
+            }}
+            onBlur={() => {
+              const value = speedInput.trim()
+                ? Number(speedInput)
+                : props.preferences.rsvpWpm;
+              const rsvpWpm = normalizeWpm(value);
+              setSpeedInput(String(rsvpWpm));
+              props.onPreferences({ ...props.preferences, rsvpWpm });
             }}
           />
         </label>

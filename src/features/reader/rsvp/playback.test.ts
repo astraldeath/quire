@@ -102,3 +102,24 @@ describe('RSVP playback', () => {
     expect(normalizeWpm(60)).toBe(60);
   });
 });
+it('credits partial dwell on pause but excludes a long suspended timer', () => {
+  vi.useFakeTimers();
+  const time = vi.fn();
+  const p = new RsvpPlayback(
+    tokens('One two'),
+    250,
+    false,
+    vi.fn(),
+    vi.fn(),
+    0,
+    undefined,
+    time,
+  );
+  p.play();
+  vi.advanceTimersByTime(100);
+  p.pause();
+  expect(time).toHaveBeenLastCalledWith(100);
+  vi.advanceTimersByTime(60000);
+  expect(time).toHaveBeenCalledTimes(1);
+  p.dispose();
+});
