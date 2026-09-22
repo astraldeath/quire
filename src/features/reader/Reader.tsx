@@ -37,6 +37,9 @@ import { bufferSections } from './section-buffer';
 import { ComicBookmarks } from './ComicBookmarks';
 import { countVisibleWords, ReadingCollector } from '../statistics/collector';
 import type { ReadingActivity } from '../statistics/model';
+import { RsvpReader } from './rsvp/RsvpReader';
+import { supportsRsvp } from './rsvp/publication';
+import { tokenizeRsvp } from './rsvp/tokens';
 
 interface Props {
   book: Book;
@@ -124,6 +127,12 @@ export function Reader({
   const [comic, setComic] = useState<ReaderBook | null>(null);
   const [comicPosition, setComicPosition] = useState(book.position);
   const [readerPosition, setReaderPosition] = useState(book.position);
+  const [rsvp, setRsvp] = useState(false);
+  const rsvpActive = useRef(false);
+  const [rsvpSource, setRsvpSource] = useState<{
+    publication: ReaderBook;
+    structure: BookStructure;
+  } | null>(null);
   const current = useRef({ preferences, onPosition, onActivity });
   current.current = { preferences, onPosition, onActivity };
   const [toc, setToc] = useState<TocItem[]>([]);
@@ -184,6 +193,9 @@ export function Reader({
   }, []);
   useEffect(() => {
     const cleanups: (() => void)[] = [];
+    setRsvp(false);
+    rsvpActive.current = false;
+    setRsvpSource(null);
     let cancelled = false;
     let chapterLoaded = false;
     let epub: ReaderBook | undefined;
@@ -207,8 +219,11 @@ export function Reader({
       performance.now(),
     );
     const available = () =>
+      !rsvpActive.current &&
       document.visibilityState !== 'hidden' &&
-      !document.querySelector('[role="dialog"], #reader-contents');
+      !document.querySelector(
+        '[role="dialog"], #reader-contents, .privacy-cover',
+      );
     const syncAvailability = () =>
       collector.setAvailable(available(), performance.now());
     const flushActivity = () => {
@@ -351,7 +366,7 @@ export function Reader({
     });
     view.addEventListener('relocate', (event) => {
       // Reflowing controls before a chapter loads must not overwrite a saved locator.
-      if (cancelled || !chapterLoaded) return;
+      if (cancelled || !chapterLoaded || rsvpActive.current) return;
       const location = (
         event as CustomEvent<{
           cfi: string;
@@ -406,11 +421,16 @@ export function Reader({
         epub.destroy();
         return;
       }
+      setRsvpSource(
+        supportsRsvp(epub, book.format)
+          ? { publication: epub, structure }
+          : null,
+      );
       sectionBuffer = bufferSections(epub.sections ?? []);
       host.current?.append(view);
       await view.open(epub);
       view.renderer.addEventListener('relocate', (event) => {
-        if (cancelled) return;
+        if (cancelled || rsvpActive.current) return;
         const detail = (
           event as CustomEvent<{
             reason?: string;
@@ -566,6 +586,7 @@ export function Reader({
   }, []);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (rsvpActive.current) return;
       if (event.key === 'Escape') {
         setChromeVisible(true);
         setPanel(null);
@@ -627,13 +648,17 @@ export function Reader({
       }
       aria-label={`Reading ${book.title}`}
     >
-      <button className="reader-reveal" onClick={() => setChromeVisible(true)}>
+      <button
+        className="reader-reveal"
+        inert={rsvp}
+        onClick={() => setChromeVisible(true)}
+      >
         Show reading controls
       </button>
       <header
         ref={toolbar}
         className="reader-toolbar"
-        inert={!chromeVisible}
+        inert={!chromeVisible || rsvp}
         aria-hidden={!chromeVisible}
       >
         <button onClick={onClose} title="Back to library">
@@ -662,7 +687,11 @@ export function Reader({
           <Settings2 size={20} />
         </button>
       </header>
-      <div className="reader-workspace">
+      <div
+        className="reader-workspace"
+        inert={rsvp}
+        aria-hidden={rsvp || undefined}
+      >
         {contentsOpen && (
           <>
             <button
@@ -793,7 +822,7 @@ export function Reader({
           </footer>
         </div>
       </div>
-      {ready && viewRef.current && (
+      {ready && viewRef.current && !rsvp && (
         <ReaderTools
           otherPanelOpen={!!panel || contentsOpen}
           onOpen={() => {
@@ -841,12 +870,55 @@ export function Reader({
             </button>
           </div>
           <ReadingSettings
+            onRsvp={
+              rsvpSource &&
+              viewRef.current?.renderer
+                .getContents()
+                .some(({ doc }) => tokenizeRsvp(doc).length > 0)
+                ? () => {
+                    rsvpActive.current = true;
+                    setPanel(null);
+                    setContentsOpen(false);
+                    setRsvp(true);
+                  }
+                : undefined
+            }
             fixedLayout={viewRef.current?.isFixedLayout}
             comic={['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub')}
             preferences={preferences}
             onPreferences={onPreferences}
           />
         </ReaderDialog>
+      )}
+      {rsvp && rsvpSource && viewRef.current && (
+        <RsvpReader
+          key={book.id}
+          bookId={book.id}
+          volume={inferSeriesVolume(book.title, '', book).volume}
+          publication={rsvpSource.publication}
+          locator={viewRef.current}
+          structure={rsvpSource.structure}
+          position={readerPosition}
+          preferences={preferences}
+          onPreferences={onPreferences}
+          onPosition={(position) => {
+            setReaderPosition(position);
+            setFraction(position.fraction);
+            setChapter(position.section);
+            onPosition(position);
+          }}
+          onActivity={onActivity}
+          onExit={(position) => {
+            const view = viewRef.current;
+            void (async () => {
+              if (position && view) await view.goTo(position.cfi);
+              if (viewRef.current !== view) return;
+              setRsvp(false);
+              rsvpActive.current = false;
+              setChromeVisible(true);
+            })();
+          }}
+        />
       )}
     </section>
   );

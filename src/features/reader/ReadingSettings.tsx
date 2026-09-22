@@ -1,4 +1,11 @@
-import { Type, LayoutTemplate, Palette, Hand, BookOpen } from 'lucide-react';
+import {
+  Type,
+  LayoutTemplate,
+  Palette,
+  Hand,
+  BookOpen,
+  Play,
+} from 'lucide-react';
 import { defaults, type ReaderPreferences } from '../../domain/models';
 import { SettingsTabs } from '../../components/SettingsTabs';
 import {
@@ -13,11 +20,13 @@ export function ReadingSettings({
   onPreferences,
   comic = false,
   fixedLayout = false,
+  onRsvp,
 }: {
   preferences: ReaderPreferences;
   onPreferences(value: ReaderPreferences): void;
   comic?: boolean;
   fixedLayout?: boolean;
+  onRsvp?(): void;
 }) {
   const patch = (value: Partial<ReaderPreferences>) =>
     onPreferences({ ...preferences, ...value });
@@ -180,6 +189,38 @@ export function ReadingSettings({
                   ),
                 },
               ]),
+        ...(onRsvp && !comic && !fixedLayout
+          ? [
+              {
+                id: 'rsvp',
+                label: 'RSVP',
+                icon: Play,
+                content: (
+                  <div className="reader-settings">
+                    <StepperControl
+                      label="Words per minute"
+                      min={60}
+                      max={1000}
+                      step={10}
+                      value={preferences.rsvpWpm ?? 250}
+                      onChange={(rsvpWpm) => patch({ rsvpWpm })}
+                    />
+                    <Switch
+                      label="Pause at punctuation"
+                      checked={preferences.rsvpPunctuationPauses !== false}
+                      onChange={(rsvpPunctuationPauses) =>
+                        patch({ rsvpPunctuationPauses })
+                      }
+                    />
+                    <button onClick={onRsvp}>
+                      <Play size={18} />
+                      Start RSVP
+                    </button>
+                  </div>
+                ),
+              },
+            ]
+          : []),
         {
           id: 'theme',
           label: 'Theme',

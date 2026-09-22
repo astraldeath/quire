@@ -142,6 +142,11 @@ export function validatePreferences(value: unknown): Preferences {
     groupSeries: bool(p.groupSeries),
     coverSize: num(p.coverSize, 110, 210),
     reader: {
+      rsvpWpm: r.rsvpWpm === undefined ? 250 : num(r.rsvpWpm, 60, 1000),
+      rsvpPunctuationPauses:
+        r.rsvpPunctuationPauses === undefined
+          ? true
+          : bool(r.rsvpPunctuationPauses),
       theme: choice(r.theme, [
         'app',
         'light',

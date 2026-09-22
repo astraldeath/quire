@@ -14,6 +14,7 @@ export class RsvpPlayback {
   private disposed = false;
   private ended = false;
   private deadline = 0;
+  private started = 0;
   private wpm: number;
   constructor(
     private tokens: RsvpToken[],
@@ -23,6 +24,7 @@ export class RsvpPlayback {
     private onEnd: () => void,
     startIndex = 0,
     private onDwell?: (index: number, milliseconds: number) => void,
+    private onTime?: (milliseconds: number) => void,
   ) {
     this.wpm = normalizeWpm(wpm);
     this.state = {
@@ -45,7 +47,8 @@ export class RsvpPlayback {
   }
   private schedule() {
     const duration = this.duration();
-    this.deadline = performance.now() + duration;
+    this.started = performance.now();
+    this.deadline = this.started + duration;
     this.timer = setTimeout(() => {
       this.timer = undefined;
       if (this.disposed || !this.state.playing) return;
@@ -53,6 +56,7 @@ export class RsvpPlayback {
         this.pause();
         return;
       }
+      this.onTime?.(duration);
       this.onDwell?.(this.state.index, duration);
       if (this.state.index + 1 >= this.tokens.length) {
         this.ended = true;
@@ -80,6 +84,7 @@ export class RsvpPlayback {
   }
   pause() {
     if (this.disposed) return;
+    if (this.timer !== undefined) this.creditPartial();
     if (this.timer !== undefined) clearTimeout(this.timer);
     this.timer = undefined;
     this.state.playing = false;
@@ -101,6 +106,7 @@ export class RsvpPlayback {
     this.emit();
   }
   configure(wpm: number, punctuationPauses: boolean) {
+    if (this.timer !== undefined) this.creditPartial();
     this.wpm = normalizeWpm(wpm);
     this.punctuationPauses = punctuationPauses;
     if (this.state.playing) {
@@ -112,5 +118,10 @@ export class RsvpPlayback {
     if (this.timer !== undefined) clearTimeout(this.timer);
     this.disposed = true;
     this.state.playing = false;
+  }
+  private creditPartial() {
+    this.onTime?.(
+      Math.max(0, Math.min(performance.now(), this.deadline) - this.started),
+    );
   }
 }

@@ -33,6 +33,8 @@ export interface Book {
   annotations?: Annotation[];
 }
 export interface ReaderPreferences {
+  rsvpWpm?: number;
+  rsvpPunctuationPauses?: boolean;
   theme: 'app' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom';
   foreground: string;
   background: string;
@@ -73,6 +75,8 @@ export const defaults: Preferences = {
   groupSeries: true,
   coverSize: 156,
   reader: {
+    rsvpWpm: 250,
+    rsvpPunctuationPauses: true,
     theme: 'app',
     foreground: '#e7e5df',
     background: '#171819',
