@@ -1,7 +1,7 @@
 import { openDB } from 'idb';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { devicePrivacyKey, loadSync } from '../../storage';
-import { accountRequest } from '../sync/transport';
+import { accountRequest, supportsOpds } from '../sync/transport';
 import type { Account } from '../sync/model';
 import { catalogUrl } from './parser';
 export type CatalogSource = {
@@ -85,7 +85,28 @@ export async function listCatalogSources(
   context?: CatalogContext,
 ): Promise<SavedCatalogSource[]> {
   const ctx = context ?? (await catalogContext());
-  return (await (await db()).get('sources', ctx.key)) ?? [];
+  const store = await db();
+  const saved = await store.get('sources', ctx.key);
+  if (saved) return saved;
+  // The first connection adopts this device's unsynchronized catalog metadata;
+  // other accounts keep separate records and credentials.
+  if (ctx.account) {
+    const local: SavedCatalogSource[] =
+      (await store.get('sources', devicePrivacyKey() + ':device')) ?? [];
+    const sources = local
+      .filter((s) => !s.deleted)
+      .map((s) => ({
+        ...s,
+        revision: 0,
+        dirty: true,
+        conflict: undefined,
+        operationId: crypto.randomUUID(),
+      }));
+    await assertCatalogContext(ctx);
+    await store.put('sources', sources, ctx.key);
+    return sources;
+  }
+  return [];
 }
 async function writeSources(
   ctx: CatalogContext,
@@ -204,16 +225,22 @@ export function saveCatalogSource(
         ...saved.filter((s) => s.id !== source.id),
         next,
       ]);
+  }).then(() => {
+    window.dispatchEvent(new Event('quire-catalogs-changed'));
   });
 }
 export async function deleteCatalogSource(id: string) {
   const source = (await listCatalogSources()).find((s) => s.id === id);
   if (source) await saveCatalogSource({ ...source, deleted: true }, null);
 }
-export function syncCatalogSources(): Promise<void> {
+export function syncCatalogSources(background = false): Promise<void> {
   return serial(async () => {
     const ctx = await catalogContext();
     if (!ctx.account) return;
+    if (!(await supportsOpds(ctx.account.origin))) {
+      if (background) return;
+      throw new Error('Update Quire Server to enable catalogs.');
+    }
     const response = await opdsAccountRequest(
       ctx.account,
       '/v1/catalog-sources',

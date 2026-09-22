@@ -14,6 +14,7 @@ const folderCapabilities = new Map<
     supported: boolean;
     currentChapter: boolean;
     folderCatalog: boolean;
+    opds: boolean;
     checkedAt: number;
     limits: ServerLimits;
   }
@@ -68,6 +69,12 @@ export async function supportsCurrentChapter(origin: string) {
     return cached.currentChapter;
   await discover(origin);
   return folderCapabilities.get(origin)!.currentChapter;
+}
+export async function supportsOpds(origin: string) {
+  const cached = folderCapabilities.get(origin);
+  if (cached && Date.now() - cached.checkedAt < 30000) return cached.opds;
+  await discover(origin);
+  return folderCapabilities.get(origin)!.opds;
 }
 export async function serverUpdatesCall(account: Account): Promise<unknown> {
   return isTauri()
@@ -242,6 +249,7 @@ export async function discover(origin: string) {
   folderCapabilities.set(origin, {
     limits,
     folderCatalog: v.capabilities?.includes('folder-catalog') ?? false,
+    opds: v.capabilities?.includes('opds') ?? false,
     currentChapter:
       Array.isArray(v.capabilities) &&
       v.capabilities.includes('current-chapter'),

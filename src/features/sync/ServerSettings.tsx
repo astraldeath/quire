@@ -1,4 +1,5 @@
 import { TaskError } from '../../components/TaskError';
+import { OpdsAccessSettings } from '../opds/OpdsAccessSettings';
 import { SyncStatus } from './SyncStatus';
 import { useDraftGuard } from '../../components/useDraftGuard';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -178,6 +179,7 @@ export function ServerSettings({ books }: { books: Book[] }) {
               Sign out
             </button>
           </section>
+          {state.account && <OpdsAccessSettings account={state.account} />}
         </>
       ) : (
         <form

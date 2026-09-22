@@ -14,6 +14,7 @@ export type WebRoute = {
     | 'settings'
     | 'admin'
     | 'account'
+    | 'catalogs'
     | 'not-found';
   series?: string;
   bookId?: string;
@@ -29,6 +30,8 @@ export function parseWebRoute(path: string): WebRoute {
       return { kind: 'reading' };
     if (parts.length === 1 && parts[0] === 'account')
       return { kind: 'account' };
+    if (parts.length === 1 && parts[0] === 'catalogs')
+      return { kind: 'catalogs' };
     if (
       parts[0] === 'series' &&
       parts[1] &&

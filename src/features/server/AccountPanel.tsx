@@ -5,6 +5,7 @@ import { useDraftGuard } from '../../components/useDraftGuard';
 import { Modal } from '../../components/Modal';
 import type { Account } from '../sync/model';
 import { accountRequest } from '../sync/transport';
+import { OpdsAccessSettings } from '../opds/OpdsAccessSettings';
 export function AccountPanel({
   account,
   onClose,
@@ -135,6 +136,7 @@ export function AccountPanel({
               )}
             </div>
           ))}
+          <OpdsAccessSettings account={account} />
         </div>
       </Modal>
       {guard.confirmation}

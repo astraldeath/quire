@@ -1,0 +1,245 @@
+.catalog-dialog {
+  width: min(960px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 64px));
+}
+.catalog-browser,
+.catalog-form,
+.catalog-publication {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.catalog-form label:not(.catalog-check) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.catalog-form input {
+  min-width: 0;
+  width: 100%;
+}
+.catalog-form details > div {
+  padding-top: 12px;
+}
+.catalog-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.catalog-check input {
+  width: auto;
+}
+.catalog-toolbar,
+.catalog-breadcrumbs,
+.catalog-progress,
+.catalog-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.catalog-breadcrumbs {
+  font-size: 0.9rem;
+}
+.catalog-breadcrumbs svg {
+  width: 14px;
+  flex-shrink: 0;
+}
+.catalog-breadcrumbs span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catalog-browser button,
+.catalog-publication button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.catalog-browser button svg,
+.catalog-publication button svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.catalog-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.catalog-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+}
+.catalog-source-open {
+  flex: 1;
+  text-align: left;
+  min-width: 100px;
+  justify-content: flex-start !important;
+}
+.catalog-source-open span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.catalog-source-open small {
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.catalog-conflict {
+  flex-basis: 100%;
+  padding: 8px;
+}
+.catalog-search input {
+  flex: 1;
+  min-width: 120px;
+}
+.catalog-navigation {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.catalog-navigation button {
+  justify-content: space-between;
+  text-align: left;
+}
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  gap: 20px 16px;
+}
+.catalog-grid .catalog-book {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  min-width: 0;
+}
+.catalog-book strong,
+.catalog-book > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.catalog-book > span {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+.catalog-cover {
+  aspect-ratio: 2/3;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.catalog-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.catalog-cover svg {
+  width: 32px !important;
+  height: 32px !important;
+  opacity: 0.5;
+}
+.catalog-progress {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 8px;
+  justify-content: space-between;
+}
+.catalog-publication p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.catalog-publication button {
+  align-self: flex-start;
+}
+.opds-access {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 12px;
+}
+.opds-access h3,
+.opds-access p {
+  margin: 0;
+}
+.opds-address,
+.opds-create,
+.opds-password {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+}
+.opds-address label,
+.opds-create label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.opds-access input {
+  width: 100%;
+  min-width: 0;
+}
+.opds-access button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.opds-access svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.opds-password {
+  align-items: center;
+  justify-content: space-between;
+}
+.opds-secret {
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.opds-create {
+  flex-wrap: wrap;
+}
+@media (max-width: 480px) {
+  .catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+  .catalog-dialog {
+    height: calc(100dvh - 48px);
+  }
+  .catalog-breadcrumbs button {
+    padding: 6px;
+  }
+}

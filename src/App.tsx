@@ -70,6 +70,13 @@ import { BookActions } from './features/library/BookActions';
 import { removalDescription } from './features/library/removal';
 import { useRemovalScope } from './features/library/useRemovalScope';
 import { createBackupBlob, type Backup } from './features/backup/archive';
+import {
+  listCatalogSources,
+  restoreCatalogSources,
+  assertCatalogContext,
+  type CatalogContext,
+} from './features/opds/sources';
+import { Catalogs } from './features/opds/Catalogs';
 import { mergeBook } from './features/backup/merge';
 import { preserveExistingProgress } from './features/statistics/history';
 import {
@@ -226,6 +233,7 @@ function AppContent({
   const detailsRemoval = useRemovalScope(!!removalOrigin);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
+  const [catalogs, setCatalogs] = useState(false);
   const [settingsTab, setSettingsTab] = useState('appearance');
   const [opened, setOpened] = useState<{
     book: Book;
@@ -476,6 +484,27 @@ function AppContent({
     } finally {
       setBusy('');
     }
+  };
+  const importCatalogBook = async (
+    file: File,
+    context: CatalogContext,
+  ): Promise<string> => {
+    await assertCatalogContext(context);
+    const result = await importBook(file);
+    await enqueue(async () => {
+      await assertCatalogContext(context);
+      const book = restoreImport(
+        result.book,
+        booksRef.current.find((b) => b.id === result.book.id),
+      );
+      await putBook(book, result.bytes);
+      replace(book);
+    });
+    if (onImport) {
+      await assertCatalogContext(context);
+      await onImport(result.book.id, result.bytes);
+    }
+    return result.book.id;
   };
   const routeBookExists =
     !!route.bookId && books.some((b) => b.id === route.bookId);
@@ -749,6 +778,7 @@ function AppContent({
         activities,
         protection,
         catalog,
+        await listCatalogSources(),
       );
       if (
         !samePrivacy(protection, sharedPrivacy(privacy.current())) ||
@@ -781,6 +811,7 @@ function AppContent({
         file,
       }));
       await restoreBooks(records, backup.activities ?? []);
+      await restoreCatalogSources(backup.catalogSources ?? []);
       await editFolderCatalog((state) => {
         state.value = mergeFolderCatalog(
           emptyFolderCatalog(),
@@ -1159,6 +1190,21 @@ function AppContent({
           void importFiles(Array.from(e.target.files ?? []), true)
         }
       />
+      {(hostedWeb ? route.kind === 'catalogs' : catalogs) && (
+        <Catalogs
+          bookIds={books.map((b) => b.id)}
+          onClose={() =>
+            hostedWeb ? navigateWeb(shelfPath()) : setCatalogs(false)
+          }
+          onImport={importCatalogBook}
+          onOpen={(id) => {
+            const book = booksRef.current.find((b) => b.id === id);
+            if (!book) return;
+            setCatalogs(false);
+            void openBook(book);
+          }}
+        />
+      )}
       {addAnchor && (
         <ActionPopover
           title="Add books"
@@ -1185,6 +1231,17 @@ function AppContent({
             >
               <FolderInput />
               Import folder
+            </ActionMenuItem>
+            <ActionMenuItem
+              menuId="catalogs"
+              onClick={() => {
+                setAddAnchor(null);
+                if (hostedWeb) navigateWeb('/catalogs');
+                else setCatalogs(true);
+              }}
+            >
+              <BookOpen />
+              Browse catalogs
             </ActionMenuItem>
             <ActionMenuItem
               menuId="new-folder"

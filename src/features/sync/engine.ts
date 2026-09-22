@@ -127,6 +127,7 @@ export function syncNow(): Promise<void> {
         if (!more) {
           await fetchCovers(batch.account);
           await syncReadingActivity();
+          await (await import('../opds/sources')).syncCatalogSources(true);
           let folderNote = '';
           try {
             await syncFolderCatalog();
@@ -199,6 +200,7 @@ export function startSync() {
   window.addEventListener('quire-statistics', activityChanged);
   window.addEventListener(privacyChanged, activityChanged);
   window.addEventListener('quire-folders-changed', activityChanged);
+  window.addEventListener('quire-catalogs-changed', activityChanged);
   window.addEventListener('quire-storage', changed);
   window.addEventListener('online', run);
   document.addEventListener('visibilitychange', foreground);
@@ -213,6 +215,7 @@ export function startSync() {
     window.removeEventListener('quire-statistics', activityChanged);
     window.removeEventListener(privacyChanged, activityChanged);
     window.removeEventListener('quire-folders-changed', activityChanged);
+    window.removeEventListener('quire-catalogs-changed', activityChanged);
     window.removeEventListener('quire-storage', changed);
     window.removeEventListener('online', run);
     document.removeEventListener('visibilitychange', foreground);

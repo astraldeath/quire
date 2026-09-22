@@ -30,6 +30,7 @@ vi.mock('../src/features/server/AdminPanel', () => ({
   AdminPanel: () => <div>Admin page</div>,
 }));
 vi.mock('../src/features/sync/transport', () => ({
+  supportsOpds: async () => false,
   accountRequest: (...args: any[]) =>
     args[1] === '/v1/me'
       ? Promise.resolve({ id: 'user', username: 'member', admin: auth.admin })

@@ -8,6 +8,30 @@ import { mergeBook } from '../src/features/backup/merge';
 import { defaults, type Book } from '../src/domain/models';
 import { validateBook } from '../src/features/backup/validation';
 const bytes = new Uint8Array([1, 2, 3]);
+it('roundtrips catalog names and URLs without credentials', async () => {
+  const sources = [
+    {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Books',
+      url: 'https://books.test/',
+      revision: 2,
+      deleted: false,
+      password: 'never export',
+    },
+  ];
+  const backup = await readBackup(
+    await createBackup([], defaults, 'data', [], undefined, undefined, sources),
+  );
+  expect(backup.catalogSources).toEqual([
+    {
+      id: sources[0].id,
+      name: 'Books',
+      url: 'https://books.test/',
+      revision: 2,
+      deleted: false,
+    },
+  ]);
+});
 const book: Book = {
   id: '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
   title: 'Book',
