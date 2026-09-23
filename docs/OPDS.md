@@ -8,7 +8,7 @@ Select a publication and choose a supported format to download it into your libr
 
 Catalog names, URLs, and deletions sync when connected to a compatible Quire Server. Conflicting edits can be reviewed in Catalogs. Backups include source metadata but never catalog passwords.
 
-The installed reader fetches catalogs directly and stores supported credentials in the platform credential store. Android currently supports anonymous native catalogs; saving catalog credentials there is unavailable. The hosted WebUI uses the server proxy and encrypted server-side catalog credentials. The standalone browser needs the catalog to allow cross-origin requests; its credentials last only for the current session. Credentials are not sent to a different origin during redirects.
+The installed reader fetches catalogs directly. Windows, iOS, and Linux store credentials in the platform credential store; Linux requires an unlocked Secret Service keyring. Android currently supports anonymous native catalogs; saving catalog credentials there is unavailable. The hosted WebUI uses the server proxy and encrypted server-side catalog credentials. The standalone browser needs the catalog to allow cross-origin requests; its credentials last only for the current session. Credentials are not sent to a different origin during redirects.
 
 For a private-network catalog through the hosted WebUI, the server administrator must explicitly allow its origin with `QUIRE_OPDS_ALLOWED_ORIGINS`. See the [server OPDS guide](https://github.com/astraldeath/quire-server/blob/main/docs/OPDS.md).
 

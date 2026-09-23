@@ -18,20 +18,38 @@ Every push to `main` automatically starts **Unsigned iOS device app** in GitHub 
 
 Download **Quire-unsigned-ios** from the successful run and extract the `.ipa` from the artifact ZIP. Artifacts expire after seven days. The build directory is cleaned even when a step fails. You can also delete an artifact manually on the run page.
 
-The pinned CLI dependency supports `tauri ios build --ci --target aarch64 --no-sign`. Its [2.11.4 implementation](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/ios/build.rs) disables archive signing and writes a `Payload/*.app` IPA directly. No speculative signing flags or Xcode export signing workaround are required. The workflow checks that the package targets iPhoneOS and contains no provisioning profile or code-signature directory.
+The pinned CLI dependency supports `tauri ios build --ci --target aarch64 --no-sign`. Its [2.11.4 implementation](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/ios/build.rs) disables archive signing and writes a `Payload/*.app` IPA directly. The workflow checks that the package targets iPhoneOS and contains no provisioning profile or code-signature directory.
 
-Transfer the extracted IPA to Files on your iPhone, import it into Feather, select your local certificate and provisioning profile, sign, and install. Signing material stays on your device. The provisional bundle identifier is `app.quire.reader`; the identifier used for signing must be allowed by your profile, and the profile must authorize your device and remain valid. Use Feather's identifier override if appropriate for your profile. An unsigned IPA cannot launch before signing.
+Transfer the extracted IPA to Files on your iPhone, import it into Feather, select your local certificate and provisioning profile, sign, and install. Signing material stays on your device. The bundle identifier is `app.quire.reader`; the identifier used for signing must be allowed by your profile, and the profile must authorize your device and remain valid. Use Feather's identifier override if appropriate for your profile. An unsigned IPA cannot launch before signing.
 
-The first successful hosted build and a physical iPhone install remain acceptance checks. On device, import an EPUB, navigate, change typography, close/relaunch, verify resume, remove its download, reimport the same EPUB and verify resume again. No iOS device compatibility is claimed until these checks pass. Windows cannot run Xcode or perform that validation locally.
+A successful hosted build does not verify installation or reading on a physical iPhone. On device, import an EPUB, navigate, change typography, close/relaunch, verify resume, remove its download, reimport the same EPUB and verify resume again. No iOS device compatibility is claimed until these checks pass. Windows cannot run Xcode or perform that validation locally.
+
+## Hosted browser build
+
+```sh
+npm run build:web
+```
+
+Serve `dist-web` with Quire Server's `-web-dir` option. Hosted sessions use 30-day HttpOnly, SameSite=Strict cookies (Secure on HTTPS). Cookie writes require the configured public origin. Every authenticated request binds its tab to the session with `X-Quire-Session`, preventing stale tabs from syncing into a different account. Never store hosted tokens in browser storage. `npm run build` produces the installed-app frontend. Use HTTPS and a matching server release in production. Hosted authentication, administration, and server imports are enabled by the hosted build configuration.
+
+## Release checks
+
+Run `npm test`, `npm run build`, and `npm run build:web` before shipping. Native changes also need platform builds and device checks; browser tests cannot verify iOS behavior. See [Updates and releases](UPDATES.md) for signing, packaging, and publication.
 
 ## Book privacy
 
-Book actions → Privacy offers Normal, Locked and Hidden. Library → View → Hidden books opens the authenticated hidden collection. Settings → Privacy manages the passcode, optional iOS biometrics, automatic locking and the background cover. The salted passcode verifier and book restrictions sync to the connected account and are included in portable backups. Without a server, they remain local. Face ID enrollment, unlocked sessions, retry counters, automatic locking and the preview cover stay device-local. EPUBs, server copies and exports remain unencrypted. This protects access through Quire's reader UI, not files accessed outside it or server-administrator access.
+For iOS privacy changes, verify Face ID success and cancellation, passcode fallback, leaving a protected reader, app-switcher previews with Settings open, and reopening after termination. Install a fresh IPA to test native changes. On each platform, check switching apps while reading, returning to an open dialog, and cancelling an export. See the [reader privacy guide](READER.md#book-privacy) for expected behavior.
 
-Update the server and every client before relying on synced privacy; older clients do not enforce these restrictions. Privacy sync runs before book sync and retains offline edits. Independent changes merge; concurrent changes to a book keep the more restrictive choice. A subsequent explicit change can remove protection. If devices create or change different passcodes concurrently, the server passcode is kept and sync reports that choice. Receiving a changed passcode relocks the library and disables local biometrics until enabled again.
+## Storage and rendering notes
 
-The native library binds its private settings to the first connected server account. Reconnecting that account resumes sync; switching to another account stops sync instead of sending the previous account's privacy settings. Hosted browsers already use separate storage per account. Restoring a portable backup preserves any existing passcode and combines restrictions without weakening them; a fresh installation uses the backup's passcode. Server backups retain the privacy record in SQLite.
+Text readers preload the next chapter's resources and retain adjacent sections for back navigation. EPUB resources outside that window are released; formats with publication-wide caches keep their existing close-time cleanup. Chapter frames still rebuild when crossing a chapter boundary.
 
-The `privacy` native plugin covers the iOS window before background snapshots and uses LocalAuthentication for Face ID/Touch ID. Other platforms currently use the Quire passcode; a browser overlay does not guarantee the operating system's app-switcher snapshot is obscured. On an iPhone, verify Face ID success/cancellation, passcode fallback, leaving a protected reader, app-switcher previews with Settings open, and reopening after termination. Install a fresh IPA to test native changes.
+Reader frame security: EPUB scripts and event attributes are removed, and every book document receives a script-denying CSP before content. The iframe retains `allow-scripts allow-same-origin` because WebKit otherwise blocks even trusted event listeners installed by Quire. No EPUB-provided script is permitted by the CSP.
 
-Cover when inactive is a device-local setting. Desktop windows show the wordmark when unfocused; browsers cover hidden tabs and can optionally cover browser focus loss. Focus loss alone does not lock books: the existing background auto-lock preference remains separate. Quire's file pickers, exports, share sheets and biometric prompts are excluded from focus-based covering. The iOS native app-switcher cover is unchanged. Verify switching apps while reading, returning to an open dialog, and export cancellation on each native platform.
+The server API contract is version 1. Sync edits, acknowledgements and cursor changes are transactional in IndexedDB and native SQLite. Native clients must restart after upgrading so the new database migration is applied.
+
+Browser storage version 3 keeps EPUB bytes, metadata, and reading history separately. Upgrades are transactional and preserve notes and files; reload all open Quire tabs if an older tab blocks one. Native SQLite stores reading history in separate tables. Downloads are SHA-256 verified before caching; the reader validates the archive and sanitizes chapter content before display.
+
+## Backup format and limits
+
+Version 1 backups are ZIP archives containing `manifest.json` and optional `books/<sha256>.<format>` files. Data-only backups retain covers and annotations but require the original book files to restore reading access. Full backups include only files available on the device. There is no fixed 128 MB book or 512 MB backup limit. Metadata remains limited to 32 MB and 5,000 books, and archives are checked for unsafe paths, excessive expansion, CRC errors, and incorrect file identities. Creation processes one book at a time and uses a Blob-backed archive. Device memory and available storage still limit very large libraries. Backups are unencrypted; store them privately. Physical iOS Files/iCloud export and restore should be checked with a device build.

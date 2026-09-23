@@ -1,6 +1,6 @@
 # MangaBaka tracking
 
-Installed Quire on Windows and iOS connects directly to MangaBaka. You do not need a Quire server or a Quire account.
+Installed Quire on Windows, iOS, and Linux connects directly to MangaBaka without a Quire server or account. Linux requires an unlocked Secret Service keyring. Android native tracking is unavailable because secure credential storage is not yet supported.
 
 ## Connect and match
 
@@ -34,6 +34,6 @@ Sign-in requests `openid`, `profile`, library read/write, and offline access wit
 
 The native bridge restricts API requests to MangaBaka, validates the callback and single-use state, and refreshes tokens in secure storage. The browser sign-in returns through the registered app protocol, so no localhost listener or hosted callback is needed. Install the Windows package to register the desktop protocol; iOS packages declare the scheme in their application metadata.
 
-Hosted Quire WebUI continues using its server-side OAuth client and server-managed tracking. A plain development browser build does not implement the installed app's native sign-in. Native and hosted matches are currently independent.
+Hosted Quire WebUI uses its server-side OAuth client and server-managed tracking. A plain development browser build does not implement the installed app's native sign-in. Native and hosted matches are currently independent.
 
 Provider contract: [MangaBaka API](https://mangabaka.org/api.json) and [OAuth discovery](https://mangabaka.org/.well-known/openid-configuration). Validate sign-in and returning to the installed app on a physical iPhone when testing a new release; a Windows build cannot verify iOS behavior.

@@ -2,13 +2,13 @@
 
 Windows x64 builds from 0.2.0 include the desktop updater. Readers can check for a newer version, read its changelog, and choose to install it. The installer closes Quire while replacing the application. Existing 0.1.0 installations need one manual installation of 0.2.0 or later because they do not contain the updater. Download the Windows installer from [Quire releases](https://github.com/astraldeath/quire/releases).
 
-The stable update feed is [latest.json](https://github.com/astraldeath/quire/releases/latest/download/latest.json). It becomes available when the first signed release is published; a missing feed is an update-check error, not proof that the installation is current. Releases include a Windows x64 installer, Linux x64 AppImage and Debian packages, a signed universal Android APK, and an unsigned iOS IPA. The feed lists all four released platforms with detached Tauri signatures; automatic installation is supported on Windows and Linux AppImage. Android users install the newer APK over the existing app; iOS users must sign and sideload the new IPA. Server images retain their separate publishing workflow.
+The stable update feed is [latest.json](https://github.com/astraldeath/quire/releases/latest/download/latest.json). A missing feed is an update-check error; it does not establish that the installation is current. Releases include a Windows x64 installer, Linux x64 AppImage and Debian packages, a signed universal Android APK, and an unsigned iOS IPA. The feed lists all four released platforms with detached Tauri signatures; automatic installation is supported on Windows and Linux AppImage. Android users install the newer APK over the existing app; iOS users must sign and sideload the new IPA. Server images retain their separate publishing workflow.
 
 ## Configure signing once
 
 The public key in `src-tauri/tauri.conf.json` is pinned in installed readers. Store the matching private key outside the repository and back it up securely. Do not regenerate it for each release: existing readers trust the original key.
 
-In the `astraldeath/quire` repository's **Settings → Secrets and variables → Actions**, create:
+In the `astraldeath/quire` repository's **Settings > Secrets and variables > Actions**, create:
 
 - `TAURI_SIGNING_PRIVATE_KEY`: the contents of the matching Tauri private key file, not a path on your computer.
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the key's password, if one was set. Leave this secret absent for an unencrypted key.
@@ -32,8 +32,6 @@ The feed uses Tauri's `version`, `notes`, `pub_date`, and `platforms` fields. It
 
 Normal builds and pull-request checks do not require the signing secret. Only the release workflow enables `bundle.createUpdaterArtifacts` using a temporary build configuration. `windows.yml` continues to compile with `--no-bundle` and runs the release-manifest tests without access to signing credentials.
 
-No GitHub release or signing secret is created by adding this pipeline. Configure the secret and publish a reviewed tag before expecting the live feed to work.
-
 ## Android signing
 
 Add these repository Actions secrets (no GitHub Environment is required):
@@ -45,13 +43,13 @@ Add these repository Actions secrets (no GitHub Environment is required):
 
 Back up the keystore and passwords outside Git. Changing the signing identity prevents existing installations from accepting an APK update. The Android job decodes the keystore only for signing, supplies passwords through environment variables, verifies the signature and alignment, and removes the temporary keystore even after failure. The Android keystore secrets are confined to the Android job. The publishing job receives only the Tauri updater key, scoped to its detached-signature step. Android SDK/NDK and Java are installed/configured on the hosted runner; no local Android toolchain is needed to trigger a release.
 
-The APK includes all four Tauri Android architectures. An AAB, Play Store upload, and macOS package are not part of this workflow. Android builds and first-device installation still require acceptance testing, including standalone tracking, import/export, and upgrading without losing library data.
+The APK includes all four Tauri Android architectures. An AAB, Play Store upload, and macOS package are not part of this workflow. Check import/export and upgrading without library data loss on a physical Android device. Native server sign-in, MangaBaka, and authenticated OPDS remain unavailable on Android because secure credential storage is not yet supported.
 
 ## Unsigned iOS download
 
 Release IPAs use the same physical-device build and validation as the main-branch iOS workflow, with the filename `Quire_<version>_ios-unsigned.ipa`. They require no Apple signing secrets in Actions. The detached `.ipa.sig` authenticates the download with the Tauri updater key; it does not Apple-sign the IPA or make it installable without sideload signing. Users must sign before installing; see [Building](BUILDING.md). Main-branch development artifacts still expire after seven days; assets attached to a published release remain available until the release/assets are deleted.
 
-The first tag using this workflow is the hosted build acceptance check. Local manifest tests and YAML validation cannot verify runner SDK availability, repository secrets, Apple compilation, or physical-device behavior. If a platform fails, no release is published; fix the failure before retrying or creating a new version. Never replace assets on an already published version.
+Local manifest tests and YAML validation cannot verify runner SDK availability, repository secrets, Apple compilation, or physical-device behavior. If a platform fails, no release is published; fix the failure before retrying or creating a new version. Never replace assets on an already published version.
 
 ## Build caches
 

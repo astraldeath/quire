@@ -1,6 +1,6 @@
 # RSVP reading
 
-Open a reflowable text book, then choose **Reading settings → RSVP → Start RSVP**.
+Open a reflowable text book, then choose **Reading settings > RSVP > Start RSVP**.
 The reader starts paused at the current passage. Press **Play**, or use Space
 outside an input, to advance one word at a time. **Rewind sentence** pauses and
 returns to the beginning of the sentence; pressing it again moves to the previous
@@ -12,8 +12,8 @@ semicolons receive 1.5 times the base dwell, sentence endings twice the base dwe
 and paragraph endings 2.5 times the base dwell. These delays do not multiply.
 
 Playback pauses when the app loses focus, enters the background, shows a privacy
-cover or dialog, or when you leave RSVP. Resume explicitly with Play. A delayed
-background timer cannot race ahead through unread words.
+cover or dialog, or when you leave RSVP. Resume explicitly with Play. Delayed
+background timers do not advance through unread words.
 
 EPUB and supported formats normalized to reflowable text can use RSVP. Comics,
 PDFs, fixed-layout EPUBs, and image-only pages do not offer the entry. No OCR is
