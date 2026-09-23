@@ -19,7 +19,7 @@ vi.mock('../src/storage', () => ({
   syncTransaction: async (fn: any) => fn(state).result,
 }));
 vi.mock('../src/features/sync/engine', () => ({ subscribe: () => () => {} }));
-vi.mock('../src/features/sync/transport', () => ({ accountRequest: request }));
+vi.mock('../src/features/sync/transport', () => ({ sharedLibraries: request }));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 function Probe() {
   return (

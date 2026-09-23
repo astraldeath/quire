@@ -529,6 +529,14 @@ export async function metadata(
   return { cover: v.cover };
 }
 
+export async function sharedLibraries(
+  a: Account,
+): Promise<{ id: string; name: string; bookIds: string[] }[]> {
+  return isTauri()
+    ? invoke('sync_libraries', { server: a.origin, username: a.username })
+    : accountRequest(a, '/v1/libraries');
+}
+
 export async function accountRequest(
   a: Account,
   path: string,

@@ -29,6 +29,7 @@ commands.allow = [
   "sync_discover",
   "sync_download_file",
   "sync_files",
+  "sync_libraries",
   "sync_login",
   "sync_logout",
   "sync_metadata",

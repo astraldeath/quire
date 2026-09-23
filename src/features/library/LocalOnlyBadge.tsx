@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { HardDrive } from 'lucide-react';
 import type { Book } from '../../domain/models';
 import { loadSync, syncTransaction } from '../../storage';
-import { accountRequest, files } from '../sync/transport';
+import { sharedLibraries, files } from '../sync/transport';
 import { subscribe } from '../sync/engine';
 
 // One inventory request for the library, never one per book card.
@@ -112,10 +112,7 @@ export function useSharedLibraries() {
         const account = state.account;
         if (!live || ticket !== revision) return;
         setLibraries(state.libraries ?? []);
-        const result = (await accountRequest(
-          account,
-          '/v1/libraries',
-        )) as SharedLibrary[];
+        const result = await sharedLibraries(account);
         const current = await loadSync();
         if (!live || ticket !== revision) return;
         if (

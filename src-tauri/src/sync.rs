@@ -150,6 +150,12 @@ pub async fn sync_metadata(server:String,username:String,book:String)->Result<Va
 
 #[tauri::command]
 pub async fn updates_call(server:String,username:String)->Result<Value,String>{let o=origin(&server)?;let token=credential(&o,&username)?.get_password().map_err(|_|"Sign in to connect this device.")?;request(&o,"/v1/updates",Method::GET,None,Some(token)).await}
+#[tauri::command]
+pub async fn sync_libraries(server: String, username: String) -> Result<Value, String> {
+    let o = origin(&server)?;
+    let token = credential(&o, &username)?.get_password().map_err(|_| "Sign in to connect this device.")?;
+    request(&o, "/v1/libraries", Method::GET, None, Some(token)).await
+}
 #[cfg(test)]
 mod transfer_tests {
  use super::*;
