@@ -17,6 +17,8 @@ import {
 import { RsvpPlayback, normalizeWpm, type RsvpState } from './playback';
 import { tokenRange } from './tokens';
 import { RsvpActivity } from './activity';
+import { StepperControl } from '../../../components/Controls';
+import { FocalWord } from './FocalWord';
 import './rsvp.css';
 interface Props {
   bookId: string;
@@ -46,9 +48,6 @@ export function RsvpReader(props: Props) {
   const [label, setLabel] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [speedInput, setSpeedInput] = useState(
-    String(normalizeWpm(props.preferences.rsvpWpm)),
-  );
   const playButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let closed = false;
@@ -291,7 +290,6 @@ export function RsvpReader(props: Props) {
   }, [props.bookId, props.publication, props.locator]);
   useEffect(() => {
     controls.current?.configure();
-    setSpeedInput(String(normalizeWpm(props.preferences.rsvpWpm)));
   }, [props.preferences.rsvpWpm, props.preferences.rsvpPunctuationPauses]);
   return (
     <section className="rsvp-reader" aria-label="RSVP reading">
@@ -306,14 +304,7 @@ export function RsvpReader(props: Props) {
         <span>{label}</span>
       </header>
       <div className="rsvp-display" aria-live="off">
-        <span
-          className="rsvp-word"
-          style={{
-            fontSize: `clamp(1.5rem, 8vw, ${Math.max(32, props.preferences.size * 2)}px)`,
-          }}
-        >
-          {word}
-        </span>
+        <FocalWord word={word} size={props.preferences.size} />
       </div>
       {error && <p role="alert">{error}</p>}
       {loading && <p role="status">Loading text…</p>}
@@ -335,35 +326,19 @@ export function RsvpReader(props: Props) {
           {state.playing ? <Pause size={24} /> : <Play size={24} />}
           {state.playing ? 'Pause' : 'Play'}
         </button>
-        <label>
-          WPM
-          <input
-            aria-label="Words per minute"
-            type="number"
-            inputMode="numeric"
-            min={60}
-            max={1000}
-            step={10}
-            value={speedInput}
-            onChange={(event) => {
-              setSpeedInput(event.currentTarget.value);
-              const value = event.currentTarget.valueAsNumber;
-              if (Number.isFinite(value) && value >= 60 && value <= 1000)
-                props.onPreferences({
-                  ...props.preferences,
-                  rsvpWpm: normalizeWpm(value),
-                });
-            }}
-            onBlur={() => {
-              const value = speedInput.trim()
-                ? Number(speedInput)
-                : props.preferences.rsvpWpm;
-              const rsvpWpm = normalizeWpm(value);
-              setSpeedInput(String(rsvpWpm));
-              props.onPreferences({ ...props.preferences, rsvpWpm });
-            }}
-          />
-        </label>
+        <StepperControl
+          label="Words per minute"
+          value={normalizeWpm(props.preferences.rsvpWpm)}
+          min={60}
+          max={1000}
+          step={10}
+          onChange={(value) =>
+            props.onPreferences({
+              ...props.preferences,
+              rsvpWpm: normalizeWpm(value),
+            })
+          }
+        />
       </div>
     </section>
   );

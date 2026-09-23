@@ -40,9 +40,10 @@
   min-width: 0;
 }
 .rsvp-word {
-  text-align: center;
-  overflow-wrap: anywhere;
-  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  width: 100%;
+  white-space: nowrap;
   line-height: 1.4;
 }
 .rsvp-controls {
@@ -52,15 +53,20 @@
   flex-wrap: wrap;
   gap: 12px;
 }
-.rsvp-controls label {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
+.rsvp-word-before {
+  justify-self: end;
+}
+.rsvp-word-after {
+  justify-self: start;
+}
+.rsvp-word-focal {
+  color: #cf5563;
+  font-weight: 700;
+}
+.rsvp-controls .stepper-control {
   gap: 8px;
 }
-.rsvp-controls input {
-  width: 88px;
-  min-height: 44px;
+.rsvp-controls .stepper-value input {
   font-size: 16px;
 }
 .rsvp-reader :focus-visible {

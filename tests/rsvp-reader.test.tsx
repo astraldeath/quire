@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, it, expect, vi } from 'vitest';
 import { RsvpReader } from '../src/features/reader/rsvp/RsvpReader';
@@ -39,6 +39,92 @@ const locator = {
     },
   }),
 };
+it('uses the settings speed stepper while preserving editing and reader shortcuts', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const onExit = vi.fn();
+  function Session() {
+    const [preferences, setPreferences] = useState(defaults.reader);
+    return (
+      <RsvpReader
+        bookId={'a'.repeat(64)}
+        volume={null}
+        publication={publication}
+        locator={locator}
+        structure={{ chapters: [] }}
+        preferences={preferences}
+        onPreferences={setPreferences}
+        onPosition={vi.fn()}
+        onExit={onExit}
+      />
+    );
+  }
+  await act(async () => root.render(<Session />));
+  const input = host.querySelector('.stepper-value input') as HTMLInputElement;
+  const edit = async (text: string) => {
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(input, text);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+  const key = async (target: HTMLElement, key: string, code = key) => {
+    await act(async () =>
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key, code, bubbles: true }),
+      ),
+    );
+  };
+  expect(input.value).toBe('250');
+  expect(host.querySelector('.rsvp-word')?.getAttribute('aria-label')).toBe(
+    'One',
+  );
+  expect(host.querySelector('.rsvp-word-focal')?.textContent).toBe('n');
+  await act(async () =>
+    (
+      host.querySelector(
+        '[aria-label="Increase words per minute"]',
+      ) as HTMLButtonElement
+    ).click(),
+  );
+  expect(input.value).toBe('260');
+  await edit('400');
+  await key(input, 'Escape');
+  expect(input.value).toBe('260');
+  expect(onExit).not.toHaveBeenCalled();
+  await edit('10000');
+  await key(input, 'Enter');
+  expect(input.value).toBe('1000');
+  expect(
+    (
+      host.querySelector(
+        '[aria-label="Increase words per minute"]',
+      ) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  await edit('1');
+  await act(async () => input.blur());
+  expect(input.value).toBe('60');
+  expect(
+    (
+      host.querySelector(
+        '[aria-label="Decrease words per minute"]',
+      ) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  await key(document.body, ' ', 'Space');
+  expect(host.querySelector('[aria-label="Pause"]')).not.toBeNull();
+  await act(async () => input.focus());
+  await key(input, ' ', 'Space');
+  expect(host.querySelector('[aria-label="Pause"]')).not.toBeNull();
+  await key(document.body, ' ', 'Space');
+  expect(host.querySelector('[aria-label="Play"]')).not.toBeNull();
+  await act(async () => root.unmount());
+});
 it('restores old preferences and rejects invalid RSVP backup data', () => {
   const old = {
     ...defaults,
