@@ -103,6 +103,14 @@ it('distinguishes same-name sessions and revokes only the selected non-current I
       ),
     );
     expect(host.textContent).toContain('Current session');
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[role="tab"][aria-label="Devices"]')!
+        .click(),
+    );
+    expect(
+      host.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
+    ).toContain('Signed-in devices');
     const times = [...host.querySelectorAll('time')];
     expect(times).toHaveLength(2);
     expect(times[0].dateTime).toBe(new Date(1700000000000).toISOString());
@@ -225,6 +233,24 @@ it('keeps password errors actionable and guards closing a password draft', async
       )!.set!.call(input, 'mock-current');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    expect(host.querySelectorAll('[role="tab"]')).toHaveLength(3);
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[role="tab"][aria-label="OPDS"]')!
+        .click(),
+    );
+    expect(
+      host.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
+    ).toContain('OPDS');
+    expect(host.textContent).not.toContain('Discard changes?');
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>(
+          '[role="tab"][aria-label="Password"]',
+        )!
+        .click(),
+    );
+    expect(input.value).toBe('mock-current');
     request.mockRejectedValueOnce(new Error('Current password is incorrect'));
     await act(async () =>
       host

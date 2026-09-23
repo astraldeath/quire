@@ -28,8 +28,11 @@ export function SettingsTabs({
   active: controlled,
   onActiveChange,
   layout = 'tabs',
+  keepMounted = false,
 }: {
   layout?: 'tabs' | 'settings';
+  /** Keep drafts and one-time values when switching between sections. */
+  keepMounted?: boolean;
   tabs: Tab[];
   label: string;
   disabled?: boolean;
@@ -50,7 +53,7 @@ export function SettingsTabs({
       setLocalActive(id);
       onActiveChange?.(id);
     };
-    if (layout === 'settings') requestNavigation(change);
+    if (layout === 'settings' && !keepMounted) requestNavigation(change);
     else change();
   };
   const id = useId();
@@ -122,7 +125,9 @@ export function SettingsTabs({
       </div>
       <div ref={panels} className="settings-panels">
         {tabs
-          .filter((tab) => layout !== 'settings' || tab.id === active)
+          .filter(
+            (tab) => keepMounted || layout !== 'settings' || tab.id === active,
+          )
           .map((tab) => (
             <section
               key={tab.id}
