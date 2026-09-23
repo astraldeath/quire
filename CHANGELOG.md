@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.10.1]
+
+- Fix shared-library discovery in native apps so connected users can browse shared libraries from the library menu.
+- Restore the iOS sideloading source to the latest release and prevent automatic version rollbacks.
+
 ## [0.10.0]
 
 - Organize account settings into Password, Devices, and OPDS tabs with a stable desktop dialog and compact mobile navigation.
