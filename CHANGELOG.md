@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.10.0]
+
 - Organize account settings into Password, Devices, and OPDS tabs with a stable desktop dialog and compact mobile navigation.
 - Keep a highlighted focal letter aligned during RSVP reading, and use the settings speed stepper for words per minute.
 - Fix icon spacing and row alignment in the library destination menu.
