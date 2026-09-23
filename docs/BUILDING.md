@@ -1,4 +1,24 @@
-# Building Quire
+# Installing and building Quire
+
+## Install a release
+
+Download a package from [Quire releases](https://github.com/astraldeath/quire/releases).
+
+| Platform | Installation |
+| --- | --- |
+| Windows x64 | Run the `.exe` installer |
+| Linux x64 AppImage | Run `chmod +x Quire_*.AppImage`, then open the AppImage |
+| Linux x64 Debian package | Install the `.deb` with your package manager |
+| Android | Open the signed `.apk` and allow installation from that source when Android prompts |
+| iOS | Import the unsigned `.ipa` into your sideloading app, sign it, and install it |
+
+Windows and Linux AppImage builds support **Settings > Updates**. Debian users install the newer `.deb`; Android users install the newer APK over the existing app. Keep the same Android signing identity to retain update compatibility. See [Updates and releases](UPDATES.md) for package details.
+
+For iOS, add the [Quire sideloading source](https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json) to Feather, AltStore, or SideStore, or download an IPA directly. An unsigned IPA cannot launch until signed. Feather users select their local certificate and provisioning profile; the profile must permit the signing identifier and device and remain valid. Signing material stays on your device. New IPA releases need signing again.
+
+Linux server connections, MangaBaka, and authenticated OPDS catalogs require a running, unlocked Secret Service keyring. Android currently supports local reading and anonymous OPDS catalogs but lacks secure credentials for these authenticated native connections.
+
+## Build from source
 
 Install Node.js 22, Rust 1.95 or newer, and the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/). Windows requires the Visual Studio C++ build tools and WebView2. Run commands from the repository root:
 

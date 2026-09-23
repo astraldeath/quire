@@ -10,7 +10,11 @@ Installed Quire on Windows, iOS, and Linux connects directly to MangaBaka withou
 
 Each book can have its own match. A book may optionally use a series match, or you can track a whole series from its actions. Applying a series match keeps existing individual book overrides. Newly imported volumes can be included by saving the series tracker again.
 
-Starting a book can set its MangaBaka state to Reading. Finishing it can advance the configured volume number; completing the entire MangaBaka entry is a separate book-only option. For books without a volume number, Quire detects explicit numbered chapters in the EPUB table of contents and can advance chapter progress as you pass their boundaries. Split chapter parts count as one chapter; front matter is ignored. The final chapter is counted at the end of the book, including trailing bonus material. Ambiguous or restarted numbering is left untracked. Automatic updates never lower chapter or volume progress and leave scores, dates, privacy, notes, and unrelated fields alone. On-hold and dropped entries keep their status.
+Starting a book can set its MangaBaka state to Reading. Finishing it can advance the configured volume number; completing the entire MangaBaka entry is a separate book-only option.
+
+Chapter tracking uses numbered contents entries, publication headings, and chapter markup to identify reliable boundaries. Split chapter parts count as one chapter; front matter is ignored. Conflicting or restarted numbering is left untracked. Chapter mode sends the current detected chapter, falling back to completed-chapter data for older positions. Completion counts used by reading history are separate: a chapter completes at the next chapter boundary, and the final chapter completes at the end of the book, including trailing bonus material.
+
+Automatic updates never lower chapter or volume progress and leave scores, dates, privacy, notes, and unrelated fields alone. On-hold and dropped entries keep their status.
 
 When linking, choose **Track privately on MangaBaka** (on by default). Connected accounts add the entry even with automatic updates off. The tracker summary shows reading status, chapters, volumes, score, dates, and visibility. Choose **Edit** to change those values; only changed fields are saved. Manual progress corrections remain until further reading advances them. **Match & auto-track** changes the local book match and automatic-update settings.
 
