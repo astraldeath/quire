@@ -81,6 +81,7 @@ function validValue(kind: Kind, v: Value) {
     return false;
   if (kind === 'book')
     return (
+      (v.inLibrary === undefined || typeof v.inLibrary === 'boolean') &&
       text(v.title, 2048) &&
       !!v.title &&
       (v.author === undefined || text(v.author, 2048)) &&

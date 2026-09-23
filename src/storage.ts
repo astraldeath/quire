@@ -516,7 +516,13 @@ export const putBook = (book: Book, bytes: Uint8Array) =>
       {
         book: (() => {
           const old = books.find((b) => b.id === book.id);
-          return old ? { ...old, cover: old.cover || book.cover } : book;
+          return old
+            ? {
+                ...old,
+                cover: old.cover || book.cover,
+                ...(old.inLibrary === false ? { inLibrary: true } : {}),
+              }
+            : book;
         })(),
         fileMode: 'set',
         file: bytes,
@@ -542,7 +548,13 @@ export const putCatalogBook = (
     else if (sync.enabled && sync.account)
       throw new Error('Your account or session changed. Reopen Catalogs.');
     const old = books.find((b) => b.id === book.id);
-    const saved = old ? { ...old, cover: old.cover || book.cover } : book;
+    const saved = old
+      ? {
+          ...old,
+          cover: old.cover || book.cover,
+          ...(old.inLibrary === false ? { inLibrary: true } : {}),
+        }
+      : book;
     queueChanges(sync, old, saved);
     await commit(sync, [{ book: saved, fileMode: 'set', file: bytes }]);
     return { ...saved, local: true };
@@ -927,3 +939,25 @@ export function commitReadingActivitySync(
 }
 export const saveReadingActivity = (items: ReadingActivity[]) =>
   commitReadingActivitySync(items);
+
+/** Membership changes retain the latest progress and verify the session at commit time. */
+export const addSharedBooksToLibrary = (
+  ids: string[],
+  expected: Account,
+  canAccess: () => boolean,
+  inLibrary = true,
+) =>
+  serial(async () => {
+    const books = await listBooks(),
+      sync = await loadSync();
+    assertCurrentAccount(sync, expected);
+    if (!canAccess()) throw new Error('Unlock the books before adding them.');
+    const writes = books
+      .filter((b) => ids.includes(b.id) && b.inLibrary !== inLibrary)
+      .map((old) => {
+        const book = { ...old, inLibrary };
+        queueChanges(sync, old, book);
+        return { book, fileMode: 'keep' as const };
+      });
+    await commit(sync, writes);
+  });

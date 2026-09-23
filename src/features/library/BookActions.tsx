@@ -9,6 +9,7 @@ import { TrackingDialog } from '../tracking/TrackingDialog';
 import { TrackingButton } from '../tracking/TrackingButton';
 import { useState } from 'react';
 import {
+  LibraryBig,
   BookOpen,
   Info,
   Trash2,
@@ -44,11 +45,13 @@ export function BookActions({
   onMark,
   onContinue,
   onMove,
+  onAdd,
 }: {
   onDownload?: () => Promise<void>;
   onMark?: (finished: boolean) => Promise<void>;
   onContinue?: () => void;
   onMove?: () => void;
+  onAdd?: () => Promise<void>;
   onTracking?: () => void;
   entry: LibraryEntry;
   inSeries?: boolean;
@@ -225,6 +228,16 @@ export function BookActions({
             )}
           </div>
           <div className="book-action-list">
+            {onAdd && (
+              <ActionMenuItem
+                menuId="add"
+                disabled={busy}
+                onClick={() => void run(onAdd)}
+              >
+                <LibraryBig />
+                Add to library
+              </ActionMenuItem>
+            )}
             {!(entry.series && inSeries) && (
               <ActionMenuItem menuId="open" onClick={onOpen}>
                 {entry.series ? <FolderOpen /> : <BookOpen />}
@@ -307,14 +320,16 @@ export function BookActions({
               <ChevronRight className="menu-chevron" />
             </ActionMenuItem>
             <div className="menu-divider" role="separator" />
-            <ActionMenuItem
-              menuId="remove"
-              className="danger"
-              onClick={() => setConfirm('library')}
-            >
-              <Trash2 />
-              Remove from library
-            </ActionMenuItem>
+            {entry.books.some((b) => b.inLibrary !== false) && (
+              <ActionMenuItem
+                menuId="remove"
+                className="danger"
+                onClick={() => setConfirm('library')}
+              >
+                <Trash2 />
+                Remove from library
+              </ActionMenuItem>
+            )}
           </div>
           {error && (
             <p className="error" role="alert">

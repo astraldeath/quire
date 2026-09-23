@@ -46,6 +46,7 @@ export interface Account {
 }
 export interface SyncState {
   covers?: string[];
+  libraries?: { id: string; name: string; bookIds: string[] }[];
   account?: Account;
   enabled?: boolean;
   cursor: number;
@@ -89,6 +90,7 @@ function values(
     recordId: 'default',
     value: {
       title: book.title,
+      ...(book.inLibrary !== undefined ? { inLibrary: book.inLibrary } : {}),
       author: book.author,
       series: book.series,
       volume: book.volume,
@@ -175,8 +177,16 @@ export function prepareBatch(
   s: SyncState,
   multipleFolders = true,
   currentChapter = true,
+  sharedMembership = true,
 ) {
   const ready = sendableOperations(s).slice(0, 50);
+  if (
+    !sharedMembership &&
+    ready.some((p) => p.kind === 'book' && p.value?.inLibrary !== undefined)
+  )
+    throw new Error(
+      'Update Quire Server to sync shared library membership. Local changes are saved.',
+    );
   if (
     !multipleFolders &&
     ready.some(
@@ -386,6 +396,7 @@ export function applyRecords(s: SyncState, books: Book[]): Book[] {
       const v = c.value!;
       Object.assign(book, {
         title: v.title,
+        ...(v.inLibrary !== undefined ? { inLibrary: v.inLibrary } : {}),
         author: v.author ?? '',
         series: v.series ?? '',
         volume: v.volume ?? null,

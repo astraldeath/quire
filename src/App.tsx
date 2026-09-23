@@ -17,6 +17,7 @@ import { FolderCard } from './features/library/FolderCard';
 import {
   LocalOnlyBadge,
   useServerFiles,
+  useSharedLibraries,
 } from './features/library/LocalOnlyBadge';
 import {
   FolderMembershipDialog,
@@ -61,6 +62,7 @@ import {
 import { BookOpenButton } from './features/library/BookOpenButton';
 import { ensureBookFile } from './features/sync/library';
 import { startSync } from './features/sync/engine';
+import type { Account } from './features/sync/model';
 import { SyncNotice } from './features/sync/SyncNotice';
 import { TrackingDialog } from './features/tracking/TrackingDialog';
 import { TrackingButton } from './features/tracking/TrackingButton';
@@ -131,6 +133,8 @@ import {
   putBook,
   putCatalogBook,
   saveBook,
+  addSharedBooksToLibrary,
+  loadSync,
   getFile,
   removeFile,
   loadPreferences,
@@ -171,7 +175,7 @@ function Cover({ entry }: { entry: LibraryEntry }) {
 }
 function AppContent({
   accountActions,
-  serverLibraries = [],
+  serverLibraries: suppliedLibraries,
   onImport,
 }: {
   accountActions?: ReactNode;
@@ -180,6 +184,7 @@ function AppContent({
 } = {}) {
   const privacy = usePrivacy();
   const serverFiles = useServerFiles();
+  const connectedLibraries = useSharedLibraries();
   const wasUnlocked = useRef(false);
   const [viewOptions, setViewOptions] = useState(false);
   const [hiddenBooks, setHiddenBooks] = useState(false);
@@ -193,6 +198,9 @@ function AppContent({
   const [bookTracking, setBookTracking] = useState<string | null>(null);
   const [seriesTracking, setSeriesTracking] = useState<string | null>(null);
   const [libraryScope, setLibraryScope] = useState('all');
+  const sharedDestination =
+    libraryScope !== 'all' && libraryScope !== 'personal';
+
   const [status, setStatus] = useState('all'),
     [availability, setAvailability] = useState('all');
   const [selecting, setSelecting] = useState(false),
@@ -212,6 +220,25 @@ function AppContent({
   const [seriesSort, setSeriesSort] = useState<Preferences['sort']>('volume');
 
   const [books, setBooks] = useState<Book[]>([]);
+  const serverLibraries = useMemo(() => {
+    const libraries = suppliedLibraries ?? connectedLibraries;
+    const offline = books.filter(
+      (b) =>
+        b.inLibrary === false &&
+        b.local &&
+        !libraries.some((l) => l.bookIds.includes(b.id)),
+    );
+    return offline.length
+      ? [
+          ...libraries,
+          {
+            id: 'shared-downloads',
+            name: 'Downloaded shared books',
+            bookIds: offline.map((b) => b.id),
+          },
+        ]
+      : libraries;
+  }, [suppliedLibraries, connectedLibraries, books]);
   const booksRef = useRef<Book[]>([]);
   const [preferences, setPreferences] = useState<Preferences>(defaults);
   const preferencesRef = useRef(preferences);
@@ -224,6 +251,7 @@ function AppContent({
   const [group, setGroup] = useState<string | null>(null);
   const [actions, setActions] = useState<{
     entry: LibraryEntry;
+    account?: Account;
     initialRemove?: boolean;
     anchor?: ActionAnchor;
   } | null>(null);
@@ -807,7 +835,7 @@ function AppContent({
       const records = backup.records.map(({ book, file }) => ({
         book: mergeBook(
           current.find((b) => b.id === book.id),
-          book,
+          { ...book, ...(book.inLibrary === false ? { inLibrary: true } : {}) },
         ),
         file,
       }));
@@ -851,7 +879,7 @@ function AppContent({
     anchor?: ActionAnchor,
   ) => {
     const members = entry.series
-      ? booksRef.current.filter(
+      ? scopedBooks.filter(
           (b) =>
             b.series === entry.books[0].series &&
             bookInFolder(b, folder) &&
@@ -863,12 +891,33 @@ function AppContent({
       !(await privacy.authenticate())
     )
       return;
-    setActions({ entry: { ...entry, books: members }, initialRemove, anchor });
+    const account = (await loadSync()).account;
+    setActions({
+      entry: { ...entry, books: members },
+      account,
+      initialRemove,
+      anchor,
+    });
   };
   const removeFromLibrary = (ids: string[], returnPath = '/library') =>
     enqueue(async () => {
-      await deleteBooks(ids);
-      const next = booksRef.current.filter((b) => !ids.includes(b.id));
+      const shared = ids.filter((id) =>
+        serverLibraries.some((l) => l.bookIds.includes(id)),
+      );
+      const deleted = ids.filter((id) => !shared.includes(id));
+      if (shared.length) {
+        const account = (await loadSync()).account;
+        if (!account)
+          throw new Error('Connect to your server to update your library.');
+        await addSharedBooksToLibrary(
+          shared,
+          account,
+          () => shared.every((id) => privacy.access(id)),
+          false,
+        );
+      }
+      await deleteBooks(deleted);
+      const next = await listBooks();
       refresh(next);
       if (detailsId && ids.includes(detailsId)) setDetailsId(null);
       if (group && !next.some((b) => b.series === group)) setGroup(null);
@@ -891,16 +940,18 @@ function AppContent({
   );
   const scopedBooks = useMemo(
     () =>
-      libraryScope === 'all'
-        ? shelfBooks
-        : shelfBooks.filter((b) =>
-            libraryScope === 'personal'
-              ? !serverLibraries.some((l) => l.bookIds.includes(b.id))
-              : serverLibraries
+      shelfBooks.filter((b) =>
+        hiddenBooks
+          ? true
+          : libraryScope === 'all' || libraryScope === 'personal'
+            ? b.inLibrary !== false
+            : libraryScope === 'shared'
+              ? serverLibraries.some((l) => l.bookIds.includes(b.id))
+              : !!serverLibraries
                   .find((l) => l.id === libraryScope)
                   ?.bookIds.includes(b.id),
-          ),
-    [shelfBooks, libraryScope, serverLibraries],
+      ),
+    [shelfBooks, libraryScope, serverLibraries, hiddenBooks],
   );
   const folders = useMemo(
     () =>
@@ -1162,6 +1213,7 @@ function AppContent({
   );
   const goLibrary = (read = false) => {
     setHiddenBooks(false);
+    setLibraryScope('all');
     setFolder('');
     if (hostedWeb) {
       navigateWeb(read ? '/reading' : '/library');
@@ -1479,6 +1531,22 @@ function AppContent({
                       ) : (
                         <LibraryDestination
                           hidden={hiddenBooks}
+                          shared={sharedDestination}
+                          hasShared={serverLibraries.length > 0}
+                          onShared={() => {
+                            setHiddenBooks(false);
+                            setSelected([]);
+                            setSelecting(false);
+                            setStatus('all');
+                            setAvailability('all');
+                            setFolder('');
+                            setGroup(null);
+                            setReading(false);
+                            setQuery('');
+                            if (hostedWeb)
+                              navigateWeb('/library?collection=shared');
+                            else setLibraryScope('shared');
+                          }}
                           onLibrary={() => {
                             setHiddenBooks(false);
                             goLibrary(false);
@@ -1601,7 +1669,7 @@ function AppContent({
                 />
               ) : (
                 <>
-                  {serverLibraries.length > 0 && (
+                  {sharedDestination && serverLibraries.length > 0 && (
                     <select
                       aria-label="Library collection"
                       value={libraryScope}
@@ -1609,8 +1677,7 @@ function AppContent({
                         changeFilter('collection', event.target.value)
                       }
                     >
-                      <option value="all">All libraries</option>
-                      <option value="personal">Personal</option>
+                      <option value="shared">All shared libraries</option>
                       {serverLibraries.map((library) => (
                         <option key={library.id} value={library.id}>
                           {library.name}
@@ -1619,7 +1686,7 @@ function AppContent({
                     </select>
                   )}
                   <LibraryControls
-                    collections={serverLibraries}
+                    collections={sharedDestination ? serverLibraries : []}
                     collection={libraryScope}
                     preferences={shelfPreferences}
                     onChange={(next) => {
@@ -1645,14 +1712,16 @@ function AppContent({
             </div>
             {(status !== 'all' ||
               availability !== 'all' ||
-              libraryScope !== 'all') && (
+              (libraryScope !== 'all' && libraryScope !== 'shared')) && (
               <div className="filter-chips">
-                {libraryScope !== 'all' && (
+                {libraryScope !== 'all' && libraryScope !== 'shared' && (
                   <button onClick={() => changeFilter('collection', 'all')}>
-                    {libraryScope === 'personal'
-                      ? 'Personal'
-                      : (serverLibraries.find((l) => l.id === libraryScope)
-                          ?.name ?? 'Library')}
+                    {libraryScope === 'shared'
+                      ? 'Shared libraries'
+                      : libraryScope === 'personal'
+                        ? 'Personal'
+                        : (serverLibraries.find((l) => l.id === libraryScope)
+                            ?.name ?? 'Library')}
                     <X />
                   </button>
                 )}
@@ -2077,6 +2146,20 @@ function AppContent({
       )}
       {actions && actions.entry.books.every((b) => privacy.access(b.id)) && (
         <BookActions
+          onAdd={
+            actions.entry.books.some((b) => b.inLibrary === false)
+              ? async () => {
+                  const expected = actions.account;
+                  if (!expected)
+                    throw new Error('Connect to your server to add this book.');
+                  const ids = actions.entry.books.map((b) => b.id);
+                  await addSharedBooksToLibrary(ids, expected, () =>
+                    ids.every((id) => privacy.access(id)),
+                  );
+                  refresh(await listBooks());
+                }
+              : undefined
+          }
           inSeries={
             !!group && actions.entry.series && actions.entry.title === group
           }

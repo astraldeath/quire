@@ -13,6 +13,7 @@ const folderCapabilities = new Map<
   {
     supported: boolean;
     currentChapter: boolean;
+    sharedMembership: boolean;
     folderCatalog: boolean;
     opds: boolean;
     checkedAt: number;
@@ -69,6 +70,13 @@ export async function supportsCurrentChapter(origin: string) {
     return cached.currentChapter;
   await discover(origin);
   return folderCapabilities.get(origin)!.currentChapter;
+}
+export async function supportsSharedMembership(origin: string) {
+  const cached = folderCapabilities.get(origin);
+  if (cached && Date.now() - cached.checkedAt < 30000)
+    return cached.sharedMembership;
+  await discover(origin);
+  return folderCapabilities.get(origin)!.sharedMembership;
 }
 export async function supportsOpds(origin: string) {
   const cached = folderCapabilities.get(origin);
@@ -251,6 +259,8 @@ export async function discover(origin: string) {
   };
   folderCapabilities.set(origin, {
     limits,
+    sharedMembership:
+      v.capabilities?.includes('shared-library-membership') ?? false,
     folderCatalog: v.capabilities?.includes('folder-catalog') ?? false,
     opds: v.capabilities?.includes('opds') ?? false,
     currentChapter:

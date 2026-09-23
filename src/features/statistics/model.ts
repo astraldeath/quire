@@ -178,11 +178,12 @@ export function aggregateStatistics(
     previous = edge.at;
   }
   const status = { unread: 0, reading: 0, finished: 0 };
-  for (const book of books) status[readingStatus(book)]++;
+  const personal = books.filter((b) => b.inLibrary !== false);
+  for (const book of personal) status[readingStatus(book)]++;
   return {
-    books: books.length,
+    books: personal.length,
     series: new Set(
-      books.map((b) => b.series.trim().toLocaleLowerCase()).filter(Boolean),
+      personal.map((b) => b.series.trim().toLocaleLowerCase()).filter(Boolean),
     ).size,
     ...status,
     chapters: totalChapters,

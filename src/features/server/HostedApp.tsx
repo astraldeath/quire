@@ -62,23 +62,9 @@ export function HostedApp() {
     [password, setPassword] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
-  const [session, setSession] = useState<{ account: Account; user: User }>(),
-    [libraries, setLibraries] = useState<
-      { id: string; name: string; bookIds: string[] }[]
-    >([]);
+  const [session, setSession] = useState<{ account: Account; user: User }>();
   const admin = route.kind === 'admin',
     accountOpen = route.kind === 'account';
-  useEffect(() => {
-    if (!session) return;
-    const refresh = () => {
-      void accountRequest(session.account, '/v1/libraries')
-        .then(setLibraries)
-        .catch(() => {});
-    };
-    refresh();
-    window.addEventListener('quire-synced', refresh);
-    return () => window.removeEventListener('quire-synced', refresh);
-  }, [session, admin]);
   useEffect(() => {
     if (location.hash.startsWith('#invite='))
       history.replaceState(null, '', location.pathname);
@@ -186,7 +172,6 @@ export function HostedApp() {
         )}
         <div inert={admin && session.user.admin}>
           <App
-            serverLibraries={libraries}
             onImport={async (id, bytes) => {
               await upload(session.account, id, bytes);
             }}

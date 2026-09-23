@@ -32,6 +32,7 @@ export function validateBook(value: unknown): Book {
     fail();
   const result: Book = {
     id,
+    ...(b.inLibrary === undefined ? {} : { inLibrary: bool(b.inLibrary) }),
     title: str(b.title),
     author: str(b.author),
     series: str(b.series),

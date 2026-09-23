@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Library, EyeOff } from 'lucide-react';
+import { ChevronDown, Library, EyeOff, LibraryBig } from 'lucide-react';
 import {
   ActionPopover,
   type ActionAnchor,
@@ -7,10 +7,16 @@ import {
 import { ActionMenuItem } from '../../components/ActionMenuItem';
 export function LibraryDestination({
   hidden,
+  shared = false,
+  hasShared = false,
+  onShared,
   onLibrary,
   onHidden,
 }: {
   hidden: boolean;
+  shared?: boolean;
+  hasShared?: boolean;
+  onShared?(): void;
   onLibrary(): void;
   onHidden(): void;
 }) {
@@ -19,7 +25,7 @@ export function LibraryDestination({
     <>
       <button
         className="library-destination"
-        aria-label={`Current library: ${hidden ? 'Hidden books' : 'All books'}`}
+        aria-label={`Current library: ${hidden ? 'Hidden books' : shared ? 'Shared libraries' : 'All books'}`}
         aria-haspopup="menu"
         aria-expanded={!!anchor}
         onClick={(e) => {
@@ -32,7 +38,7 @@ export function LibraryDestination({
           });
         }}
       >
-        {hidden ? 'Hidden books' : 'All books'}
+        {hidden ? 'Hidden books' : shared ? 'Shared libraries' : 'All books'}
         <ChevronDown aria-hidden="true" />
       </button>
       {anchor && (
@@ -41,26 +47,40 @@ export function LibraryDestination({
           anchor={anchor}
           onClose={() => setAnchor(undefined)}
         >
-          <ActionMenuItem
-            menuId="library"
-            onClick={() => {
-              setAnchor(undefined);
-              onLibrary();
-            }}
-          >
-            <Library />
-            All books
-          </ActionMenuItem>
-          <ActionMenuItem
-            menuId="hidden"
-            onClick={() => {
-              setAnchor(undefined);
-              onHidden();
-            }}
-          >
-            <EyeOff />
-            Hidden books
-          </ActionMenuItem>
+          <div className="book-action-list">
+            <ActionMenuItem
+              menuId="library"
+              onClick={() => {
+                setAnchor(undefined);
+                onLibrary();
+              }}
+            >
+              <Library />
+              All books
+            </ActionMenuItem>
+            <ActionMenuItem
+              menuId="hidden"
+              onClick={() => {
+                setAnchor(undefined);
+                onHidden();
+              }}
+            >
+              <EyeOff />
+              Hidden books
+            </ActionMenuItem>
+            {hasShared && (
+              <ActionMenuItem
+                menuId="shared"
+                onClick={() => {
+                  setAnchor(undefined);
+                  onShared?.();
+                }}
+              >
+                <LibraryBig />
+                Shared libraries
+              </ActionMenuItem>
+            )}
+          </div>
         </ActionPopover>
       )}
     </>

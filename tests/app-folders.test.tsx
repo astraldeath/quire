@@ -545,3 +545,67 @@ it('labels an empty parent by its child folders with a folder-specific frame', a
   expect(card.textContent).not.toContain('0 books');
   expect(card.querySelector('.folder-cover-empty')).not.toBeNull();
 });
+
+it('keeps owned/shared overlap personal and offers a separate shared destination', async () => {
+  const shared = books[2] as import('../src/domain/models').Book;
+  shared.inLibrary = false;
+  try {
+    await mount('/library?folder=Shelf/Nested', true);
+    expect(host.textContent).toContain('Book One');
+    expect(host.textContent).not.toContain('Book Three');
+    await act(async () => {
+      history.replaceState(
+        null,
+        '',
+        '/library?collection=shared&folder=Shelf/Nested',
+      );
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(host.textContent).toContain('Book One');
+    expect(host.textContent).toContain('Book Three');
+  } finally {
+    delete shared.inLibrary;
+  }
+});
+
+it('keeps hidden shared-only downloads reachable in Hidden books', async () => {
+  const shared = books[2] as import('../src/domain/models').Book;
+  shared.inLibrary = false;
+  localStorage.setItem(
+    'privacy-folder-test',
+    JSON.stringify({
+      version: 1,
+      books: { [shared.id]: 'hidden' },
+      credential: await (
+        await import('../src/features/privacy/model')
+      ).credential('123456'),
+    }),
+  );
+  try {
+    await mount('/library', true);
+    await click('All books');
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Hidden books')!
+        .click(),
+    );
+    const password = host.querySelector<HTMLInputElement>(
+      'input[type="password"]',
+    )!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(password, '123456');
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await submit();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    });
+    expect(host.textContent).toContain('Hidden books');
+    expect(host.textContent).toContain('Shelf');
+  } finally {
+    delete shared.inLibrary;
+  }
+});

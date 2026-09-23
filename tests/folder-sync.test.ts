@@ -23,6 +23,7 @@ vi.mock('../src/features/sync/transport', () => ({
   supportsOpds: async () => remote.catalogConflict,
   supportsMultipleFolders: async () => true,
   supportsCurrentChapter: async () => true,
+  supportsSharedMembership: async () => false,
   call: async () => ({
     cursor: 1,
     changes: [

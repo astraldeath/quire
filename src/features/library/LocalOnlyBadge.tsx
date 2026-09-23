@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { HardDrive } from 'lucide-react';
 import type { Book } from '../../domain/models';
-import { loadSync } from '../../storage';
-import { files } from '../sync/transport';
+import { loadSync, syncTransaction } from '../../storage';
+import { accountRequest, files } from '../sync/transport';
 import { subscribe } from '../sync/engine';
 
 // One inventory request for the library, never one per book card.
@@ -87,4 +87,75 @@ export function LocalOnlyBadge({
       <HardDrive aria-hidden="true" />
     </span>
   );
+}
+
+export interface SharedLibrary {
+  id: string;
+  name: string;
+  bookIds: string[];
+}
+export function useSharedLibraries() {
+  const [libraries, setLibraries] = useState<SharedLibrary[]>([]);
+  useEffect(() => {
+    let live = true,
+      revision = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      const ticket = ++revision;
+      try {
+        const state = await loadSync();
+        if (!state.enabled || !state.account) {
+          if (live && ticket === revision)
+            setLibraries(state.account ? (state.libraries ?? []) : []);
+          return;
+        }
+        const account = state.account;
+        if (!live || ticket !== revision) return;
+        setLibraries(state.libraries ?? []);
+        const result = (await accountRequest(
+          account,
+          '/v1/libraries',
+        )) as SharedLibrary[];
+        const current = await loadSync();
+        if (!live || ticket !== revision) return;
+        if (
+          !current.enabled ||
+          current.account?.origin !== account.origin ||
+          current.account?.username !== account.username ||
+          current.account?.sessionId !== account.sessionId
+        ) {
+          setLibraries([]);
+          return;
+        }
+        const accepted = await syncTransaction((s) => {
+          const matches =
+            !!s.enabled &&
+            s.account?.origin === account.origin &&
+            s.account?.username === account.username &&
+            s.account?.sessionId === account.sessionId;
+          if (matches) s.libraries = result;
+          return { result: matches };
+        });
+        if (live && ticket === revision) setLibraries(accepted ? result : []);
+      } catch {
+        /* Keep the account-scoped cached catalog available offline. */
+      }
+    };
+    void refresh();
+    const schedule = () => {
+      ++revision;
+      clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), 50);
+    };
+    const stop = subscribe(schedule);
+    window.addEventListener('quire-synced', schedule);
+    return () => {
+      live = false;
+      revision++;
+      clearTimeout(timer);
+      stop();
+      window.removeEventListener('quire-synced', schedule);
+    };
+  }, []);
+  return libraries;
 }

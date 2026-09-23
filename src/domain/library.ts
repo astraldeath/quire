@@ -43,7 +43,13 @@ export function continueBook(books: Book[]): Book | undefined {
   return undefined;
 }
 export function restoreImport(imported: Book, existing?: Book): Book {
-  return existing ? { ...existing, local: true } : imported;
+  return existing
+    ? {
+        ...existing,
+        local: true,
+        ...(existing.inLibrary === false ? { inLibrary: true } : {}),
+      }
+    : imported;
 }
 export function naturalSortDirection(
   sort: Preferences['sort'],

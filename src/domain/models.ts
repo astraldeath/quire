@@ -17,6 +17,8 @@ export interface Position {
   updatedAt: number;
 }
 export interface Book {
+  /** False for shared browsing until explicitly added to the personal library. */
+  inLibrary?: boolean;
   format?:
     'epub' | 'cbz' | 'cbr' | 'cb7' | 'fb2' | 'fbz' | 'mobi' | 'azw3' | 'pdf';
   folder?: string;

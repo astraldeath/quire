@@ -445,3 +445,17 @@ it('resolution sends only operation fields, never remote record internals', asyn
     'value',
   ]);
 });
+
+it('requires server membership support without changing queued operation identity', () => {
+  const s = state();
+  queueChanges(s, { ...book, inLibrary: false }, { ...book, inLibrary: true });
+  const id = s.pending[0].id;
+  expect(() => prepareBatch(s, true, true, false)).toThrow(
+    'Update Quire Server',
+  );
+  expect(s.pending[0].id).toBe(id);
+  expect(s.pending[0].frozen).toBeUndefined();
+  expect(prepareBatch(s, true, true, true).operations[0].value?.inLibrary).toBe(
+    true,
+  );
+});

@@ -81,7 +81,9 @@ export function LibraryControls({
           Filters
           {(status !== 'all' ||
             availability !== 'all' ||
-            collection !== 'all') && <span className="filter-dot" />}
+            (collection !== 'all' && collection !== 'shared')) && (
+            <span className="filter-dot" />
+          )}
         </button>
         <button
           onClick={(event) => open('Sort', event.currentTarget)}
@@ -129,8 +131,7 @@ export function LibraryControls({
                         onFilter('collection', event.target.value)
                       }
                     >
-                      <option value="all">All libraries</option>
-                      <option value="personal">Personal</option>
+                      <option value="shared">All shared libraries</option>
                       {collections.map((library) => (
                         <option key={library.id} value={library.id}>
                           {library.name}

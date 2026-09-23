@@ -94,12 +94,20 @@ export function syncNow(): Promise<void> {
       const currentChapter = await transport.supportsCurrentChapter(
         initial.account.origin,
       );
+      const sharedMembership = await transport.supportsSharedMembership(
+        initial.account.origin,
+      );
       for (let i = 0; i < 100; i++) {
         const batch = await syncTransaction((s) => ({
           result: {
             account: s.account,
             enabled: s.enabled,
-            request: prepareBatch(s, multipleFolders, currentChapter),
+            request: prepareBatch(
+              s,
+              multipleFolders,
+              currentChapter,
+              sharedMembership,
+            ),
           },
         }));
         if (!batch.enabled || !batch.account) return;
