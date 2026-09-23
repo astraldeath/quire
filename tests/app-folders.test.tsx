@@ -600,10 +600,15 @@ it('keeps hidden shared-only downloads reachable in Hidden books', async () => {
       password.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await submit();
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 300));
-    });
-    expect(host.textContent).toContain('Hidden books');
+    await vi.waitFor(
+      async () => {
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        });
+        expect(host.textContent).toContain('Hidden books');
+      },
+      { timeout: 5000 },
+    );
     expect(host.textContent).toContain('Shelf');
   } finally {
     delete shared.inLibrary;
