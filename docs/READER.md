@@ -48,13 +48,17 @@ Open **Settings > Sync**, enter your `user@server` account, find the server, and
 
 Sync runs after edits, on foreground or reconnection, and periodically while open. It carries library metadata, progress, saved passages, folders, privacy settings, and reading history. Device appearance settings remain local. Book uploads are separate from reading-data sync.
 
+Choose **Shared libraries** from the library title menu to browse books shared with your account. You can read them there without adding them to your personal library. Choose **Add to library** from a book's menu to keep it in **All books**. Adding a book preserves its reading position and notes, and syncs the choice to your other devices. A book can belong to your personal library and a shared collection at the same time.
+
+Downloaded shared books remain available offline. If the shared collection is no longer available, find retained copies under **Downloaded shared books**. Restoring a backup adds new restored books to your personal library; books already on the device keep their existing membership. Update both the reader and server to use separate shared browsing.
+
 **Settings > Sync** shows notes and positions that need a choice between local and server versions. Rejected edits remain local for review while unrelated books continue syncing. Retrying or reloading does not discard them.
 
 Windows, iOS, and Linux use the system credential store. Linux needs an unlocked Secret Service keyring. Android native server sign-in is unavailable until secure credential storage is supported. Standalone browser credentials last for the session, and the server must allow that browser's origin. Credentials, connection state, and pending sync operations are excluded from backups; reconnect after restoring.
 
 ### Hosted WebUI
 
-The server-hosted browser reader provides sign-in, invitations, account administration, and shared-library filters. Browser storage is separate for each account. Reopening restores your session; signing out revokes it. Personal imports upload to your server library, while shared uploads require an administrator. Book links support refresh, browser history, and opening in another tab. See [Building](BUILDING.md#hosted-browser-build) for deployment and session security.
+The server-hosted browser reader provides sign-in, invitations, account administration, and shared-library browsing. Browser storage is separate for each account. Reopening restores your session; signing out revokes it. Personal imports upload to your server library, while shared uploads require an administrator. Book links support refresh, browser history, and opening in another tab. See [Building](BUILDING.md#hosted-browser-build) for deployment and session security.
 
 ## Uploads and device storage
 

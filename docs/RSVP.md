@@ -6,7 +6,10 @@ outside an input, to advance one word at a time. **Rewind sentence** pauses and
 returns to the beginning of the sentence; pressing it again moves to the previous
 sentence. **Back to page** returns to the displayed word's passage.
 
-The default speed is 250 words per minute, adjustable from 60 to 1000. Turn
+The default speed is 250 words per minute, adjustable from 60 to 1000. Use the
+minus and plus controls, or type a speed and press Enter. Escape cancels an edit.
+A highlighted letter stays in the same position as words advance, giving your
+eyes a fixed point to follow. Long words shrink to fit the screen. Turn
 **Pause at punctuation** on or off in reading settings. When enabled, commas and
 semicolons receive 1.5 times the base dwell, sentence endings twice the base dwell,
 and paragraph endings 2.5 times the base dwell. These delays do not multiply.

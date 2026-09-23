@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Keep a highlighted focal letter aligned during RSVP reading, and use the settings speed stepper for words per minute.
+- Fix icon spacing and row alignment in the library destination menu.
+- Browse shared libraries separately and explicitly add books to your personal library without losing reading progress or notes.
+
 ## [0.9.0]
 
 - Browse OPDS 1.2 and 2.0 catalogs from Add books, including search, categories, covers, and direct downloads in supported formats. Save catalog sources across devices and in backups.
