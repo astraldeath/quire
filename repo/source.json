@@ -15,12 +15,26 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.8.0",
-      "versionDate": "2026-09-21T18:59:10.000Z",
-      "versionDescription": "- Count chapters completed by swiping into the next chapter in reading statistics.\n- Open CBR (RAR4/RAR5) and CB7 comics with existing page modes, preloading, bookmarks, and reading progress. Include these formats in server imports, backups, exports, and desktop file associations.\n- Read fixed-layout EPUBs with publisher fonts, artwork, reading direction, and spreads intact. Save page bookmarks and resume at the correct page.\n- Release fixed EPUB spreads when leaving them and cancel abandoned comic extraction without blocking the next page.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.8.0/Quire_0.8.0_ios-unsigned.ipa",
-      "size": 8164193,
+      "version": "0.10.0",
+      "versionDate": "2026-09-23T09:54:00.000Z",
+      "versionDescription": "- Organize account settings into Password, Devices, and OPDS tabs with a stable desktop dialog and compact mobile navigation.\n- Keep a highlighted focal letter aligned during RSVP reading, and use the settings speed stepper for words per minute.\n- Fix icon spacing and row alignment in the library destination menu.\n- Browse shared libraries separately and explicitly add books to your personal library without losing reading progress or notes.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.10.0/Quire_0.10.0_ios-unsigned.ipa",
+      "size": 8244548,
       "versions": [
+        {
+          "version": "0.10.0",
+          "date": "2026-09-23T09:54:00.000Z",
+          "localizedDescription": "- Organize account settings into Password, Devices, and OPDS tabs with a stable desktop dialog and compact mobile navigation.\n- Keep a highlighted focal letter aligned during RSVP reading, and use the settings speed stepper for words per minute.\n- Fix icon spacing and row alignment in the library destination menu.\n- Browse shared libraries separately and explicitly add books to your personal library without losing reading progress or notes.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.10.0/Quire_0.10.0_ios-unsigned.ipa",
+          "size": 8244548
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-09-23T08:39:38.000Z",
+          "localizedDescription": "- Browse OPDS 1.2 and 2.0 catalogs from Add books, including search, categories, covers, and direct downloads in supported formats. Save catalog sources across devices and in backups.\n- Read your Quire Server library in other OPDS apps with separate, revocable app passwords. Hidden and locked books stay excluded.\n- Add RSVP reading for reflowable text books, with adjustable speed, punctuation pauses, sentence rewind, and saved positions shared with normal reading. Playback pauses when the app loses focus; reading time and completed chapters contribute to statistics.\n- Align reading settings with the main settings: desktop sidebar, compact mobile tabs, consistent spacing, and a stable dialog when switching sections.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.9.0/Quire_0.9.0_ios-unsigned.ipa",
+          "size": 8246047
+        },
         {
           "version": "0.8.0",
           "date": "2026-09-21T18:59:10.000Z",
