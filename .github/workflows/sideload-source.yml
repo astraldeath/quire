@@ -4,7 +4,7 @@ on:
     workflows: ['Publish release']
     types: [completed]
   release:
-    types: [published, edited, deleted]
+    types: [published, edited]
   workflow_dispatch:
   push:
     branches: [main]
@@ -35,6 +35,7 @@ jobs:
       - run: node scripts/sideload-source.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_RELEASE_TAG: ${{ github.event.release.tag_name || (startsWith(github.event.workflow_run.head_branch, 'v') && github.event.workflow_run.head_branch) || '' }}
       - name: Commit updated source
         run: |
           git add repo/source.json
