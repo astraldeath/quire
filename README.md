@@ -1,28 +1,23 @@
-# Quire Reader
+# Quire
 
-**Quire** is pronounced **“kwire”** (/kwaɪər/), rhyming with **choir**.
+Read books and comics on Windows, Linux, Android, iOS, or in your browser. The installed reader works offline without an account. Connect to [Quire Server](https://github.com/astraldeath/quire-server) for sync, shared libraries, and the WebUI.
 
-An offline-first book reader for Windows, Linux, Android, iOS, and the browser. The installed reader works without an account; [Quire Server](https://github.com/astraldeath/quire-server) adds shared libraries, sync, and a hosted WebUI.
+**[Download the latest release](https://github.com/astraldeath/quire/releases/latest)** · [Release notes](CHANGELOG.md) · [Reader guide](docs/READER.md) · [Host a server](https://github.com/astraldeath/quire-server#quick-start)
 
-## Features
+## Downloads
 
-- Grid and list libraries, series grouping, nested folders, filters, sorting, and bulk actions.
-- Paginated and scrolling reading, configurable typography and themes.
-- Bookmarks, highlights, notes, in-book search, and online Wiktionary definitions.
-- Full-library or data-only backups with a preview before restoring.
-- Reading statistics with lifetime history, active-time estimates, and optional server sync.
-- MangaBaka book or series tracking directly from the installed app, with no Quire server required.
-- Optional server sync and shared libraries.
-- [OPDS catalogs](docs/OPDS.md): browse, search, and download books, or share your server library with other readers.
-- [RSVP reading](docs/RSVP.md): one word at a time with adjustable speed and punctuation pauses.
+Choose a package from the [latest release](https://github.com/astraldeath/quire/releases/latest):
 
-Supported formats: reflowable and fixed-layout EPUB, PDF, CBZ/CBR/CB7 comics, FB2 (including FBZ and FB2.ZIP), and DRM-free MOBI/AZW3. PDFs use paged image rendering with reading progress and bookmarks; text selection, search, form editing, and password-protected PDFs are not supported. Server covers and metadata load automatically; book files download when opened and remain available offline.
+| Platform | Package |
+| --- | --- |
+| Windows x64 | `.exe` installer |
+| Linux x64 | `.AppImage` or `.deb` |
+| Android | Signed universal `.apk` |
+| iOS | Unsigned `.ipa`, installed with a sideloading app |
 
-Comic reading settings offer single pages, double-page spreads, and continuous Webtoon scrolling, with left-to-right or right-to-left navigation. Taps and swipes can be enabled independently.
+Windows and Linux AppImage installations can update from **Settings > Updates**. See the [installation guide](docs/BUILDING.md) for other packages.
 
-Use **Add books > Import folder** to import supported files from a directory and retain its subfolders. Folder cards appear alongside unfiled books; open a card to browse its contents. **Folders** in book actions or the selection toolbar lets a book belong to several folders without duplicating its file or reading progress. Empty folders disappear. Search and Reading include books inside folders. Memberships are included in backups and server sync; update Quire Server before syncing multiple-folder memberships. **Export** saves the original book file.
-
-## iOS sideloading sources
+### iOS sideloading
 
 <p>
   <a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json"><img alt="AltStore Source" src="https://img.shields.io/badge/open_in_app-_?style=for-the-badge&amp;label=AltStore&amp;labelColor=black&amp;color=728EAE"></a>
@@ -30,7 +25,42 @@ Use **Add books > Import folder** to import supported files from a directory and
   <a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json"><img alt="SideStore Source" src="https://img.shields.io/badge/open_in_app-_?style=for-the-badge&amp;label=SideStore&amp;labelColor=black&amp;color=728EAE"></a>
 </p>
 
-[Direct source URL](https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json) — paste this into your sideloading app to subscribe. The source updates after each release. IPAs are unsigned and need signing in your sideloading app.
+[Copy the source URL](https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json) into your sideloading app, or use a button above. The source follows published releases. IPAs need signing before installation.
+
+## Reading and organizing
+
+- Read with pagination or continuous scrolling, adjustable fonts, spacing, and themes.
+- Use single pages, double-page spreads, or Webtoon mode for comics, with left-to-right or right-to-left reading, taps, and swipes.
+- Organize books into series and nested folders. A book can belong to several folders without duplicate files.
+- Save bookmarks, highlights, and notes. Search book text and look up words.
+- Track chapters and volumes with MangaBaka, and view reading time and lifetime statistics.
+- Browse [OPDS catalogs](docs/OPDS.md) and download books into your library.
+- Use [RSVP](docs/RSVP.md) to read one word at a time with speed controls and punctuation pauses.
+- Back up your library, export original files, and optionally sync with your own server.
+
+## Supported formats
+
+| Format | Support |
+| --- | --- |
+| EPUB | Reflowable and fixed layout |
+| Comics | CBZ, CBR (RAR4/RAR5), and CB7 |
+| PDF | Page rendering, bookmarks, and saved progress |
+| FictionBook | FB2, FBZ, and FB2.ZIP |
+| Kindle | DRM-free MOBI and AZW3 |
+
+PDF text selection, search, forms, and password-protected files are not supported. See the [reader guide](docs/READER.md) for format limits and import options.
+
+## Documentation
+
+| Guide | Contents |
+| --- | --- |
+| [Reader guide](docs/READER.md) | Library, reading, privacy, backups, and sync |
+| [Tracking](docs/TRACKING.md) | MangaBaka setup and progress |
+| [OPDS](docs/OPDS.md) | External catalogs and server access |
+| [RSVP](docs/RSVP.md) | Playback, positions, and statistics |
+| [Installation and builds](docs/BUILDING.md) | Packages, sideloading, and native builds |
+| [Updates and releases](docs/UPDATES.md) | Signing and publishing |
+| [CI caches](docs/CI-CACHES.md) | Workflow cache configuration |
 
 ## Development
 
@@ -41,11 +71,7 @@ npm ci
 npm run dev
 ```
 
-The development reader opens at `http://localhost:1420`. For a hosted WebUI, run `npm run build:web` and serve `dist-web` through Quire Server. `npm run build` builds the installed-app frontend.
-
-See [building and iPhone installation](docs/BUILDING.md) for native prerequisites and unsigned IPA installation. Public-domain [test EPUBs](tests/fixtures/README.md) are provided for manual checks; new installations start empty.
-
-## Checks and contributions
+Open `http://localhost:1420`. For the hosted WebUI, run `npm run build:web` and serve `dist-web` with Quire Server. Native prerequisites are in the [build guide](docs/BUILDING.md).
 
 ```sh
 npm run format:check
@@ -54,18 +80,8 @@ npm run build
 npm run build:web
 ```
 
-Use `npm run format` to format source and tests. Type checking rejects unused declarations. Keep changes in incremental Conventional Commits, and exclude credentials, runtime data, and generated builds. Physical iOS testing remains separate from browser checks.
+Public-domain [test books](tests/fixtures/README.md) are available for local checks.
 
-## Documentation
+## License
 
-- [Reader, backups, sync, and storage guide](docs/READER.md)
-- [Standalone MangaBaka tracking](docs/TRACKING.md)
-- [OPDS catalogs and access](docs/OPDS.md)
-- [RSVP reading](docs/RSVP.md)
-- [Build and installation guide](docs/BUILDING.md)
-- [Updates and release publishing](docs/UPDATES.md)
-- [Server setup and administration](https://github.com/astraldeath/quire-server)
-
-Licensed under [MIT](LICENSE).
-
-Desktop installs offer Quire in Open With for supported formats. Choose **Settings → Library → Open books with Quire** for default-app setup. Your existing defaults stay unchanged until you select Quire. Opening a file imports it into your library and resumes its saved progress if already present.
+[MIT](LICENSE). Quire is pronounced “kwire”, rhyming with “choir”.
