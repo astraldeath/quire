@@ -166,11 +166,13 @@ it('removes membership without removing the book and adds normalized new paths',
       .find((b) => b.textContent === 'New folder')!
       .click(),
   );
-  await act(async () =>
-    [...host.querySelectorAll<HTMLInputElement>('input[aria-label="Fiction"]')]
-      .at(-1)!
-      .click(),
-  );
+  await act(async () => {
+    const parent = host.querySelector<HTMLSelectElement>(
+      'select[aria-label="Parent"]',
+    )!;
+    parent.value = 'Fiction';
+    parent.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   const input = host.querySelector<HTMLInputElement>(
     'input[aria-label="Folder name"]',
   )!;
@@ -206,4 +208,36 @@ it('focuses folder search when the picker has many paths', async () => {
   expect(document.activeElement).toBe(
     host.querySelector('input[aria-label="Search folders"]'),
   );
+});
+
+it('creates the first folder directly without a parent or search detour', async () => {
+  const save = vi.fn(async () => {});
+  await act(async () =>
+    root.render(
+      <FolderMembershipDialog
+        paths={[]}
+        memberships={[[]]}
+        onSave={save}
+        onClose={() => {}}
+      />,
+    ),
+  );
+  const input = host.querySelector<HTMLInputElement>(
+    'input[aria-label="Folder name"]',
+  );
+  expect(input).not.toBeNull();
+  expect(host.querySelector('input[type="search"]')).toBeNull();
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )!.set!.call(input, ' Novels ');
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () =>
+    [...host.querySelectorAll('button')]
+      .find((b) => b.textContent === 'Create and add')!
+      .click(),
+  );
+  expect(save).toHaveBeenCalledWith({ Novels: true });
 });

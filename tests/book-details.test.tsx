@@ -243,3 +243,48 @@ it.each(['success', 'failure'])(
     }
   },
 );
+
+it.each([
+  [true, /download it again from your server/i],
+  [false, /import the file again/i],
+  [undefined, /server copy has not been verified/i],
+])(
+  'explains device removal for remote availability %s before deleting',
+  async (remoteAvailable, consequence) => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const remove = vi.fn(async () => {});
+    await act(async () =>
+      root.render(
+        <BookDetails
+          book={book}
+          remoteAvailable={remoteAvailable as boolean | undefined}
+          onClose={() => {}}
+          onSave={async () => {}}
+          onRemove={remove}
+          onRead={() => {}}
+          onImport={() => {}}
+          onDelete={() => {}}
+        />,
+      ),
+    );
+    await act(async () =>
+      [...host.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Remove download')!
+        .click(),
+    );
+    expect(host.querySelector('.removal')?.textContent).toMatch(consequence);
+    expect(remove).not.toHaveBeenCalled();
+    await act(async () =>
+      [...host.querySelectorAll('.removal button')]
+        .find((b) => b.textContent === 'Remove download')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true })),
+    );
+    expect(remove).toHaveBeenCalledTimes(1);
+    await act(async () => root.unmount());
+  },
+);

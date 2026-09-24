@@ -262,77 +262,89 @@ export function BookDetails({
               <TaskError summary="Could not remove download." detail={error} />
             )}
             <section className="book-details-group" aria-label="Availability">
-              <h3>Availability</h3>
-              <p className="muted book-details-availability">
-                {book.local
-                  ? remoteAvailable === false
-                    ? 'Downloaded only to this device.'
-                    : 'Downloaded for offline reading on this device.'
-                  : remoteAvailable
-                    ? 'Stored on your server and downloaded when opened.'
-                    : 'Not downloaded to this device.'}
-              </p>
+              <dl className="book-details-storage-status">
+                <div>
+                  <dt>On device</dt>
+                  <dd>{book.local ? 'Available offline' : 'No file'}</dd>
+                </div>
+                <div>
+                  <dt>On server</dt>
+                  <dd>
+                    {remoteAvailable === true
+                      ? 'Available'
+                      : remoteAvailable === false
+                        ? 'No file'
+                        : 'Not verified'}
+                  </dd>
+                </div>
+              </dl>
               {privacyLabel && (
                 <p className="muted book-details-availability">
                   {privacyLabel} Access is unlocked for this session.
                 </p>
               )}
-              <div className="book-details-actions">
-                {book.local ? (
-                  <button
-                    type="button"
-                    className="text-action"
-                    disabled={busy || confirm}
-                    onClick={() => setConfirm(true)}
-                  >
-                    <HardDriveDownload />
-                    Remove download
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-action"
-                    onClick={onImport}
-                  >
-                    <HardDriveDownload />
-                    Import book file
-                  </button>
-                )}
-              </div>
-              {confirm && (
-                <div className="removal">
-                  <p>
-                    Remove the downloaded book file? Book details, progress,
-                    bookmarks, highlights, and notes stay in your library.
-                  </p>
-                  <div className="button-row">
+              <details className="book-details-files">
+                <summary>Files and downloads</summary>
+                <div className="book-details-actions">
+                  {book.local ? (
                     <button
                       type="button"
-                      disabled={busy}
-                      onClick={() => setConfirm(false)}
+                      className="text-action"
+                      disabled={busy || confirm}
+                      onClick={() => setConfirm(true)}
                     >
-                      Keep download
-                    </button>
-                    <button
-                      type="button"
-                      className="danger"
-                      disabled={busy}
-                      onClick={() => void removeDownload()}
-                    >
+                      <HardDriveDownload />
                       Remove download
                     </button>
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-action"
+                      onClick={onImport}
+                    >
+                      <HardDriveDownload />
+                      Import book file
+                    </button>
+                  )}
                 </div>
-              )}
-              <BookServerActions book={book} />
+                {confirm && (
+                  <div className="removal">
+                    <p>
+                      Remove this device's book file?{' '}
+                      {remoteAvailable === true
+                        ? 'You can download it again from your server while that copy remains available.'
+                        : remoteAvailable === false
+                          ? 'You will need to import the file again to read it.'
+                          : 'A server copy has not been verified. You may need to import the file again to read it.'}{' '}
+                      Book details, progress, bookmarks, highlights, and notes
+                      stay in your library.
+                    </p>
+                    <div className="button-row">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setConfirm(false)}
+                      >
+                        Keep download
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={busy}
+                        onClick={() => void removeDownload()}
+                      >
+                        Remove download
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <BookServerActions book={book} />
+              </details>
             </section>
             {(import.meta.env.VITE_HOSTED === 'true' || isTauri()) && (
               <div className="book-details-action-row">
                 <div>
                   <strong>Tracking</strong>
-                  <span className="muted">
-                    Manage this book’s tracker link.
-                  </span>
                 </div>
                 <TrackingButton
                   bookId={book.id}

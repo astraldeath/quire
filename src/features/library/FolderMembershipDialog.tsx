@@ -23,7 +23,9 @@ export function FolderMembershipDialog({
   onClose(): void;
 }) {
   const [changes, setChanges] = useState<FolderChanges>({});
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(
+    paths.length === 0 && memberships.every((folders) => !folders.length),
+  );
   const [name, setName] = useState('');
   const [selectedParent, setSelectedParent] = useState(parent);
   const [error, setError] = useState('');
@@ -109,28 +111,36 @@ export function FolderMembershipDialog({
             }
           }}
         >
-          <FolderPicker
-            paths={choices}
-            selected={selected}
-            mixed={mixed}
-            searchRef={searchInput}
-            onToggle={toggle}
-            disabled={busy}
-          />
-          <button
-            className="text-action"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setCreating(!creating);
-              setName('');
-              setSelectedParent(parent);
-              setError('');
-            }}
-          >
-            <FolderPlus />
-            {creating ? 'Cancel new folder' : 'New folder'}
-          </button>
+          {choices.length > 0 && (
+            <FolderPicker
+              paths={choices}
+              selected={selected}
+              mixed={mixed}
+              searchRef={searchInput}
+              onToggle={toggle}
+              disabled={busy}
+            />
+          )}
+          {choices.length > 0 && (
+            <button
+              className="text-action"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const changeMode = () => {
+                  setCreating(!creating);
+                  setName('');
+                  setSelectedParent(parent);
+                  setError('');
+                };
+                if (creationDirty) guard.requestLeave(changeMode);
+                else changeMode();
+              }}
+            >
+              <FolderPlus />
+              {creating ? 'Cancel new folder' : 'New folder'}
+            </button>
+          )}
           {creating && (
             <div className="new-folder-fields">
               <label>
@@ -148,20 +158,27 @@ export function FolderMembershipDialog({
                   }}
                 />
               </label>
-              <fieldset className="folder-parent-field">
-                <legend>Parent</legend>
-                <FolderPicker
-                  paths={['', ...choices]}
-                  selected={[selectedParent]}
-                  mode="single"
-                  disabled={busy}
-                  onToggle={(path, checked) => {
-                    if (checked) setSelectedParent(path);
-                    else if (selectedParent === path) setSelectedParent('');
-                    setError('');
-                  }}
-                />
-              </fieldset>
+              {choices.length > 0 && (
+                <label>
+                  Parent
+                  <select
+                    aria-label="Parent"
+                    value={selectedParent}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setSelectedParent(event.target.value);
+                      setError('');
+                    }}
+                  >
+                    <option value="">Library</option>
+                    {choices.map((path) => (
+                      <option key={path} value={path}>
+                        {path}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           )}
           {error && (
@@ -181,7 +198,7 @@ export function FolderMembershipDialog({
               className="primary"
               disabled={busy || !dirty || (creating && !name.trim())}
             >
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Saving…' : creating ? 'Create and add' : 'Save'}
             </button>
           </div>
         </form>

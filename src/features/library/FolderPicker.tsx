@@ -47,19 +47,21 @@ export function FolderPicker({
   }, []);
   return (
     <div className="folder-picker">
-      <label className="folder-picker-search">
-        <Search aria-hidden="true" />
-        <span className="visually-hidden">Search folders</span>
-        <input
-          ref={search}
-          type="search"
-          aria-label="Search folders"
-          placeholder="Search folders"
-          value={query}
-          disabled={disabled}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      {choices.length > 1 && (
+        <label className="folder-picker-search">
+          <Search aria-hidden="true" />
+          <span className="visually-hidden">Search folders</span>
+          <input
+            ref={search}
+            type="search"
+            aria-label="Search folders"
+            placeholder="Search folders"
+            value={query}
+            disabled={disabled}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      )}
       <div className="folder-choices" role="group" aria-label="Folders">
         {visible.map((path) => {
           const checked = selected.includes(path);
