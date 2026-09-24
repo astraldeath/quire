@@ -1,4 +1,5 @@
 import { ServerSettings } from './ServerSettings';
+import { formatBytes } from '../storage/formatBytes';
 import { CollectionManager } from './CollectionManager';
 import { WatchRow, type Watch, type Scan } from './WatchRow';
 import { useWebPath, parseWebRoute, navigateWeb } from '../navigation/routes';
@@ -137,9 +138,7 @@ export function Management({
             </article>
             <article>
               <span>Active book storage</span>
-              <strong>
-                {((overview?.bytes ?? 0) / 1048576).toFixed(1)} MB
-              </strong>
+              <strong>{formatBytes(overview?.bytes ?? 0)}</strong>
             </article>
           </div>
         </>

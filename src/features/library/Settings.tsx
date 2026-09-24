@@ -164,6 +164,7 @@ export function Settings({
                         view: defaults.view,
                         coverSize: defaults.coverSize,
                         groupSeries: defaults.groupSeries,
+                        flatLibrary: false,
                       })
                     }
                   >

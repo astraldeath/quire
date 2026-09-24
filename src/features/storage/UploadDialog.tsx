@@ -7,6 +7,8 @@ import { files } from '../sync/transport';
 import { ServerSettings } from '../sync/ServerSettings';
 import { Modal } from '../../components/Modal';
 import { uploadBooks, type UploadResult } from './manager';
+import { useDraftGuard } from '../../components/useDraftGuard';
+import { requestNavigation } from '../navigation/blockers';
 
 export function UploadDialog({
   books: requestedBooks,
@@ -31,6 +33,7 @@ export function UploadDialog({
   const [progress, setProgress] = useState([0, 0]);
   const [error, setError] = useState('');
   const [result, setResult] = useState<UploadResult>();
+  useDraftGuard({ dirty: busy, busy });
   useEffect(() => {
     let live = true;
     if (connecting) return;
@@ -91,14 +94,16 @@ export function UploadDialog({
     <Modal
       title={connecting ? 'Connect server' : 'Upload to server'}
       onClose={() => {
-        if (!busy) onClose();
+        if (!busy) requestNavigation(onClose);
       }}
     >
       {connecting ? (
         <>
           <ServerSettings books={books} />
           <div className="modal-footer">
-            <button onClick={() => setConnecting(false)}>
+            <button
+              onClick={() => requestNavigation(() => setConnecting(false))}
+            >
               Continue to upload
             </button>
           </div>
@@ -135,8 +140,10 @@ export function UploadDialog({
                     <ul>
                       {result.failed.map((failure) => (
                         <li key={failure.id}>
-                          {books.find((b) => b.id === failure.id)?.title}:{' '}
-                          {failure.message}
+                          {canUpload(failure.id)
+                            ? books.find((b) => b.id === failure.id)?.title
+                            : 'Private book'}
+                          : {failure.message}
                         </li>
                       ))}
                     </ul>

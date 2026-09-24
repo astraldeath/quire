@@ -126,7 +126,7 @@ it('describes the active sort and resets a newly selected field to its natural d
   const description = () =>
     document.getElementById(trigger.getAttribute('aria-describedby')!)
       ?.textContent;
-  expect(description()).toContain('Title, descending');
+  expect(description()).toContain('Title, Z–A');
   await act(async () => trigger.click());
   const added = document.querySelector<HTMLInputElement>(
     'input[type="radio"][value="added"]',
@@ -137,11 +137,11 @@ it('describes the active sort and resets a newly selected field to its natural d
       'input[type="radio"][value="desc"]',
     )?.checked,
   ).toBe(true);
-  expect(description()).toContain('Date added, descending');
+  expect(description()).toContain('Date added, Newest first');
   await act(async () => root.unmount());
 });
 
-it('keeps selection compact until books are selected and retains every batch action in More actions', async () => {
+it('keeps selection controls stable as books are selected and retains every batch action in More actions', async () => {
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
@@ -169,7 +169,9 @@ it('keeps selection compact until books are selected and retains every batch act
   expect(host.textContent).toContain('0 selected');
   expect(host.textContent).toContain('Select all');
   expect(host.textContent).toContain('Done');
-  expect(host.textContent).not.toContain('Folders');
+  expect(
+    host.querySelector<HTMLButtonElement>('button:nth-of-type(2)')?.disabled,
+  ).toBe(true);
   expect(host.textContent).not.toContain('Download');
   await click('Select all');
   expect(host.textContent).toContain('3 selected');

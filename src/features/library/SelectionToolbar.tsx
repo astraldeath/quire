@@ -7,6 +7,7 @@ import {
   FolderInput,
   Shield,
   Trash2,
+  CloudUpload,
 } from 'lucide-react';
 import {
   ActionPopover,
@@ -26,7 +27,11 @@ export function SelectionToolbar({
   onMarkFinished,
   onMarkUnread,
   onRemove,
+  onUpload,
+  uploadCount,
 }: {
+  onUpload?(): void;
+  uploadCount?: number;
   selectedIds: string[];
   totalEligible: number;
   busy: boolean;
@@ -112,6 +117,13 @@ export function SelectionToolbar({
             />
           ) : (
             <div className="book-action-list">
+              {onUpload && uploadCount !== 0 && (
+                <ActionMenuItem menuId="upload" onClick={() => run(onUpload)}>
+                  <CloudUpload />
+                  Upload selected
+                  {uploadCount !== undefined ? ` (${uploadCount})` : ''}
+                </ActionMenuItem>
+              )}
               <ActionMenuItem menuId="download" onClick={() => run(onDownload)}>
                 <Download />
                 Download

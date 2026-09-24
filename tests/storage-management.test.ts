@@ -87,6 +87,63 @@ it('rejects account changes before uploading', async () => {
   await expect(uploadBooks([book.id])).rejects.toThrow('account changed');
   expect(mocks.upload).not.toHaveBeenCalled();
 });
+it('manual batches report missing files and partial failures and continue eligible uploads', async () => {
+  mocks.files.mockResolvedValue([{ bookId: 'existing' }]);
+  mocks.getFile.mockImplementation(async (id) =>
+    id === 'missing' ? undefined : bytes,
+  );
+  mocks.upload.mockImplementation(async (_account, id) => {
+    if (id === 'bad') throw new Error('Offline');
+  });
+  const progress = vi.fn();
+  const result = await uploadBooks(
+    ['existing', 'bad', 'missing', 'good'],
+    account,
+    { manual: true, onProgress: progress },
+  );
+  expect(result).toEqual({
+    uploaded: ['good'],
+    skipped: ['existing'],
+    failed: [
+      { id: 'bad', message: 'Offline' },
+      { id: 'missing', message: 'The book file is not on this device.' },
+    ],
+  });
+  expect(mocks.upload.mock.calls.map((call) => call[1])).toEqual([
+    'bad',
+    'good',
+  ]);
+  expect(progress).toHaveBeenLastCalledWith(4, 4);
+});
+it('retains completed manual uploads when the account changes and prevents later transfers', async () => {
+  mocks.files.mockResolvedValue([]);
+  mocks.upload.mockImplementation(async () => {
+    mocks.loadSync.mockResolvedValue({
+      enabled: true,
+      account: { ...account, username: 'bob' },
+    });
+  });
+  const result = await uploadBooks(['first', 'second'], account, {
+    manual: true,
+  });
+  expect(result.uploaded).toEqual(['first']);
+  expect(result.failed.map((f) => f.id)).toEqual(['second']);
+  expect(mocks.upload).toHaveBeenCalledTimes(1);
+});
+it('does not upload when privacy locks while loading bytes', async () => {
+  mocks.files.mockResolvedValue([]);
+  let unlocked = true;
+  mocks.getFile.mockImplementation(async () => {
+    unlocked = false;
+    return bytes;
+  });
+  const result = await uploadBooks(['private'], account, {
+    manual: true,
+    canUpload: () => unlocked,
+  });
+  expect(result.failed[0].message).toMatch(/Unlock/);
+  expect(mocks.upload).not.toHaveBeenCalled();
+});
 it('keeps files when the server copy is missing or fails verification', async () => {
   writePolicy(account, { offload: true });
   mocks.files.mockResolvedValue([]);

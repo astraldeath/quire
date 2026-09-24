@@ -20,6 +20,7 @@ import {
   Shield,
   ArrowLeft,
   ChevronRight,
+  CloudUpload,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { ActionMenuItem } from '../../components/ActionMenuItem';
@@ -46,7 +47,13 @@ export function BookActions({
   onContinue,
   onMove,
   onAdd,
+  onUpload,
+  uploadCount,
+  remoteAvailable,
 }: {
+  onUpload?: () => void;
+  uploadCount?: number;
+  remoteAvailable?: boolean;
   onDownload?: () => Promise<void>;
   onMark?: (finished: boolean) => Promise<void>;
   onContinue?: () => void;
@@ -110,7 +117,7 @@ export function BookActions({
         <div className="book-actions">
           <p>
             {confirm === 'download'
-              ? 'Book details, progress, bookmarks, highlights, and notes stay in your library.'
+              ? `${remoteAvailable === true ? 'You can download the files again from your server.' : remoteAvailable === false ? "You'll need to import the files again to read these books." : 'Server copies have not been verified. You may need to import the files again to read these books.'} Book details, progress, bookmarks, highlights, and notes stay in your library.`
               : removal.connected === null
                 ? 'Checking removal scope…'
                 : removalDescription(removal.connected, entry.books.length)}
@@ -195,7 +202,11 @@ export function BookActions({
               Download {entry.series ? `${entry.books.length} books` : 'book'}
             </ActionMenuItem>
           )}
-          <BookStorageActions books={entry.books} onClose={onClose} />
+          <BookStorageActions
+            books={entry.books}
+            onClose={onClose}
+            hideUpload={!!onUpload}
+          />
           {!entry.series && (
             <ExportBookAction book={entry.books[0]} onClose={onClose} />
           )}
@@ -261,6 +272,13 @@ export function BookActions({
               series={entry.series ? entry.title : undefined}
               onClick={() => (onTracking ? onTracking() : setTracking(true))}
             />
+            {onUpload && uploadCount !== 0 && (
+              <ActionMenuItem menuId="upload" onClick={onUpload}>
+                <CloudUpload />
+                {entry.series ? 'Upload series' : 'Upload to server'}
+                {uploadCount !== undefined ? ` (${uploadCount})` : ''}
+              </ActionMenuItem>
+            )}
             {!entry.series && (
               <ActionMenuItem menuId="details" onClick={onDetails}>
                 <Info />

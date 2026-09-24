@@ -32,7 +32,20 @@ async function current(a: Account) {
     state.account.sessionId === a.sessionId
   );
 }
-export async function uploadBooks(ids: string[], expected?: Account) {
+export interface UploadResult {
+  uploaded: string[];
+  skipped: string[];
+  failed: { id: string; message: string }[];
+}
+export async function uploadBooks(
+  ids: string[],
+  expected?: Account,
+  options: {
+    manual?: boolean;
+    onProgress?(completed: number, total: number): void;
+    canUpload?(id: string): boolean;
+  } = {},
+): Promise<UploadResult> {
   const state = await loadSync();
   if (!state.enabled || !state.account)
     throw new Error('Connect to your server first.');
@@ -43,16 +56,50 @@ export async function uploadBooks(ids: string[], expected?: Account) {
   if (!(await current(account)))
     throw new Error('Your server account changed. Try again.');
   const remote = await files(account);
-  for (const id of ids) {
-    if (remote.some((f) => f.bookId === id)) continue;
-    const bytes = (await getNativeFileReference(id)) ?? (await getFile(id));
-    if (!bytes) continue;
-    if (!(await current(account)))
-      throw new Error('Your server account changed. Try again.');
-    if (expected && !readPolicy(account).autoUpload) return;
-    await upload(account, id, bytes);
+  const result: UploadResult = { uploaded: [], skipped: [], failed: [] };
+  const unique = [...new Set(ids)];
+  for (const [index, id] of unique.entries()) {
+    if (!(await current(account))) {
+      if (!options.manual)
+        throw new Error('Your server account changed. Try again.');
+      result.failed.push(
+        ...unique
+          .slice(index)
+          .map((id) => ({
+            id,
+            message:
+              'Your server account changed. Reopen upload to choose a destination.',
+          })),
+      );
+      break;
+    }
+    if (expected && !options.manual && !readPolicy(account).autoUpload)
+      return result;
+    try {
+      if (options.canUpload && !options.canUpload(id))
+        throw new Error('Unlock this book before uploading.');
+      if (remote.some((f) => f.bookId === id)) result.skipped.push(id);
+      else {
+        const bytes = (await getNativeFileReference(id)) ?? (await getFile(id));
+        if (!bytes) throw new Error('The book file is not on this device.');
+        if (!(await current(account)))
+          throw new Error('Your server account changed. Try again.');
+        if (options.canUpload && !options.canUpload(id))
+          throw new Error('Unlock this book before uploading.');
+        await upload(account, id, bytes);
+        result.uploaded.push(id);
+      }
+    } catch (e) {
+      if (!options.manual) throw e;
+      result.failed.push({
+        id,
+        message: e instanceof Error ? e.message : 'Upload failed.',
+      });
+    }
+    options.onProgress?.(index + 1, unique.length);
   }
   window.dispatchEvent(new Event('quire-synced'));
+  return result;
 }
 export function manageStorage(): Promise<void> {
   if (running) return running;

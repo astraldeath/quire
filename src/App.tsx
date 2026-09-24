@@ -39,6 +39,7 @@ import {
 } from './features/library/folders';
 import { LibraryControls } from './features/library/LibraryControls';
 import { SelectionToolbar } from './features/library/SelectionToolbar';
+import { UploadDialog } from './features/storage/UploadDialog';
 import { UpdateNotice } from './features/updates/UpdateSettings';
 import { Modal } from './components/Modal';
 import { ActionMenuItem } from './components/ActionMenuItem';
@@ -187,6 +188,7 @@ function AppContent({
   const connectedLibraries = useSharedLibraries();
   const wasUnlocked = useRef(false);
   const [viewOptions, setViewOptions] = useState(false);
+  const [uploadSelection, setUploadSelection] = useState<Book[] | null>(null);
   const [hiddenBooks, setHiddenBooks] = useState(false);
   const webPath = useWebPath();
   const route = parseWebRoute(webPath);
@@ -1631,6 +1633,21 @@ function AppContent({
             <div className="shelf-controls">
               {selecting ? (
                 <SelectionToolbar
+                  uploadCount={
+                    books.filter(
+                      (b) =>
+                        activeIds.includes(b.id) &&
+                        b.local &&
+                        !serverFiles?.has(b.id),
+                    ).length
+                  }
+                  onUpload={() =>
+                    setUploadSelection(
+                      books.filter(
+                        (b) => activeIds.includes(b.id) && privacy.access(b.id),
+                      ),
+                    )
+                  }
                   selectedIds={activeIds}
                   totalEligible={visibleIds.length}
                   busy={!!busy}
@@ -2147,6 +2164,20 @@ function AppContent({
       )}
       {actions && actions.entry.books.every((b) => privacy.access(b.id)) && (
         <BookActions
+          uploadCount={
+            actions.entry.books.filter(
+              (b) => b.local && !serverFiles?.has(b.id),
+            ).length
+          }
+          remoteAvailable={
+            serverFiles
+              ? actions.entry.books.every((b) => serverFiles.has(b.id))
+              : undefined
+          }
+          onUpload={() => {
+            setUploadSelection(actions.entry.books);
+            setActions(null);
+          }}
           onAdd={
             actions.entry.books.some((b) => b.inLibrary === false)
               ? async () => {
@@ -2233,6 +2264,13 @@ function AppContent({
           onDelete={() =>
             removeFromLibrary(actions.entry.books.map((b) => b.id))
           }
+        />
+      )}
+      {uploadSelection && (
+        <UploadDialog
+          books={uploadSelection}
+          canUpload={(id) => privacy.access(id)}
+          onClose={() => setUploadSelection(null)}
         />
       )}
       {details && !removalOrigin && (

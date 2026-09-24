@@ -12,7 +12,9 @@ import { TaskError } from '../../components/TaskError';
 export function BookStorageActions({
   books,
   onClose,
+  hideUpload = false,
 }: {
+  hideUpload?: boolean;
   books: Book[];
   onClose(): void;
 }) {
@@ -86,7 +88,7 @@ export function BookStorageActions({
   };
   return (
     <>
-      {books.some((b) => localIds.includes(b.id)) && (
+      {!hideUpload && books.some((b) => localIds.includes(b.id)) && (
         <ActionMenuItem
           type="button"
           menuId="upload"
