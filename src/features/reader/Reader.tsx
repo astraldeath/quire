@@ -804,9 +804,10 @@ export function Reader({
             </div>
           )}
           {!ready && !error && (
-            <p className="reader-loading" role="status">
-              Opening book...
-            </p>
+            <div className="reader-loading">
+              <p role="status">Opening book...</p>
+              <button onClick={onClose}>Back to library</button>
+            </div>
           )}
           <div className="reader-pages" ref={host}>
             {['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&

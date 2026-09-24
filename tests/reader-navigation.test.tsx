@@ -3,13 +3,19 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { Reader } from '../src/features/reader/Reader';
 import { defaults } from '../src/domain/models';
-const state = vi.hoisted(() => ({ fail: false, opens: 0 }));
+const state = vi.hoisted(() => ({
+  fail: false,
+  opens: 0,
+  pending: null as Promise<void> | null,
+  destroy: vi.fn(),
+}));
 vi.mock('../src/books', () => ({
   openBook: async () => {
     state.opens++;
+    if (state.pending) await state.pending;
     if (state.fail) throw new Error('Fixture load failed');
     return {
-      publication: { sections: [], toc: [], destroy() {} },
+      publication: { sections: [], toc: [], destroy: state.destroy },
       structure: { chapters: [] },
     };
   },
@@ -62,6 +68,8 @@ afterEach(() => {
   document.body.replaceChildren();
   state.fail = false;
   state.opens = 0;
+  state.pending = null;
+  state.destroy.mockClear();
 });
 async function setup() {
   vi.stubGlobal(
@@ -132,6 +140,22 @@ it('offers recovery without opening immersive controls and retries loading', asy
   expect(state.opens).toBe(2);
   expect(document.querySelector('[role="alert"]')).toBeNull();
   await act(async () => ctx.root.unmount());
+});
+it('can exit a pending load and disposes a publication that resolves after exit', async () => {
+  let finish!: () => void;
+  state.pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const ctx = await setup();
+  expect(document.querySelector('.reader-loading')?.textContent).toContain(
+    'Opening book',
+  );
+  await click('Back to library');
+  expect(ctx.onClose).toHaveBeenCalledOnce();
+  await act(async () => ctx.root.unmount());
+  await act(async () => finish());
+  expect(state.destroy).toHaveBeenCalledOnce();
+  expect(ctx.onPosition).not.toHaveBeenCalled();
 });
 it('does not save previewed progress and can return or explicitly continue', async () => {
   const ctx = await setup();
