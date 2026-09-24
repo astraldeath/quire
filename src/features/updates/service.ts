@@ -30,7 +30,12 @@ export interface UpdatesState {
     installing: boolean;
     progress?: number;
   };
-  server: { checking: boolean; data?: ServerUpdates; error?: string };
+  server: {
+    connected?: boolean;
+    checking: boolean;
+    data?: ServerUpdates;
+    error?: string;
+  };
 }
 const CACHE_MS = 6 * 60 * 60 * 1000;
 let state: UpdatesState = {
@@ -47,7 +52,7 @@ function reader(patch: Partial<UpdatesState['reader']>) {
   emit();
 }
 function server(patch: UpdatesState['server']) {
-  state = { ...state, server: patch };
+  state = { ...state, server: { connected: !!activeAccount, ...patch } };
   emit();
 }
 function subscribe(listener: () => void) {

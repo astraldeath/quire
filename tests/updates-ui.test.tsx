@@ -95,3 +95,32 @@ it.each([false, true])(
     vi.unstubAllEnvs();
   },
 );
+
+it.each([false, true])(
+  'only offers checks with an available server target (%s)',
+  async (connected) => {
+    mocks.state.reader = {
+      version: 'dev',
+      supported: false,
+      checking: false,
+      installing: false,
+    };
+    mocks.state.server = {
+      checking: false,
+      connected,
+      error: connected
+        ? 'Could not check for server updates. Try again.'
+        : undefined,
+    };
+    const node = document.createElement('div'),
+      r = createRoot(node);
+    await act(async () => r.render(<UpdateSettings />));
+    const check = node.querySelector<HTMLButtonElement>('.update-check');
+    expect(!!check).toBe(connected);
+    if (check) {
+      expect(check.disabled).toBe(false);
+      expect(check.textContent).toContain('Check server updates');
+    }
+    await act(async () => r.unmount());
+  },
+);

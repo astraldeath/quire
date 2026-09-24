@@ -1,3 +1,4 @@
+import { isTauri } from '@tauri-apps/api/core';
 import { ReleaseNotes } from './ReleaseNotes';
 import { Download, RefreshCw } from 'lucide-react';
 import { useEffect } from 'react';
@@ -33,6 +34,10 @@ export function UpdateSettings({
   }, [reader.installing, onBusy]);
   const currentNotes =
     changelog.split(/^## /m)[1]?.replace(/^.*\n/, '').trim() ?? '';
+  const canCheckReader =
+    reader.supported ||
+    (isTauri() && import.meta.env.VITE_HOSTED !== 'true' && !!reader.error);
+  const canCheckServer = !!server.connected;
   const busy = reader.installing || reader.checking || server.checking;
   return (
     <div className="updates-settings">
@@ -131,14 +136,20 @@ export function UpdateSettings({
           </p>
         )}
       </section>
-      <button
-        className="text-action update-check"
-        disabled={busy}
-        onClick={() => void checkUpdates(true)}
-      >
-        <RefreshCw />
-        Check for updates
-      </button>
+      {(canCheckReader || canCheckServer) && (
+        <button
+          className="text-action update-check"
+          disabled={busy}
+          onClick={() => void checkUpdates(true)}
+        >
+          <RefreshCw />
+          {canCheckReader && canCheckServer
+            ? 'Check for updates'
+            : canCheckReader
+              ? 'Check reader updates'
+              : 'Check server updates'}
+        </button>
+      )}
     </div>
   );
 }

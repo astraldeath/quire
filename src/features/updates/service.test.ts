@@ -105,6 +105,7 @@ it('never calls native APIs in browsers or hosted builds, but still checks conne
   expect(mocks.invoke).not.toHaveBeenCalled();
   expect(mocks.check).not.toHaveBeenCalled();
   expect(service.getUpdatesSnapshot().server.data).toEqual(response);
+  expect(service.getUpdatesSnapshot().server.connected).toBe(true);
   mocks.native.mockReturnValue(true);
   vi.stubEnv('VITE_HOSTED', 'true');
   await service.checkUpdates();
@@ -219,7 +220,10 @@ it('discards a previous account response after logout even without a storage eve
   mocks.load.mockResolvedValue({ account: undefined });
   pending.resolve(response);
   await checking;
-  expect(service.getUpdatesSnapshot().server).toEqual({ checking: false });
+  expect(service.getUpdatesSnapshot().server).toEqual({
+    checking: false,
+    connected: false,
+  });
 });
 it('checks a new account immediately and ignores an older in-flight response', async () => {
   const service = await import('./service'),

@@ -1,0 +1,23 @@
+.settings-body .library-settings-section {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.library-settings-section h3,
+.library-settings-section p {
+  margin: 0;
+}
+.library-settings-section > button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.library-settings-section > button svg {
+  width: 18px;
+  height: 18px;
+}

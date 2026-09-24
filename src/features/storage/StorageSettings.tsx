@@ -1,3 +1,5 @@
+import { formatBytes } from './formatBytes';
+import { Cloud } from 'lucide-react';
 import { TaskError } from '../../components/TaskError';
 import { useEffect, useState } from 'react';
 import { Switch, StepperControl } from '../../components/Controls';
@@ -59,12 +61,12 @@ export function StorageSettings({ onConnect }: { onConnect(): void }) {
     }
   };
   return (
-    <section className="storage-settings">
+    <section className="storage-settings library-settings-section">
       <h3>Storage</h3>
       {summary && (
         <p>
           {summary.books} downloaded {summary.books === 1 ? 'book' : 'books'} ·{' '}
-          {(summary.bytes / 1073741824).toFixed(2)} GiB
+          {formatBytes(summary.bytes)}
         </p>
       )}
       {error && <TaskError summary={error} detail="" onRetry={measure} />}
@@ -74,7 +76,10 @@ export function StorageSettings({ onConnect }: { onConnect(): void }) {
           <p className="muted">
             Connect to a server to use automatic uploads and offloading.
           </p>
-          <button onClick={onConnect}>Connect server</button>
+          <button className="primary" onClick={onConnect}>
+            <Cloud aria-hidden="true" />
+            Connect server
+          </button>
         </>
       ) : (
         <>

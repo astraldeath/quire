@@ -1,7 +1,8 @@
 import { FileHandlingSettings } from '../desktop/FileHandlingSettings';
 import { StorageSettings } from '../storage/StorageSettings';
 import { UpdateSettings } from '../updates/UpdateSettings';
-import { Download } from 'lucide-react';
+import './library-settings.css';
+import { ChevronRight, Download } from 'lucide-react';
 import { PrivacySettings } from '../privacy/PrivacySettings';
 import { usePrivacy } from '../privacy/Privacy';
 import { Shield } from 'lucide-react';
@@ -149,20 +150,26 @@ export function Settings({
             icon: Library,
             content: (
               <div className="settings-body">
-                <button onClick={onViewOptions}>View options</button>
-                <button
-                  className="text-action"
-                  onClick={() =>
-                    onChange({
-                      ...p,
-                      view: defaults.view,
-                      coverSize: defaults.coverSize,
-                      groupSeries: defaults.groupSeries,
-                    })
-                  }
-                >
-                  Reset library settings
-                </button>
+                <section className="library-settings-section">
+                  <h3>Library display</h3>
+                  <button className="primary" onClick={onViewOptions}>
+                    View options
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                  <button
+                    className="text-action"
+                    onClick={() =>
+                      onChange({
+                        ...p,
+                        view: defaults.view,
+                        coverSize: defaults.coverSize,
+                        groupSeries: defaults.groupSeries,
+                      })
+                    }
+                  >
+                    Reset library display
+                  </button>
+                </section>
                 <StorageSettings
                   onConnect={() => requestNavigation(() => changeTab('server'))}
                 />
