@@ -265,7 +265,7 @@ export function ReaderTools({
               id: crypto.randomUUID(),
               kind: 'bookmark',
               cfi: position.cfi,
-              text: `${position.section || book.title} � ${Math.round(position.fraction * 100)}%`,
+              text: `${position.section || book.title} - ${Math.round(position.fraction * 100)}%`,
               note: '',
               section: position.section,
               createdAt: Date.now(),
@@ -511,7 +511,7 @@ export function ReaderTools({
                       {item.text}
                       {item.section &&
                         item.section !== item.text &&
-                        !item.text.startsWith(`${item.section} � `) && (
+                        !item.text.startsWith(`${item.section} - `) && (
                           <small>{item.section}</small>
                         )}
                       {item.kind === 'bookmark' && (
@@ -636,7 +636,7 @@ export function ReaderTools({
               )}
               {searched && (
                 <p role="status">
-                  {results.length} matches for �{query}�
+                  {results.length} matches for "{query}"
                 </p>
               )}
               {searched && !searching && !results.length && !message && (

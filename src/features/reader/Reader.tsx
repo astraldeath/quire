@@ -978,8 +978,8 @@ export function Reader({
           >
             <label>
               {comic?.comicPages
-                ? `Page (1�${comic.comicPages.length})`
-                : 'Percentage (0�100)'}
+                ? `Page (1 to ${comic.comicPages.length})`
+                : 'Percentage (0 to 100)'}
               <input
                 autoFocus
                 required
