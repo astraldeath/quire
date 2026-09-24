@@ -98,16 +98,10 @@ export function UploadDialog({
       }}
     >
       {connecting ? (
-        <>
-          <ServerSettings books={books} />
-          <div className="modal-footer">
-            <button
-              onClick={() => requestNavigation(() => setConnecting(false))}
-            >
-              Continue to upload
-            </button>
-          </div>
-        </>
+        <ServerSettings
+          books={books}
+          onConnected={() => setConnecting(false)}
+        />
       ) : (
         <div className="book-actions">
           {account && (

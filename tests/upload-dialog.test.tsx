@@ -13,7 +13,9 @@ vi.mock('../src/features/storage/manager', () => ({
   uploadBooks: mocks.uploadBooks,
 }));
 vi.mock('../src/features/sync/ServerSettings', () => ({
-  ServerSettings: () => <p>Connection settings</p>,
+  ServerSettings: ({ onConnected }: any) => (
+    <button onClick={onConnected}>Finish sign-in</button>
+  ),
 }));
 vi.mock('../src/components/Modal', () => ({
   Modal: ({ children, title, onClose }: any) => (
@@ -97,9 +99,10 @@ it('retries only failed books and retains the completed count', async () => {
 it('returns from connection settings with the original selection', async () => {
   mocks.loadSync.mockResolvedValue({ enabled: false });
   await render();
-  expect(host.textContent).toContain('Connection settings');
+  expect(host.textContent).toContain('Finish sign-in');
   mocks.loadSync.mockResolvedValue({ enabled: true, account });
-  await click('Continue to upload');
+  await click('Finish sign-in');
+  expect(mocks.uploadBooks).not.toHaveBeenCalled();
   expect(host.textContent).toContain('2 books to upload');
   await click('Upload 2');
   expect(mocks.uploadBooks.mock.calls[0][0]).toEqual(['one', 'two']);

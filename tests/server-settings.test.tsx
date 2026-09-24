@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { ServerSettings } from '../src/features/sync/ServerSettings';
 import { SyncStatus } from '../src/features/sync/SyncStatus';
+import { connect } from '../src/features/sync/engine';
 const { discover } = vi.hoisted(() => ({
   discover: vi.fn(async (): Promise<{ name: string; origin: string }> => {
     throw new Error('unavailable');
@@ -170,5 +171,41 @@ it('focuses the password after discovery completes', async () => {
   expect(document.activeElement).toBe(
     t.host.querySelector('input[type=password]'),
   );
+  await t.close();
+});
+
+it('resumes the pending action only after successful sign-in, allowing retry', async () => {
+  discover.mockResolvedValueOnce({
+    name: 'Quire',
+    origin: 'https://books.example.com',
+  });
+  const onConnected = vi.fn();
+  const t = await mount(
+    <ServerSettings books={[]} onConnected={onConnected} />,
+  );
+  const submit = () =>
+    act(async () => {
+      t.host
+        .querySelector('form')!
+        .dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+    });
+  await act(async () => {
+    const input = t.host.querySelector('input')!;
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )!.set!.call(input, 'alice@books.example.com');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await submit();
+  vi.mocked(connect).mockRejectedValueOnce(new Error('Incorrect password'));
+  await submit();
+  expect(onConnected).not.toHaveBeenCalled();
+  expect(t.host.textContent).toContain('Incorrect password');
+  vi.mocked(connect).mockResolvedValueOnce(undefined);
+  await submit();
+  expect(onConnected).toHaveBeenCalledOnce();
   await t.close();
 });

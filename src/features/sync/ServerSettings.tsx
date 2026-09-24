@@ -26,7 +26,13 @@ import {
 import { discover, serverOrigin } from './transport';
 import { isTauri } from '@tauri-apps/api/core';
 import type { Book } from '../../domain/models';
-export function ServerSettings({ books }: { books: Book[] }) {
+export function ServerSettings({
+  books,
+  onConnected,
+}: {
+  books: Book[];
+  onConnected?(): void;
+}) {
   const [state, setState] = useState<SyncState>(emptySync);
   const status = useSyncExternalStore(subscribe, snapshot);
   const [account, setAccount] = useState('');
@@ -190,6 +196,7 @@ export function ServerSettings({ books }: { books: Book[] }) {
                   const secret = password;
                   setPassword('');
                   await connect(server.origin, server.username, secret);
+                  onConnected?.();
                 })
               : check());
           }}
