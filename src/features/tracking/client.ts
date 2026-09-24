@@ -10,7 +10,10 @@ export async function trackingSession(): Promise<TrackingSession> {
   if (isTauri()) return { kind: 'native' };
   const state = await loadSync();
   if (!state.enabled || !state.account)
-    throw new Error('Sign in to your Quire server to use tracking.');
+    throw Object.assign(
+      new Error('Sign in to your Quire server to use tracking.'),
+      { code: 'SERVER_CONNECTION_REQUIRED' },
+    );
   return { kind: 'hosted', account: state.account };
 }
 export function trackingRequest(

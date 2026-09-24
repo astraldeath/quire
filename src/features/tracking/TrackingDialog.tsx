@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ArrowLeft,
+  Cloud,
   ChevronDown,
   Check,
   ExternalLink,
@@ -9,6 +11,8 @@ import {
   Unlink,
   RefreshCw,
 } from 'lucide-react';
+import { ServerSettings } from '../sync/ServerSettings';
+import { requestNavigation } from '../navigation/blockers';
 import { Modal } from '../../components/Modal';
 import { Switch } from '../../components/Controls';
 import { useDraftGuard } from '../../components/useDraftGuard';
@@ -86,6 +90,8 @@ export function TrackingDialog({
   series?: string;
   onClose(): void;
 }) {
+  const [connectingServer, setConnectingServer] = useState(false);
+  const [needsServer, setNeedsServer] = useState(false);
   const title = series || book.title;
   const inferredVolume = inferSeriesVolume(book.title, '', book).volume ?? 0;
   const [account, setAccount] = useState<TrackingSession>(),
@@ -199,6 +205,7 @@ export function TrackingDialog({
       const checkGeneration = generation.current;
       try {
         const session = await trackingSession();
+        if (alive && loadId === latestLoad) setNeedsServer(false);
         if (
           !alive ||
           loadId !== latestLoad ||
@@ -255,6 +262,12 @@ export function TrackingDialog({
           setSelected(undefined);
           setResults([]);
           setDraftChanged(false);
+          setNeedsServer(
+            !!e &&
+              typeof e === 'object' &&
+              'code' in e &&
+              e.code === 'SERVER_CONNECTION_REQUIRED',
+          );
           setError(e instanceof Error ? e.message : 'Could not load tracking.');
           setLoading(false);
         }
@@ -490,6 +503,21 @@ export function TrackingDialog({
       await refresh();
     });
   }
+  if (connectingServer)
+    return (
+      <Modal
+        title="Connect server"
+        onClose={() => requestNavigation(() => setConnectingServer(false))}
+      >
+        <button
+          type="button"
+          onClick={() => requestNavigation(() => setConnectingServer(false))}
+        >
+          <ArrowLeft size={16} /> Back to tracking
+        </button>
+        <ServerSettings books={[book]} />
+      </Modal>
+    );
   return (
     <Modal
       title={series ? 'Series tracking' : 'Tracking'}
@@ -502,6 +530,16 @@ export function TrackingDialog({
         {(error || state?.error) && (
           <TaskError summary={error || state?.error || ''} detail="" />
         )}
+        {needsServer &&
+          !isTauri() &&
+          import.meta.env.VITE_HOSTED !== 'true' && (
+            <button
+              className="primary"
+              onClick={() => setConnectingServer(true)}
+            >
+              <Cloud size={16} /> Connect server
+            </button>
+          )}
         {(busy || loading || searching) && (
           <p className="tracker-status" role="status">
             <LoaderCircle className="spinning" />
@@ -683,7 +721,8 @@ export function TrackingDialog({
                   </button>
                 ) : (
                   <p className="muted">
-                    MangaBaka sign-in is not configured on this server.
+                    MangaBaka sign-in must be configured by your server
+                    administrator. You can still save a match.
                   </p>
                 )}
               </div>

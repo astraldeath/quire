@@ -49,3 +49,17 @@ it('combines cancellation with the timeout and preserves hosted origin, redirect
   controller.abort();
   expect(options.signal?.aborted).toBe(true);
 });
+
+it('marks a missing server session as actionable without issuing a tracking request', async () => {
+  const { loadSync } = await import('../src/storage');
+  const { trackingSession } = await import('../src/features/tracking/client');
+  vi.mocked(loadSync).mockResolvedValue({
+    enabled: false,
+    cursor: 0,
+    records: {},
+    pending: [],
+  });
+  await expect(trackingSession()).rejects.toMatchObject({
+    code: 'SERVER_CONNECTION_REQUIRED',
+  });
+});
