@@ -29,6 +29,47 @@ async function setup() {
   );
   return { root, open, actions, button: host.querySelector('button')! };
 }
+it('offers scoped upload directly and hides it when every file is on the server', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const upload = vi.fn();
+  const book = {
+    id: 'one',
+    title: 'One',
+    author: '',
+    series: 'Series',
+    volume: 1,
+    cover: '',
+    local: true,
+    addedAt: 1,
+  };
+  const render = (series: boolean, count: number) =>
+    root.render(
+      <BookActions
+        entry={{ key: 'one', title: 'Series', series, books: [book] }}
+        uploadCount={count}
+        onUpload={upload}
+        onClose={() => {}}
+        onOpen={() => {}}
+        onDetails={() => {}}
+        onRemoveDownload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+  await act(async () => render(true, 1));
+  const button = [...document.querySelectorAll('button')].find(
+    (b) => b.textContent === 'Upload series (1)',
+  )!;
+  expect(button).toBeDefined();
+  await act(async () => button.click());
+  expect(upload).toHaveBeenCalledOnce();
+  await act(async () => render(false, 1));
+  expect(document.body.textContent).toContain('Upload to server (1)');
+  await act(async () => render(false, 0));
+  expect(document.body.textContent).not.toContain('Upload to server');
+  await act(async () => root.unmount());
+});
 function pointer(button: HTMLElement, type: string, x = 0, y = 0) {
   button.dispatchEvent(
     Object.assign(new Event(type, { bubbles: true }), {

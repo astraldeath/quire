@@ -144,6 +144,16 @@ it('does not upload when privacy locks while loading bytes', async () => {
   expect(result.failed[0].message).toMatch(/Unlock/);
   expect(mocks.upload).not.toHaveBeenCalled();
 });
+it('honors automatic upload being disabled while file bytes load', async () => {
+  writePolicy(account, { autoUpload: true });
+  mocks.files.mockResolvedValue([]);
+  mocks.getFile.mockImplementation(async () => {
+    writePolicy(account, { autoUpload: false });
+    return bytes;
+  });
+  await uploadBooks(['pending'], account);
+  expect(mocks.upload).not.toHaveBeenCalled();
+});
 it('keeps files when the server copy is missing or fails verification', async () => {
   writePolicy(account, { offload: true });
   mocks.files.mockResolvedValue([]);

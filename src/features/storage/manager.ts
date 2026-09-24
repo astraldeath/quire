@@ -63,13 +63,11 @@ export async function uploadBooks(
       if (!options.manual)
         throw new Error('Your server account changed. Try again.');
       result.failed.push(
-        ...unique
-          .slice(index)
-          .map((id) => ({
-            id,
-            message:
-              'Your server account changed. Reopen upload to choose a destination.',
-          })),
+        ...unique.slice(index).map((id) => ({
+          id,
+          message:
+            'Your server account changed. Reopen upload to choose a destination.',
+        })),
       );
       break;
     }
@@ -84,6 +82,8 @@ export async function uploadBooks(
         if (!bytes) throw new Error('The book file is not on this device.');
         if (!(await current(account)))
           throw new Error('Your server account changed. Try again.');
+        if (expected && !options.manual && !readPolicy(account).autoUpload)
+          return result;
         if (options.canUpload && !options.canUpload(id))
           throw new Error('Unlock this book before uploading.');
         await upload(account, id, bytes);

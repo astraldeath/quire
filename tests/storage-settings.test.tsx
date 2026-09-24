@@ -24,7 +24,7 @@ it('measures original files and connects to Sync; preserves custom limits', asyn
   const connect = vi.fn();
   await act(async () => root.render(<StorageSettings onConnect={connect} />));
   expect(host.textContent).toContain('2 downloaded books');
-  expect(host.textContent).toContain('1.00 GiB');
+  expect(host.textContent).toContain('1 GiB');
   await act(async () =>
     [...host.querySelectorAll('button')]
       .find((b) => b.textContent === 'Connect server')!

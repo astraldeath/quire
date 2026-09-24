@@ -151,6 +151,7 @@ it('keeps selection controls stable as books are selected and retains every batc
     onMarkFinished: vi.fn(),
     onMarkUnread: vi.fn(),
     onRemove: vi.fn(),
+    onUpload: vi.fn(),
   };
   function Harness() {
     const [count, setCount] = useState(0);
@@ -178,6 +179,7 @@ it('keeps selection controls stable as books are selected and retains every batc
   expect(host.textContent).toContain('Folders');
   await click('More actions');
   expect(document.body.textContent).toContain('Download');
+  expect(document.body.textContent).toContain('Upload selected');
   expect(document.body.textContent).toContain('Mark finished');
   expect(document.body.textContent).toContain('Mark unread');
   expect(document.body.textContent).toContain('Privacy');
