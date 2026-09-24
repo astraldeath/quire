@@ -53,7 +53,7 @@ it('offers fixed-page behavior settings without unsupported typography or reflow
   host.remove();
 });
 
-it('distinguishes location previews, textless pages, and available word-by-word reading', async () => {
+it('distinguishes location previews, textless pages, and available RSVP reading', async () => {
   vi.stubGlobal('matchMedia', () => ({
     matches: false,
     addEventListener() {},
@@ -73,7 +73,7 @@ it('distinguishes location previews, textless pages, and available word-by-word 
       ),
     );
     const tab = [...host.querySelectorAll<HTMLElement>('[role="tab"]')].find(
-      (t) => t.textContent === 'Word-by-word',
+      (t) => t.textContent === 'RSVP',
     )!;
     await act(async () => tab.click());
   };
@@ -87,7 +87,7 @@ it('distinguishes location previews, textless pages, and available word-by-word 
   expect(host.textContent).not.toContain('Open a text chapter');
   await act(async () =>
     [...host.querySelectorAll('button')]
-      .find((b) => b.textContent === 'Open word-by-word reader')!
+      .find((b) => b.textContent === 'Open RSVP reader')!
       .click(),
   );
   expect(open).toHaveBeenCalledOnce();

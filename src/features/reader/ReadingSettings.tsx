@@ -216,7 +216,7 @@ export function ReadingSettings({
           ? [
               {
                 id: 'rsvp',
-                label: 'Word-by-word',
+                label: 'RSVP',
                 icon: Play,
                 content: (
                   <div className="reader-settings">
@@ -237,13 +237,13 @@ export function ReadingSettings({
                     />
                     <button onClick={onRsvp} disabled={!onRsvp}>
                       <Play size={18} />
-                      Open word-by-word reader
+                      Open RSVP reader
                     </button>
                     {!onRsvp && (
                       <p className="settings-note">
                         {previewing
-                          ? 'Choose Continue here to start word-by-word reading.'
-                          : 'Open a text chapter to use word-by-word reading.'}
+                          ? 'Choose Continue here to start RSVP reading.'
+                          : 'Open a text chapter to use RSVP reading.'}
                       </p>
                     )}
                   </div>

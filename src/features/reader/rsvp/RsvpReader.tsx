@@ -292,7 +292,7 @@ export function RsvpReader(props: Props) {
     controls.current?.configure();
   }, [props.preferences.rsvpWpm, props.preferences.rsvpPunctuationPauses]);
   return (
-    <section className="rsvp-reader" aria-label="Word-by-word reading">
+    <section className="rsvp-reader" aria-label="RSVP reading">
       <header className="rsvp-header">
         <button
           aria-label="Back to page"
