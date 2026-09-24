@@ -52,3 +52,45 @@ it('offers fixed-page behavior settings without unsupported typography or reflow
   await act(async () => root.unmount());
   host.remove();
 });
+
+it('distinguishes location previews, textless pages, and available word-by-word reading', async () => {
+  vi.stubGlobal('matchMedia', () => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  const host = document.createElement('div');
+  const root = createRoot(host);
+  const render = async (previewing: boolean, onRsvp?: () => void) => {
+    await act(async () =>
+      root.render(
+        <ReadingSettings
+          preferences={defaults.reader}
+          onPreferences={() => {}}
+          previewing={previewing}
+          onRsvp={onRsvp}
+        />,
+      ),
+    );
+    const tab = [...host.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+      (t) => t.textContent === 'Word-by-word',
+    )!;
+    await act(async () => tab.click());
+  };
+  await render(true);
+  expect(host.textContent).toContain('Choose Continue here');
+  expect(host.textContent).not.toContain('Open a text chapter');
+  await render(false);
+  expect(host.textContent).toContain('Open a text chapter');
+  const open = vi.fn();
+  await render(false, open);
+  expect(host.textContent).not.toContain('Open a text chapter');
+  await act(async () =>
+    [...host.querySelectorAll('button')]
+      .find((b) => b.textContent === 'Open word-by-word reader')!
+      .click(),
+  );
+  expect(open).toHaveBeenCalledOnce();
+  await act(async () => root.unmount());
+  vi.unstubAllGlobals();
+});

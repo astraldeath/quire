@@ -21,12 +21,14 @@ export function ReadingSettings({
   comic = false,
   fixedLayout = false,
   onRsvp,
+  previewing = false,
 }: {
   preferences: ReaderPreferences;
   onPreferences(value: ReaderPreferences): void;
   comic?: boolean;
   fixedLayout?: boolean;
   onRsvp?(): void;
+  previewing?: boolean;
 }) {
   const patch = (value: Partial<ReaderPreferences>) =>
     onPreferences({ ...preferences, ...value });
@@ -239,7 +241,9 @@ export function ReadingSettings({
                     </button>
                     {!onRsvp && (
                       <p className="settings-note">
-                        Open a text chapter to use word-by-word reading.
+                        {previewing
+                          ? 'Choose Continue here to start word-by-word reading.'
+                          : 'Open a text chapter to use word-by-word reading.'}
                       </p>
                     )}
                   </div>

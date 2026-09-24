@@ -1009,6 +1009,7 @@ export function Reader({
             </button>
           </div>
           <ReadingSettings
+            previewing={!!returnPosition}
             onRsvp={
               ready &&
               !returnPosition &&
