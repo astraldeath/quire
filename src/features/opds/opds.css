@@ -267,3 +267,7 @@
     flex-basis: 100%;
   }
 }
+.opds-create > label,
+.account-settings .opds-create > label {
+  flex: none;
+}
