@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.10.0",
-      "versionDate": "2026-09-23T09:54:00.000Z",
-      "versionDescription": "- Organize account settings into Password, Devices, and OPDS tabs with a stable desktop dialog and compact mobile navigation.\n- Keep a highlighted focal letter aligned during RSVP reading, and use the settings speed stepper for words per minute.\n- Fix icon spacing and row alignment in the library destination menu.\n- Browse shared libraries separately and explicitly add books to your personal library without losing reading progress or notes.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.10.0/Quire_0.10.0_ios-unsigned.ipa",
-      "size": 8244548,
+      "version": "0.10.1",
+      "versionDate": "2026-09-23T19:57:04.000Z",
+      "versionDescription": "- Fix shared-library discovery in native apps so connected users can browse shared libraries from the library menu.\n- Restore the iOS sideloading source to the latest release and prevent automatic version rollbacks.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.10.1/Quire_0.10.1_ios-unsigned.ipa",
+      "size": 8252925,
       "versions": [
+        {
+          "version": "0.10.1",
+          "date": "2026-09-23T19:57:04.000Z",
+          "localizedDescription": "- Fix shared-library discovery in native apps so connected users can browse shared libraries from the library menu.\n- Restore the iOS sideloading source to the latest release and prevent automatic version rollbacks.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.10.1/Quire_0.10.1_ios-unsigned.ipa",
+          "size": 8252925
+        },
         {
           "version": "0.10.0",
           "date": "2026-09-23T09:54:00.000Z",
