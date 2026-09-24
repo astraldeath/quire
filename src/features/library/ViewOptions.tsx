@@ -45,6 +45,11 @@ export function ViewOptions({
         </div>
       </div>
       <Switch
+        label="Show books inside folders"
+        checked={!!preferences.flatLibrary}
+        onChange={(flatLibrary) => onChange({ ...preferences, flatLibrary })}
+      />
+      <Switch
         label="Group books into series"
         checked={preferences.groupSeries}
         onChange={(groupSeries) => onChange({ ...preferences, groupSeries })}

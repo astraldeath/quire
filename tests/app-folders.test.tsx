@@ -153,6 +153,16 @@ async function click(text: string) {
       .click(),
   );
 }
+it('can browse books inside folders in the flat library view', async () => {
+  defaults.flatLibrary = true;
+  try {
+    await mount('/library');
+    expect(host.querySelectorAll('.folder-card')).toHaveLength(0);
+    expect(host.textContent).toContain('A/B');
+  } finally {
+    delete defaults.flatLibrary;
+  }
+});
 async function input(value: string) {
   const el =
     host.querySelector<HTMLInputElement>(

@@ -1092,6 +1092,7 @@ function AppContent({
   };
   const deferredQuery = useDeferredValue(query);
   const browsingFolders =
+    !preferences.flatLibrary &&
     !group &&
     !reading &&
     !deferredQuery.trim() &&

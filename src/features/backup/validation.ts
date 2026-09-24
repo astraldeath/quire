@@ -141,6 +141,7 @@ export function validatePreferences(value: unknown): Preferences {
       ? {}
       : { sortDirection: choice(p.sortDirection, ['asc', 'desc'] as const) }),
     groupSeries: bool(p.groupSeries),
+    flatLibrary: p.flatLibrary === undefined ? false : bool(p.flatLibrary),
     coverSize: num(p.coverSize, 110, 210),
     reader: {
       rsvpWpm: r.rsvpWpm === undefined ? 250 : num(r.rsvpWpm, 60, 1000),

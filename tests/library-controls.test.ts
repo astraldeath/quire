@@ -236,5 +236,12 @@ describe('library controls', () => {
     expect(() =>
       validatePreferences({ ...defaults, sortDirection: 'sideways' }),
     ).toThrow();
+    expect(
+      validatePreferences({ ...defaults, flatLibrary: true }).flatLibrary,
+    ).toBe(true);
+    expect(validatePreferences(defaults).flatLibrary).toBe(false);
+    expect(() =>
+      validatePreferences({ ...defaults, flatLibrary: 'yes' }),
+    ).toThrow();
   });
 });

@@ -64,6 +64,7 @@ export interface Preferences {
   sort: 'recent' | 'title' | 'author' | 'added' | 'last-read' | 'volume';
   sortDirection?: 'asc' | 'desc';
   groupSeries: boolean;
+  flatLibrary?: boolean;
   coverSize: number;
   reader: ReaderPreferences;
 }

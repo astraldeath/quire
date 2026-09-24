@@ -55,6 +55,18 @@ export function LibraryControls({
         : 'last-read'
       : preferences.sort;
   const direction = preferences.sortDirection ?? naturalSortDirection(sort);
+  const directionLabel = (value: 'asc' | 'desc') =>
+    sort === 'title' || sort === 'author'
+      ? value === 'asc'
+        ? 'A–Z'
+        : 'Z–A'
+      : sort === 'volume'
+        ? value === 'asc'
+          ? 'Lowest volume first'
+          : 'Highest volume first'
+        : value === 'asc'
+          ? 'Oldest first'
+          : 'Newest first';
   const labels = new Map<Preferences['sort'], string>([
     ...sortOptions,
     ['volume', 'Volume'],
@@ -94,8 +106,7 @@ export function LibraryControls({
           Sort
         </button>
         <span id={sortDescription} className="sr-only">
-          Sorted by {labels.get(sort)},{' '}
-          {direction === 'asc' ? 'ascending' : 'descending'}
+          Sorted by {labels.get(sort)}, {directionLabel(direction)}
         </span>
         <button
           onClick={(event) => open('View', event.currentTarget)}
@@ -206,9 +217,7 @@ export function LibraryControls({
                           })
                         }
                       />
-                      <span>
-                        {value === 'asc' ? 'Ascending' : 'Descending'}
-                      </span>
+                      <span>{directionLabel(value)}</span>
                     </label>
                   ))}
                 </fieldset>

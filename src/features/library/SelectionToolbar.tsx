@@ -62,11 +62,11 @@ export function SelectionToolbar({
           ? 'Deselect all'
           : 'Select all'}
       </button>
-      {count > 0 && (
+      {
         <>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || !count}
             onClick={(event) => onFolders(event.currentTarget)}
           >
             <FolderInput />
@@ -74,7 +74,7 @@ export function SelectionToolbar({
           </button>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || !count}
             aria-haspopup="menu"
             onClick={(event) => {
               const rect = event.currentTarget.getBoundingClientRect();
@@ -91,8 +91,8 @@ export function SelectionToolbar({
             More actions
           </button>
         </>
-      )}
-      <button type="button" onClick={onDone}>
+      }
+      <button className="selection-done" type="button" onClick={onDone}>
         Done
       </button>
       {menu && (
