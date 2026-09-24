@@ -116,6 +116,21 @@ export function ReadingSettings({
                           onChange={(lineHeight) => patch({ lineHeight })}
                         />
                       </div>
+                      <div
+                        className="reading-style-preview"
+                        aria-label="Typography preview"
+                        style={{
+                          fontFamily:
+                            preferences.font === 'publisher'
+                              ? 'Georgia, serif'
+                              : preferences.font,
+                          fontSize: preferences.size,
+                          lineHeight: preferences.lineHeight,
+                        }}
+                      >
+                        The afternoon light fell across the open book. There was
+                        still time for another chapter.
+                      </div>
                       <Switch
                         label="Keep publisher formatting"
                         checked={preferences.publisherStyles}
@@ -150,7 +165,7 @@ export function ReadingSettings({
                           onChange={(margin) => patch({ margin })}
                         />
                         <StepperControl
-                          label="Text width"
+                          label="Maximum text width"
                           min={320}
                           max={1200}
                           step={40}
@@ -180,6 +195,12 @@ export function ReadingSettings({
                           onChange={(columns) => patch({ columns })}
                         />
                       )}
+                      {preferences.flow === 'paginated' &&
+                        preferences.columns === 'two' && (
+                          <p className="settings-note">
+                            Two pages appear when the screen has enough room.
+                          </p>
+                        )}
                       {preferences.flow === 'continuous' && (
                         <p className="settings-note">
                           Scroll past a chapter’s end to load the next one.
@@ -189,11 +210,11 @@ export function ReadingSettings({
                   ),
                 },
               ]),
-        ...(onRsvp && !comic && !fixedLayout
+        ...(!comic && !fixedLayout
           ? [
               {
                 id: 'rsvp',
-                label: 'RSVP',
+                label: 'Word-by-word',
                 icon: Play,
                 content: (
                   <div className="reader-settings">
@@ -212,10 +233,15 @@ export function ReadingSettings({
                         patch({ rsvpPunctuationPauses })
                       }
                     />
-                    <button onClick={onRsvp}>
+                    <button onClick={onRsvp} disabled={!onRsvp}>
                       <Play size={18} />
-                      Start RSVP
+                      Open word-by-word reader
                     </button>
+                    {!onRsvp && (
+                      <p className="settings-note">
+                        Open a text chapter to use word-by-word reading.
+                      </p>
+                    )}
                   </div>
                 ),
               },

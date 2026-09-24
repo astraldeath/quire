@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings2,
+  Search,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -32,7 +33,7 @@ import { installReadingInteractions } from './interactions';
 import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ReadingSettings } from './ReadingSettings';
 import { ComicPages, type ComicNavigation } from './ComicPages';
-import { comicPageAt } from './comic-navigation';
+import { comicCFI, comicPageAt } from './comic-navigation';
 import { bufferSections } from './section-buffer';
 import { ComicBookmarks } from './ComicBookmarks';
 import { countVisibleWords, ReadingCollector } from '../statistics/collector';
@@ -136,7 +137,7 @@ export function Reader({
   const current = useRef({ preferences, onPosition, onActivity });
   current.current = { preferences, onPosition, onActivity };
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<'settings' | null>(null);
+  const [panel, setPanel] = useState<'settings' | 'jump' | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(false);
   const toggleChrome = () => {
@@ -147,6 +148,34 @@ export function Reader({
   const [chapter, setChapter] = useState(book.position?.section ?? '');
   const [activeHref, setActiveHref] = useState('');
   const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [jumpValue, setJumpValue] = useState('');
+  const [returnPosition, setReturnPosition] = useState<Position | null>(null);
+  const previewOrigin = useRef<Position | null>(null);
+  const beginPreview = () => {
+    const position = comic ? comicPosition : readerPosition;
+    if (!previewOrigin.current && position) {
+      previewOrigin.current = position;
+      setReturnPosition(position);
+    }
+  };
+  const previewNavigate = async (target: string) => {
+    beginPreview();
+    return navigate(target);
+  };
+  const finishPreview = () => {
+    previewOrigin.current = null;
+    setReturnPosition(null);
+    const position = comic ? comicPosition : readerPosition;
+    if (position) current.current.onPosition(position);
+  };
+  const returnToReading = async () => {
+    const origin = previewOrigin.current;
+    if (origin && (await navigate(origin.cfi))) {
+      previewOrigin.current = null;
+      setReturnPosition(null);
+    }
+  };
   const [ready, setReady] = useState(false);
   const [fraction, setFraction] = useState(book.position?.fraction ?? 0);
   const [, redraw] = useState(0);
@@ -194,6 +223,8 @@ export function Reader({
   useEffect(() => {
     const cleanups: (() => void)[] = [];
     setRsvp(false);
+    previewOrigin.current = null;
+    setReturnPosition(null);
     rsvpActive.current = false;
     setRsvpSource(null);
     let cancelled = false;
@@ -220,6 +251,7 @@ export function Reader({
     );
     const available = () =>
       !rsvpActive.current &&
+      !previewOrigin.current &&
       document.visibilityState !== 'hidden' &&
       !document.querySelector(
         '[role="dialog"], #reader-contents, .privacy-cover',
@@ -280,6 +312,7 @@ export function Reader({
       setError('');
       setComic(null);
       comicActivity.current = (position, count) => {
+        if (previewOrigin.current) return;
         syncAvailability();
         collector.relocate(
           {
@@ -411,7 +444,7 @@ export function Reader({
         updatedAt: Date.now(),
       };
       setReaderPosition(position);
-      current.current.onPosition(position);
+      if (!previewOrigin.current) current.current.onPosition(position);
     });
     void (async () => {
       const opened = await openBook(bytes, book.format);
@@ -430,7 +463,7 @@ export function Reader({
       host.current?.append(view);
       await view.open(epub);
       view.renderer.addEventListener('relocate', (event) => {
-        if (cancelled || rsvpActive.current) return;
+        if (cancelled || rsvpActive.current || previewOrigin.current) return;
         const detail = (
           event as CustomEvent<{
             reason?: string;
@@ -539,9 +572,7 @@ export function Reader({
       // Foliate's goTo catches renderer failures internally. A resolved init
       // without a loaded page must still surface a recoverable reader error.
       if (!cancelled && !chapterLoaded)
-        throw new Error(
-          'The book page could not load. Close the book and try again.',
-        );
+        throw new Error('The book page could not load.');
       if (!cancelled) setReady(true);
     })().catch((e) => {
       if (!cancelled)
@@ -559,7 +590,7 @@ export function Reader({
       view.remove();
       disposeTextPublication();
     };
-  }, [book.id, bytes]);
+  }, [book.id, bytes, attempt]);
   useEffect(() => {
     if (viewRef.current) applyReaderPreferences(viewRef.current, preferences);
   }, [preferences]);
@@ -569,6 +600,7 @@ export function Reader({
       if (viewRef.current)
         applyReaderPreferences(viewRef.current, current.current.preferences);
     };
+    window.addEventListener('resize', update);
     const media = matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', update);
     const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -579,6 +611,7 @@ export function Reader({
       attributeFilter: ['data-theme', 'style'],
     });
     return () => {
+      window.removeEventListener('resize', update);
       media.removeEventListener('change', update);
       motion.removeEventListener('change', update);
       observer.disconnect();
@@ -679,6 +712,15 @@ export function Reader({
             <PanelLeftOpen size={20} />
           )}
         </button>
+        {comic && (
+          <button
+            disabled
+            aria-label="Search unavailable for page-based books"
+            title="Search unavailable for page-based books"
+          >
+            <Search size={20} />
+          </button>
+        )}
         <button
           aria-label="Reading settings"
           title="Reading settings"
@@ -726,7 +768,7 @@ export function Reader({
                     items={toc}
                     active={activeHref}
                     go={(href) => {
-                      void navigate(href).then((ok) => {
+                      void previewNavigate(href).then((ok) => {
                         if (ok && !matchMedia('(min-width: 900px)').matches)
                           setContentsOpen(false);
                       });
@@ -745,9 +787,21 @@ export function Reader({
         )}
         <div className="reader-canvas">
           {error && (
-            <p className="reader-error" role="alert">
-              {error}
-            </p>
+            <div className="reader-error" role="alert">
+              <p>{error}</p>
+              <div>
+                <button onClick={onClose}>Back to library</button>
+                <button
+                  onClick={() => {
+                    setError('');
+                    setReady(false);
+                    setAttempt((value) => value + 1);
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
           )}
           {!ready && !error && (
             <p className="reader-loading" role="status">
@@ -779,7 +833,8 @@ export function Reader({
                       ]?.name ?? '',
                     );
                     comicActivity.current?.(position, comic.comicPages!.length);
-                    current.current.onPosition(position);
+                    if (!previewOrigin.current)
+                      current.current.onPosition(position);
                   }}
                 />
               )}
@@ -807,7 +862,25 @@ export function Reader({
             <div className="reader-progress">
               <div>
                 <span title={chapter}>{chapter || book.title}</span>
-                <span>{Math.round(fraction * 100)}%</span>
+                <button
+                  aria-label="Jump to page or percentage"
+                  disabled={!ready}
+                  onClick={() => {
+                    setJumpValue(
+                      String(
+                        comic?.comicPages
+                          ? comicPageAt(
+                              comicPosition,
+                              comic.comicPages.length,
+                            ) + 1
+                          : Math.round(fraction * 100),
+                      ),
+                    );
+                    setPanel('jump');
+                  }}
+                >
+                  {Math.round(fraction * 100)}%
+                </button>
               </div>
               <progress aria-label="Book progress" value={fraction} max={1} />
             </div>
@@ -835,7 +908,7 @@ export function Reader({
           fixedLayout={viewRef.current.isFixedLayout}
           visible={chromeVisible}
           onSave={onAnnotations}
-          navigate={navigate}
+          navigate={previewNavigate}
         />
       )}
       {ready &&
@@ -854,10 +927,75 @@ export function Reader({
               setContentsOpen(false);
             }}
             onSave={onAnnotations}
-            navigate={navigate}
+            navigate={previewNavigate}
           />
         )}
-      {panel && (
+      {returnPosition && (
+        <div className="reader-location-preview" role="status">
+          <span>Previewing location</span>
+          <button onClick={() => void returnToReading()}>
+            Return to reading
+          </button>
+          <button onClick={finishPreview}>Continue here</button>
+        </div>
+      )}
+      {panel === 'jump' && (
+        <ReaderDialog label="Jump to location" onClose={() => setPanel(null)}>
+          <div className="reader-panel-heading">
+            <h2>Jump to location</h2>
+            <button aria-label="Close jump" onClick={() => setPanel(null)}>
+              <X />
+            </button>
+          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const value = Number(jumpValue);
+              const count = comic?.comicPages?.length;
+              if (
+                !jumpValue.trim() ||
+                !Number.isFinite(value) ||
+                value < (count ? 1 : 0) ||
+                value > (count ?? 100) ||
+                (count && !Number.isInteger(value))
+              )
+                return;
+              beginPreview();
+              if (count) void navigate(comicCFI(value - 1));
+              else {
+                const view = viewRef.current as
+                  | (View & { goToFraction(fraction: number): Promise<void> })
+                  | null;
+                void view
+                  ?.goToFraction(value / 100)
+                  .then(() => {
+                    setPanel(null);
+                    setChromeVisible(false);
+                  })
+                  .catch(() => setError('Could not open this location.'));
+              }
+            }}
+          >
+            <label>
+              {comic?.comicPages
+                ? `Page (1�${comic.comicPages.length})`
+                : 'Percentage (0�100)'}
+              <input
+                autoFocus
+                required
+                type="number"
+                min={comic ? 1 : 0}
+                max={comic?.comicPages?.length ?? 100}
+                step={comic ? 1 : 'any'}
+                value={jumpValue}
+                onChange={(event) => setJumpValue(event.target.value)}
+              />
+            </label>
+            <button type="submit">Preview location</button>
+          </form>
+        </ReaderDialog>
+      )}
+      {panel === 'settings' && (
         <ReaderDialog label="Reading settings" onClose={() => setPanel(null)}>
           <div className="reader-panel-heading">
             <h2>Reading settings</h2>
@@ -872,6 +1010,7 @@ export function Reader({
           <ReadingSettings
             onRsvp={
               ready &&
+              !returnPosition &&
               rsvpSource &&
               viewRef.current?.renderer
                 ?.getContents()

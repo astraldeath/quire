@@ -254,3 +254,46 @@ it('clears native selection before opening a note while retaining the passage', 
   );
   await act(async () => ctx.root.unmount());
 });
+
+it('searches a typed phrase without a text selection and supports revising it', async () => {
+  const ctx = await setup();
+  const search = vi.fn(async function* ({ query }: { query: string }) {
+    if (query === 'remember')
+      yield {
+        subitems: [
+          {
+            cfi: 'epubcfi(/6/4)',
+            excerpt: { pre: 'A ', match: 'remembered', post: ' phrase' },
+          },
+        ],
+      };
+  });
+  Object.assign(ctx.view, { search });
+  await click('Search in book');
+  const input = document.querySelector(
+    'input[type="search"]',
+  ) as HTMLInputElement;
+  const enter = async (value: string) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () =>
+      document
+        .querySelector('form')!
+        .dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        ),
+    );
+  };
+  await enter('remember');
+  expect(search).toHaveBeenCalledWith({ query: 'remember' });
+  expect(document.body.textContent).toContain('A remembered phrase');
+  await enter('missing');
+  expect(document.body.textContent).toContain('No matches found.');
+  expect(document.body.textContent).not.toContain('A remembered phrase');
+  await act(async () => ctx.root.unmount());
+});

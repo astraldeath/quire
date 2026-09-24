@@ -55,6 +55,8 @@ export function ReaderTools({
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searched, setSearched] = useState(false);
   const [dictionaryUrl, setDictionaryUrl] = useState('');
   const [definitions, setDefinitions] = useState<DefinitionGroup[]>([]);
   const [defining, setDefining] = useState(false);
@@ -263,7 +265,7 @@ export function ReaderTools({
               id: crypto.randomUUID(),
               kind: 'bookmark',
               cfi: position.cfi,
-              text: position.section || book.title,
+              text: `${position.section || book.title} � ${Math.round(position.fraction * 100)}%`,
               note: '',
               section: position.section,
               createdAt: Date.now(),
@@ -303,7 +305,11 @@ export function ReaderTools({
     if (await navigate(cfi)) close();
   };
   const search = async (term: string) => {
+    term = term.trim();
+    if (!term || fixedLayout) return;
     const id = ++searchId.current;
+    setSearchInput(term);
+    setSearched(true);
     setQuery(term);
     setPanel('search');
     setResults([]);
@@ -344,6 +350,16 @@ export function ReaderTools({
         !panel &&
         createPortal(
           <div className="reader-tools" aria-label="Reading tools">
+            <button
+              title="Search in book"
+              aria-label="Search in book"
+              onClick={() => {
+                setPanel('search');
+                setMessage('');
+              }}
+            >
+              <Search />
+            </button>
             <button
               title={fixedLayout ? 'Bookmarks' : 'Bookmarks and highlights'}
               aria-label={
@@ -478,7 +494,12 @@ export function ReaderTools({
                 </p>
               )}
               {items.map((item) => (
-                <article key={item.id}>
+                <article
+                  key={item.id}
+                  className={
+                    item.kind === 'bookmark' ? 'saved-bookmark' : undefined
+                  }
+                >
                   <button
                     className="annotation-jump"
                     onClick={() => {
@@ -488,7 +509,16 @@ export function ReaderTools({
                     {item.kind === 'bookmark' ? <Bookmark /> : <Highlighter />}
                     <span>
                       {item.text}
-                      <small>{item.section}</small>
+                      {item.section &&
+                        item.section !== item.text &&
+                        !item.text.startsWith(`${item.section} � `) && (
+                          <small>{item.section}</small>
+                        )}
+                      {item.kind === 'bookmark' && (
+                        <small>
+                          {new Date(item.createdAt).toLocaleString()}
+                        </small>
+                      )}
                     </span>
                   </button>
                   {item.note && <p>{item.note}</p>}
@@ -581,8 +611,35 @@ export function ReaderTools({
           )}
           {panel === 'search' && (
             <div className="search-results">
-              <h3>{query}</h3>
-              {!searching && !results.length && !message && (
+              {fixedLayout ? (
+                <p>Search is unavailable for this page-based book.</p>
+              ) : (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void search(searchInput);
+                  }}
+                >
+                  <label>
+                    Search text
+                    <input
+                      autoFocus
+                      type="search"
+                      value={searchInput}
+                      onChange={(event) => setSearchInput(event.target.value)}
+                    />
+                  </label>
+                  <button type="submit" disabled={!searchInput.trim()}>
+                    Search
+                  </button>
+                </form>
+              )}
+              {searched && (
+                <p role="status">
+                  {results.length} matches for �{query}�
+                </p>
+              )}
+              {searched && !searching && !results.length && !message && (
                 <p>No matches found.</p>
               )}
               {results.map((r, i) => (
