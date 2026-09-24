@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { requestNavigation } from '../navigation/blockers';
 import { Modal } from '../../components/Modal';
 import { hostedWeb, navigateWeb, useWebPath } from '../navigation/routes';
 import {
@@ -273,39 +274,46 @@ export function Catalogs({
         className="catalog-dialog"
         placement="top"
         onClose={() => {
-          controller.current?.abort();
-          onClose();
+          requestNavigation(() => {
+            controller.current?.abort();
+            onClose();
+          });
         }}
       >
         <div className="catalog-browser">
-          <nav className="catalog-breadcrumbs" aria-label="Catalog navigation">
-            <button onClick={() => go()} disabled={!!progress}>
-              Catalogs
-            </button>
-            {source && (
-              <>
-                <ChevronRight />
-                <button
-                  onClick={() =>
-                    go({
-                      sourceId: source.id,
-                      url: source.url,
-                      title: source.name,
-                    })
-                  }
-                  disabled={!!progress}
-                >
-                  {source.name}
-                </button>
-                {feed && feed.url !== source.url && (
-                  <>
-                    <ChevronRight />
-                    <span>{feed.title}</span>
-                  </>
-                )}
-              </>
-            )}
-          </nav>
+          {destination && (
+            <nav
+              className="catalog-breadcrumbs"
+              aria-label="Catalog navigation"
+            >
+              <button onClick={() => go()} disabled={!!progress}>
+                Catalogs
+              </button>
+              {source && (
+                <>
+                  <ChevronRight />
+                  <button
+                    onClick={() =>
+                      go({
+                        sourceId: source.id,
+                        url: source.url,
+                        title: source.name,
+                      })
+                    }
+                    disabled={!!progress}
+                  >
+                    {source.name}
+                  </button>
+                  {feed && feed.url !== source.url && (
+                    <>
+                      <ChevronRight />
+                      <span>{feed.title}</span>
+                    </>
+                  )}
+                </>
+              )}
+            </nav>
+          )}
           {error && (
             <p className="error" role="alert">
               {error}
@@ -318,13 +326,15 @@ export function Catalogs({
                   <Plus />
                   Add catalog
                 </button>
-                <button onClick={() => void run(syncCatalogSources)}>
-                  Refresh
-                </button>
+                {(sources.some((s) => !s.deleted || s.conflict) || error) && (
+                  <button onClick={() => void run(syncCatalogSources)}>
+                    Refresh
+                  </button>
+                )}
               </div>
               {!sources.some((s) => !s.deleted) && (
                 <p className="muted">
-                  Add a catalog to browse and download books.
+                  Browse and download books from OPDS catalogs.
                 </p>
               )}
               <div className="catalog-sources">

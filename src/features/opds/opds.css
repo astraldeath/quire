@@ -192,7 +192,7 @@
 .opds-password {
   display: flex;
   gap: 8px;
-  align-items: end;
+  align-items: center;
 }
 .opds-address label,
 .opds-create label {
@@ -241,5 +241,29 @@
   }
   .catalog-breadcrumbs button {
     padding: 6px;
+  }
+}
+
+.opds-field,
+.opds-create {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.opds-address > input {
+  flex: 1;
+  min-width: 0;
+}
+.opds-address > button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .opds-create .opds-address {
+    flex-wrap: wrap;
+  }
+  .opds-create .opds-address > input {
+    flex-basis: 100%;
   }
 }

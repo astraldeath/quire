@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Copy, KeyRound, Trash2 } from 'lucide-react';
 import type { Account } from '../sync/model';
 import { opdsAccountRequest } from './sources';
@@ -12,6 +12,7 @@ export function OpdsAccessSettings({ account }: { account: Account }) {
   );
 }
 function AccountOpdsAccess({ account }: { account: Account }) {
+  const fieldId = useId();
   const [passwords, setPasswords] = useState<
       { id: string; name: string; createdAt: number }[]
     >([]),
@@ -75,43 +76,47 @@ function AccountOpdsAccess({ account }: { account: Account }) {
             Read your server library in other apps. Hidden and locked books are
             excluded.
           </p>
-          <div className="opds-address">
-            <label>
-              OPDS 1.2
+          <div className="opds-field">
+            <label htmlFor={fieldId + '-v1'}>OPDS 1.2</label>
+            <div className="opds-address">
               <input
+                id={fieldId + '-v1'}
                 readOnly
                 value={account.origin + '/opds'}
                 onFocus={(e) => e.target.select()}
               />
-            </label>
-            <button
-              className="icon"
-              aria-label="Copy OPDS 1.2 URL"
-              onClick={() =>
-                void copy(account.origin + '/opds', 'Catalog URL copied')
-              }
-            >
-              <Copy />
-            </button>
+
+              <button
+                className="icon"
+                aria-label="Copy OPDS 1.2 URL"
+                onClick={() =>
+                  void copy(account.origin + '/opds', 'Catalog URL copied')
+                }
+              >
+                <Copy />
+              </button>
+            </div>
           </div>
-          <div className="opds-address">
-            <label>
-              OPDS 2.0
+          <div className="opds-field">
+            <label htmlFor={fieldId + '-v2'}>OPDS 2.0</label>
+            <div className="opds-address">
               <input
+                id={fieldId + '-v2'}
                 readOnly
                 value={account.origin + '/opds/v2'}
                 onFocus={(e) => e.target.select()}
               />
-            </label>
-            <button
-              className="icon"
-              aria-label="Copy OPDS 2.0 URL"
-              onClick={() =>
-                void copy(account.origin + '/opds/v2', 'Catalog URL copied')
-              }
-            >
-              <Copy />
-            </button>
+
+              <button
+                className="icon"
+                aria-label="Copy OPDS 2.0 URL"
+                onClick={() =>
+                  void copy(account.origin + '/opds/v2', 'Catalog URL copied')
+                }
+              >
+                <Copy />
+              </button>
+            </div>
           </div>
           {secret && (
             <div className="opds-secret">
@@ -120,22 +125,24 @@ function AccountOpdsAccess({ account }: { account: Account }) {
                 Username
                 <input readOnly value={account.username} />
               </label>
-              <div className="opds-address">
-                <label>
-                  App password
+              <div className="opds-field">
+                <label htmlFor={fieldId + '-secret'}>App password</label>
+                <div className="opds-address">
                   <input
+                    id={fieldId + '-secret'}
                     readOnly
                     value={secret}
                     onFocus={(e) => e.target.select()}
                   />
-                </label>
-                <button
-                  className="icon"
-                  aria-label="Copy app password"
-                  onClick={() => void copy(secret, 'Password copied')}
-                >
-                  <Copy />
-                </button>
+
+                  <button
+                    className="icon"
+                    aria-label="Copy app password"
+                    onClick={() => void copy(secret, 'Password copied')}
+                  >
+                    <Copy />
+                  </button>
+                </div>
               </div>
               <button onClick={() => setSecret('')}>Done</button>
             </div>
@@ -156,20 +163,21 @@ function AccountOpdsAccess({ account }: { account: Account }) {
               });
             }}
           >
-            <label>
-              Password name
+            <label htmlFor={fieldId + '-name'}>Password name</label>
+            <div className="opds-address">
               <input
+                id={fieldId + '-name'}
                 required
                 maxLength={100}
                 placeholder="e.g. Tablet reader"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-            </label>
-            <button disabled={busy || !name.trim() || !supported}>
-              <KeyRound />
-              Create password
-            </button>
+              <button disabled={busy || !name.trim() || !supported}>
+                <KeyRound />
+                Create password
+              </button>
+            </div>
           </form>
           {passwords.map((p) => (
             <div className="opds-password" key={p.id}>
