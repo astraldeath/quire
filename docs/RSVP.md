@@ -1,6 +1,6 @@
 # RSVP reading
 
-Open a reflowable text book, then choose **Reading settings > RSVP > Start RSVP**.
+Open a reflowable text book, then choose **Reading settings > RSVP > Open RSVP reader**.
 The reader starts paused at the current passage. Press **Play**, or use Space
 outside an input, to advance one word at a time. **Rewind sentence** pauses and
 returns to the beginning of the sentence; pressing it again moves to the previous
@@ -12,7 +12,9 @@ A highlighted letter stays in the same position as words advance, giving your
 eyes a fixed point to follow. Long words shrink to fit the screen. Turn
 **Pause at punctuation** on or off in reading settings. When enabled, commas and
 semicolons receive 1.5 times the base dwell, sentence endings twice the base dwell,
-and paragraph endings 2.5 times the base dwell. These delays do not multiply.
+and paragraph endings 2.5 times the base dwell at the default punctuation strength. Adjust **Punctuation pause strength** to scale the extra time. Optional long-word pauses use the chosen length threshold and multiplier. When both apply, the longer pause wins.
+
+The RSVP settings tab also controls the font, size, focal-letter color, and alignment guides, with a live preview. Imported reading fonts are available here too.
 
 Playback pauses when the app loses focus, enters the background, shows a privacy
 cover or dialog, or when you leave RSVP. Resume explicitly with Play. Delayed
@@ -38,5 +40,5 @@ not a measured reading-speed sample. Chapter identities use the existing book
 structure and immutable activity history, so replay does not inflate chapter totals.
 Rewinding preserves completed chapter progress while moving the current position.
 
-RSVP speed and punctuation preferences are included in ordinary backups. Older
+RSVP appearance and pacing preferences are included in ordinary backups and saved reading presets. Older
 preferences restore to 250 WPM with punctuation pauses enabled.

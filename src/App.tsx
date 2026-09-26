@@ -1,3 +1,7 @@
+import {
+  readerPreferences,
+  setBookReaderPreferences,
+} from './features/reader/customization';
 import { ViewOptions } from './features/library/ViewOptions';
 import { LibraryDestination } from './features/library/LibraryDestination';
 import {
@@ -270,6 +274,13 @@ function AppContent({
     book: Book;
     bytes: Uint8Array;
   } | null>(null);
+  const effectiveReaderPreferences = useMemo(
+    () =>
+      opened
+        ? readerPreferences(preferences, opened.book.id)
+        : preferences.reader,
+    [preferences.reader, preferences.bookReaderOverrides, opened?.book.id],
+  );
   protectOpenBook(opened?.book.id ?? null);
   const input = useRef<HTMLInputElement>(null);
   const shelfElement = useRef<HTMLElement>(null);
@@ -1357,9 +1368,27 @@ function AppContent({
           book={books.find((b) => b.id === opened.book.id) ?? opened.book}
           onAnnotations={saveAnnotations}
           bytes={opened.bytes}
-          preferences={preferences.reader}
+          preferences={effectiveReaderPreferences}
+          customization={{
+            preferences,
+            onChange: (next) =>
+              changePreferences(
+                typeof next === 'function'
+                  ? next(preferencesRef.current)
+                  : next,
+              ),
+            bookId: opened.book.id,
+          }}
           onPreferences={(reader) =>
-            changePreferences({ ...preferencesRef.current, reader })
+            changePreferences(
+              preferencesRef.current.bookReaderOverrides?.[opened.book.id]
+                ? setBookReaderPreferences(
+                    preferencesRef.current,
+                    opened.book.id,
+                    reader,
+                  )
+                : { ...preferencesRef.current, reader },
+            )
           }
           onPosition={savePosition}
           onActivity={(activity) => {

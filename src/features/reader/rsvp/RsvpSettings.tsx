@@ -36,6 +36,7 @@ export function RsvpSettings({
         <label className="rsvp-font-control">
           Font
           <select
+            aria-label="RSVP font"
             value={preferences.rsvpFont ?? 'Georgia'}
             onChange={(event) => patch({ rsvpFont: event.target.value })}
           >

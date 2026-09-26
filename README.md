@@ -29,7 +29,7 @@ Windows and Linux AppImage installations can update from **Settings > Updates**.
 
 ## Reading and organizing
 
-- Read with pagination or continuous scrolling, adjustable fonts, spacing, and themes.
+- Read with pagination or continuous scrolling, custom fonts, saved themes and presets, and per-book settings.
 - Use single pages, double-page spreads, or Webtoon mode for comics, with left-to-right or right-to-left reading, taps, and swipes.
 - Organize books into series and nested folders. A book can belong to several folders without duplicate files.
 - Save bookmarks, highlights, and notes. Search book text and look up words.

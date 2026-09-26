@@ -1,7 +1,10 @@
+import { fontCss, fontFamily } from './customization';
+import type { ReadingCustomization } from './ReadingCustomization';
+import type { CustomFont } from '../../domain/models';
 import { ReaderDialog } from './ReaderDialog';
 import { ReaderTools, type ReaderToolsHandle } from './ReaderTools';
 import { Contents } from './Contents';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -44,6 +47,7 @@ import { supportsRsvp } from './rsvp/publication';
 import { tokenizeRsvp } from './rsvp/tokens';
 
 interface Props {
+  customization?: ReadingCustomization;
   book: Book;
   bytes: Uint8Array;
   preferences: ReaderPreferences;
@@ -67,7 +71,11 @@ function colors(p: ReaderPreferences) {
     },
   );
 }
-export function applyReaderPreferences(view: View, p: ReaderPreferences) {
+export function applyReaderPreferences(
+  view: View,
+  p: ReaderPreferences,
+  fonts: CustomFont[] = [],
+) {
   if (!view.renderer) return;
   if (view.isFixedLayout) {
     view.renderer.setAttribute('zoom', 'fit-page');
@@ -97,17 +105,13 @@ export function applyReaderPreferences(view: View, p: ReaderPreferences) {
     'max-column-count',
     p.columns === 'two' ? '2' : '1',
   );
-  const font =
-    p.font === 'sans-serif'
-      ? 'system-ui, sans-serif'
-      : p.font === 'publisher'
-        ? 'inherit'
-        : 'Georgia, Charter, serif';
+  const font = fontFamily(p.font);
   view.renderer.setStyles?.(
-    `${readerThemeCss(c.foreground, c.background)} html { --theme-bg-color: ${c.background}; color: ${c.foreground} !important; background: ${c.background} !important; color-scheme: ${c.dark ? 'dark' : 'light'}; } body { margin: 0 !important; padding: 0 !important; color: ${c.foreground} !important; background: transparent !important; font-size: ${clamp(p.size, 12, 36)}px !important; line-height: ${clamp(p.lineHeight, 1.2, 2.4)} !important; ${p.font !== 'publisher' ? `font-family: ${font} !important;` : ''} } ${!p.publisherStyles ? `p, li, div { font-size: inherit !important; line-height: inherit !important; font-family: inherit !important; color: inherit !important; }` : ''} a { color: inherit; } img, svg { max-width: 100%; }`,
+    `${fontCss(fonts.filter((f) => f.id === p.font))} ${readerThemeCss(c.foreground, c.background)} html { --theme-bg-color: ${c.background}; color: ${c.foreground} !important; background: ${c.background} !important; color-scheme: ${c.dark ? 'dark' : 'light'}; } body { margin: 0 !important; padding: 0 !important; color: ${c.foreground} !important; background: transparent !important; font-size: ${clamp(p.size, 12, 36)}px !important; line-height: ${clamp(p.lineHeight, 1.2, 2.4)} !important; ${p.fontWeight ? `font-weight: ${clamp(p.fontWeight, 100, 900)} !important;` : ''} ${p.font !== 'publisher' ? `font-family: ${font} !important;` : ''} } ${!p.publisherStyles ? `p, li, div { font-size: inherit !important; line-height: inherit !important; font-family: inherit !important; ${p.fontWeight ? 'font-weight: inherit !important;' : ''} color: inherit !important; }` : ''} a, a * { color: ${p.theme === 'custom' && /^#[0-9a-f]{6}$/i.test(p.linkColor ?? '') ? p.linkColor : c.foreground} !important; } img, svg { max-width: 100%; }`,
   );
 }
 export function Reader({
+  customization,
   book,
   bytes,
   preferences,
@@ -117,6 +121,8 @@ export function Reader({
   onClose,
   onAnnotations,
 }: Props) {
+  const fonts = customization?.preferences.customFonts;
+  const importedFontStyles = useMemo(() => fontCss(fonts), [fonts]);
   const root = useRef<HTMLElement>(null);
   const toolbar = useRef<HTMLElement>(null);
   const footer = useRef<HTMLElement>(null);
@@ -138,8 +144,8 @@ export function Reader({
     publication: ReaderBook;
     structure: BookStructure;
   } | null>(null);
-  const current = useRef({ preferences, onPosition, onActivity });
-  current.current = { preferences, onPosition, onActivity };
+  const current = useRef({ preferences, onPosition, onActivity, fonts });
+  current.current = { preferences, onPosition, onActivity, fonts };
   const [toc, setToc] = useState<TocItem[]>([]);
   const [panel, setPanel] = useState<'settings' | 'jump' | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
@@ -587,7 +593,11 @@ export function Reader({
         disposeTextPublication();
         return;
       }
-      applyReaderPreferences(view, current.current.preferences);
+      applyReaderPreferences(
+        view,
+        current.current.preferences,
+        current.current.fonts,
+      );
       setToc(epub.toc ?? []);
       await view.init({
         lastLocation: book.position?.cfi,
@@ -616,13 +626,18 @@ export function Reader({
     };
   }, [book.id, bytes, attempt]);
   useEffect(() => {
-    if (viewRef.current) applyReaderPreferences(viewRef.current, preferences);
-  }, [preferences]);
+    if (viewRef.current)
+      applyReaderPreferences(viewRef.current, preferences, fonts);
+  }, [preferences, fonts]);
   useEffect(() => {
     const update = () => {
       redraw((n) => n + 1);
       if (viewRef.current)
-        applyReaderPreferences(viewRef.current, current.current.preferences);
+        applyReaderPreferences(
+          viewRef.current,
+          current.current.preferences,
+          current.current.fonts,
+        );
     };
     window.addEventListener('resize', update);
     const media = matchMedia('(prefers-color-scheme: dark)');
@@ -672,6 +687,7 @@ export function Reader({
       }
       aria-label={`Reading ${book.title}`}
     >
+      <style>{importedFontStyles}</style>
       <button
         className="reader-reveal"
         inert={rsvp}
@@ -1002,6 +1018,7 @@ export function Reader({
             </button>
           </div>
           <ReadingSettings
+            customization={customization}
             previewing={!!returnPosition}
             onRsvp={
               ready &&

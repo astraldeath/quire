@@ -16,25 +16,33 @@ The reader opens with its controls hidden. Tap or click the middle to toggle the
 
 **Reading settings** controls typography, reader colors, layout, side taps, swipes, and animation. Reader appearance can differ from the app theme in **Settings > Appearance**. Animation respects reduced-motion preferences. Available controls depend on the book format.
 
+Choose **All books** to edit your defaults or **This book** for an override. Unchanged book settings continue following your defaults. **Use global defaults** removes that book's overrides. **Presets** saves the current combination of reading settings; applying one copies it into the selected scope.
+
+Under **Text**, import TTF or OTF files with **Manage fonts**. Font weight depends on the font's available weights. Removing a custom font switches its saved uses to the built-in serif font. Under **Theme > Custom**, choose page, text, and link colors and save named themes. These colors do not change the app theme.
+
+Under **Behavior**, assign left, center, and right tap zones and adjust their width. Page actions reverse for right-to-left books. Desktop shortcuts can be reassigned or disabled; assigning a used key clears its previous action. Shortcuts do not run while typing or using a focused control.
+
+Overrides, presets, themes, and imported fonts stay on this device or browser account and are included in preference backups. They are not part of server reading-position sync. Font imports accept up to 20 files, 4 MiB each, within a 16 MiB encoded total.
+
 Text books support pagination, chapter scrolling, and continuous chapter transitions. Continuous mode loads the next or previous chapter when you cross a boundary; it does not display every chapter in one document. Touch page drags follow your finger and settle on release. [RSVP](RSVP.md) offers one-word-at-a-time playback for reflowable text.
 
 Use contents and search to navigate. Select text to copy, highlight, add a note, search within the book, or request an English definition. Definitions come from [Wiktionary](https://en.wiktionary.org/w/api.php) and require internet access. Bookmarks, highlights, notes, and progress stay with the book when its download is removed; reimporting the identical file restores reading access.
 
 ### Comics
 
-Comic settings offer **Single**, **Double**, and **Webtoon** layouts. Double keeps the cover alone and pairs subsequent pages. Reading direction controls spread order, side taps, horizontal swipes, and arrow keys. Webtoon navigation scrolls by a screenful; contents and bookmarks jump to a page. Changing layout keeps your current page.
+Comic settings offer **Single**, **Double**, and **Webtoon** layouts. Double keeps the cover alone and pairs subsequent pages. Reading direction controls spread order, side taps, horizontal swipes, and arrow keys. Webtoon navigation scrolls by a screenful; contents and bookmarks jump to a page. Changing layout keeps your current page. Single and double-page swipes follow your finger, show the neighboring page, and settle forward or back on release. Turning animation off or enabling reduced motion keeps swipe navigation without sliding. Webtoon remains a scrolling layout.
 
 ## Files and removal
 
 Open **Files and downloads** in a book or series menu to manage its device copy. These actions have different effects:
 
-| Action | Effect |
-| --- | --- |
-| Remove download | Removes the local file and keeps metadata, progress, bookmarks, highlights, and notes |
-| Export EPUB, Export PDF, or another format | Saves the original file in its existing format; server-only books download first |
-| Upload to server | Uploads downloaded books to the connected account, skipping existing server copies |
-| Keep downloaded / Download and keep | Protects downloads from automatic offloading and downloads missing files when needed |
-| Allow automatic offloading | Removes that protection without immediately deleting the download |
+| Action                                     | Effect                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Remove download                            | Removes the local file and keeps metadata, progress, bookmarks, highlights, and notes |
+| Export EPUB, Export PDF, or another format | Saves the original file in its existing format; server-only books download first      |
+| Upload to server                           | Uploads downloaded books to the connected account, skipping existing server copies    |
+| Keep downloaded / Download and keep        | Protects downloads from automatic offloading and downloads missing files when needed  |
+| Allow automatic offloading                 | Removes that protection without immediately deleting the download                     |
 
 Exports do not include Quire annotations or progress; use a backup to preserve those. Installed apps use the system export dialog; browsers use file sharing when supported or a download.
 
