@@ -290,9 +290,28 @@ export function hardenFoliate(
         .replaceAll('doc.URL === src', "doc.URL === 'about:srcdoc'")
         .replace('this.#iframe.src = src', 'this.#iframe.srcdoc = markup')
     : loadMethod;
-  return (
+  let output = (
     normalized.slice(0, start) +
     browserLoad +
     normalized.slice(end)
   ).replace(turnMethod, safeTurn);
+  // Resizes and font completion can arrive while a prior chapter is detached.
+  // A Document may still exist after its body and documentElement are gone.
+  for (const [before, after] of [
+    [
+      'if (!layout || !this.document) return',
+      'if (!layout || !this.document?.documentElement || !this.document?.body) return',
+    ],
+    [
+      '    expand() {\n        const { documentElement } = this.document',
+      '    expand() {\n        if (!this.document?.documentElement || !this.document?.body) return\n        const { documentElement } = this.document',
+    ],
+  ]) {
+    if (output.split(before).length !== 2)
+      throw new Error(
+        'Review foliate chapter reflow lifecycle before upgrading the renderer.',
+      );
+    output = output.replace(before, after);
+  }
+  return output;
 }

@@ -429,3 +429,35 @@ it('completes a hosted chapter when srcdoc is ready without accepting the initia
     vi.unstubAllGlobals();
   }
 });
+
+it('ignores reflow callbacks after the chapter document has been detached', () => {
+  const transformed = hardenFoliate(source, id)!;
+  const helpers = transformed.slice(
+    transformed.indexOf('const setStylesImportant ='),
+    transformed.indexOf('// NOTE: everything here assumes'),
+  );
+  const ChapterView = new Function('ResizeObserver', helpers + '\nreturn View')(
+    class {
+      observe() {}
+      unobserve() {}
+    },
+  );
+  const view = new ChapterView({
+    container: document.createElement('div'),
+    onExpand: vi.fn(),
+  });
+  Object.defineProperty(view, 'document', {
+    get: () => ({ documentElement: null, body: null }),
+  });
+  expect(() =>
+    view.render({
+      flow: 'paginated',
+      width: 400,
+      height: 800,
+      margin: 20,
+      gap: 10,
+      columnWidth: 380,
+    }),
+  ).not.toThrow();
+  expect(() => view.expand()).not.toThrow();
+});
