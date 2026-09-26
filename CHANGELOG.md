@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.12.0]
+
+- Swipe comic and PDF pages with finger-following animations, including double-page spreads and right-to-left reading. Preserve preloaded images and respect reduced motion.
+- Save per-book reading settings, reset them to global defaults, and reuse named reading presets.
+- Import TTF and OTF fonts, adjust supported font weights, and save reading themes with independent page, text, and link colors.
+- Customize tap zones and desktop keyboard shortcuts for navigation, controls, settings, search, and bookmarks.
+- Customize RSVP fonts, size, focal-letter color, alignment guides, punctuation pauses, and long-word pauses.
+- Include reading customizations and imported fonts in backups. Keep newer preferences when a font import finishes and safely fall back when a font is removed.
+- Avoid unnecessary repagination during reading and ignore delayed reflow callbacks for detached chapter documents.
+
 ## [0.11.0]
 
 - Search within books and preview a page or percentage before continuing there, with a shortcut back to the previous position.
