@@ -12,7 +12,7 @@ Download a package from [Quire releases](https://github.com/astraldeath/quire/re
 | Android | Open the signed `.apk` and allow installation from that source when Android prompts |
 | iOS | Import the unsigned `.ipa` into your sideloading app, sign it, and install it |
 
-Windows and Linux AppImage builds support **Settings > Updates**. Debian users install the newer `.deb`; Android users install the newer APK over the existing app. Keep the same Android signing identity to retain update compatibility. See [Updates and releases](UPDATES.md) for package details.
+All native builds check for newer releases in **Settings > Updates** and show an update notice. Windows and Linux AppImage builds can install updates directly. Other builds link to the release: Debian users install the newer `.deb`, Android users install the newer APK over the existing app, and iOS users sign and sideload the new IPA. Keep the same Android signing identity to retain update compatibility. See [Updates and releases](UPDATES.md) for package details.
 
 For iOS, add the [Quire sideloading source](https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/repo/source.json) to Feather, AltStore, or SideStore, or download an IPA directly. An unsigned IPA cannot launch until signed. Feather users select their local certificate and provisioning profile; the profile must permit the signing identifier and device and remain valid. Signing material stays on your device. New IPA releases need signing again.
 

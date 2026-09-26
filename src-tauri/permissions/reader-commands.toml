@@ -39,6 +39,8 @@ commands.allow = [
   "tracking_provider",
   "tracking_status",
   "updates_call",
+  "system_fonts",
+  "updates_latest",
   "updates_info",
   "updates_restart",
 ]
