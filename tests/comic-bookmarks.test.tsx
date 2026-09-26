@@ -1,7 +1,8 @@
-import { act } from 'react';
+import { act, createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { ComicBookmarks } from '../src/features/reader/ComicBookmarks';
+import type { ReaderToolsHandle } from '../src/features/reader/ReaderTools';
 import type { Annotation, Book } from '../src/domain/models';
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -11,6 +12,7 @@ it('keeps old comic bookmarks accessible and persists add/delete without droppin
     toolbar = document.createElement('header');
   document.body.append(host, toolbar);
   const root = createRoot(host);
+  const shortcuts = createRef<ReaderToolsHandle>();
   const old: Annotation = {
     id: 'old',
     kind: 'bookmark',
@@ -38,6 +40,7 @@ it('keeps old comic bookmarks accessible and persists add/delete without droppin
   await act(async () =>
     root.render(
       <ComicBookmarks
+        ref={shortcuts}
         book={book}
         position={{
           cfi: 'epubcfi(/6/6)',
@@ -73,6 +76,10 @@ it('keeps old comic bookmarks accessible and persists add/delete without droppin
   expect(onSave.mock.lastCall?.[0]).toEqual([
     expect.objectContaining({ cfi: 'epubcfi(/6/6)' }),
   ]);
+  await act(async () => shortcuts.current?.close());
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  await act(async () => shortcuts.current?.bookmark());
+  expect(onSave.mock.lastCall?.[0]).toEqual([]);
   await act(async () => root.unmount());
   host.remove();
   toolbar.remove();

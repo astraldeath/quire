@@ -1,11 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Bookmark, Trash2, X } from 'lucide-react';
 import type { Annotation, Book, Position } from '../../domain/models';
 import { ReaderDialog } from './ReaderDialog';
 import { comicPageAt } from './comic-navigation';
+import type { ReaderToolsHandle } from './ReaderTools';
 
 export function ComicBookmarks({
+  ref,
   book,
   position,
   count,
@@ -16,6 +24,7 @@ export function ComicBookmarks({
   onSave,
   navigate,
 }: {
+  ref?: Ref<ReaderToolsHandle>;
   book: Book;
   position?: Position;
   count: number;
@@ -60,6 +69,27 @@ export function ComicBookmarks({
       setBusy(false);
     }
   };
+  const bookmark = () => {
+    if (!position) return;
+    void persist(
+      marked
+        ? items.filter((item) => item.id !== marked.id)
+        : [
+            ...items,
+            {
+              id: crypto.randomUUID(),
+              kind: 'bookmark',
+              cfi: position.cfi,
+              text: position.section || book.title,
+              note: '',
+              section: position.section,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+          ],
+    );
+  };
+  useImperativeHandle(ref, () => ({ bookmark, close: () => setOpen(false) }));
   return (
     <>
       {visible &&
@@ -80,6 +110,11 @@ export function ComicBookmarks({
           </div>,
           toolbar,
         )}
+      {!open && error && (
+        <p className="reader-tool-message" role="alert">
+          {error}
+        </p>
+      )}
       {open && (
         <ReaderDialog label="Bookmarks" onClose={() => setOpen(false)}>
           <div className="reader-panel-heading">
@@ -93,26 +128,7 @@ export function ComicBookmarks({
             <button
               className="bookmark-current"
               disabled={busy || !position}
-              onClick={() => {
-                if (!position) return;
-                void persist(
-                  marked
-                    ? items.filter((item) => item.id !== marked.id)
-                    : [
-                        ...items,
-                        {
-                          id: crypto.randomUUID(),
-                          kind: 'bookmark',
-                          cfi: position.cfi,
-                          text: position.section || book.title,
-                          note: '',
-                          section: position.section,
-                          createdAt: Date.now(),
-                          updatedAt: Date.now(),
-                        },
-                      ],
-                );
-              }}
+              onClick={bookmark}
             >
               <Bookmark fill={marked ? 'currentColor' : 'none'} />
               {marked ? 'Remove bookmark' : 'Bookmark this page'}

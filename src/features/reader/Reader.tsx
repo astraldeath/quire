@@ -1,5 +1,5 @@
 import { ReaderDialog } from './ReaderDialog';
-import { ReaderTools } from './ReaderTools';
+import { ReaderTools, type ReaderToolsHandle } from './ReaderTools';
 import { Contents } from './Contents';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
@@ -30,6 +30,7 @@ import {
 } from '../../domain/models';
 import './reader.css';
 import { installReadingInteractions } from './interactions';
+import { shortcutAction } from './control-mapping';
 import { readerThemeCss, resolveReaderTheme } from './theme';
 import { ReadingSettings } from './ReadingSettings';
 import { ComicPages, type ComicNavigation } from './ComicPages';
@@ -122,6 +123,9 @@ export function Reader({
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View | null>(null);
   const comicRef = useRef<ComicNavigation>(null);
+  const toolsRef = useRef<ReaderToolsHandle>(null);
+  const comicToolsRef = useRef<ReaderToolsHandle>(null);
+  const keyboardHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const comicActivity = useRef<
     ((position: Position, count: number) => void) | null
   >(null);
@@ -201,6 +205,42 @@ export function Reader({
       setError(`Could not navigate: ${String(e)}`);
       return false;
     }
+  };
+  keyboardHandler.current = (event) => {
+    if (rsvpActive.current) return;
+    if (event.key === 'Escape') {
+      setChromeVisible(true);
+      setPanel(null);
+      toolsRef.current?.close();
+      comicToolsRef.current?.close();
+      if (!matchMedia('(min-width: 900px)').matches) setContentsOpen(false);
+      return;
+    }
+    if (
+      !ready ||
+      panel ||
+      contentsOpen ||
+      document.querySelector('[role="dialog"]')
+    )
+      return;
+    const rtl = Boolean(
+      (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
+      (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
+        current.current.preferences.comicDirection === 'rtl'),
+    );
+    const action = shortcutAction(event, current.current.preferences, rtl);
+    if (!action) return;
+    const readingTools = comicToolsRef.current ?? toolsRef.current;
+    if (action === 'search' && !readingTools?.search) return;
+    if (action === 'bookmark' && !readingTools) return;
+    event.preventDefault();
+    if (action === 'next' || action === 'prev') void navigate(action);
+    else if (action === 'controls') toggleChrome();
+    else if (action === 'settings') {
+      setChromeVisible(true);
+      setPanel('settings');
+    } else if (action === 'search') readingTools?.search?.();
+    else if (action === 'bookmark') readingTools?.bookmark();
   };
   useLayoutEffect(() => {
     const update = () => {
@@ -377,25 +417,9 @@ export function Reader({
           toggleChrome,
         ),
       );
-      doc.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowRight') {
-          event.preventDefault();
-          void (view.isFixedLayout && view.renderer.rtl
-            ? view.prev()
-            : view.next());
-        }
-        if (event.key === 'ArrowLeft') {
-          event.preventDefault();
-          void (view.isFixedLayout && view.renderer.rtl
-            ? view.next()
-            : view.prev());
-        }
-        if (event.key === 'Escape') {
-          setChromeVisible(true);
-          setPanel(null);
-          if (!matchMedia('(min-width: 900px)').matches) setContentsOpen(false);
-        }
-      });
+      const keydown = (event: KeyboardEvent) => keyboardHandler.current(event);
+      doc.addEventListener('keydown', keydown);
+      cleanups.push(() => doc.removeEventListener('keydown', keydown));
     });
     view.addEventListener('relocate', (event) => {
       // Reflowing controls before a chapter loads must not overwrite a saved locator.
@@ -618,43 +642,10 @@ export function Reader({
     };
   }, []);
   useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (rsvpActive.current) return;
-      if (event.key === 'Escape') {
-        setChromeVisible(true);
-        setPanel(null);
-        if (!matchMedia('(min-width: 900px)').matches) setContentsOpen(false);
-      }
-      if (
-        panel ||
-        (event.target instanceof HTMLElement &&
-          ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName))
-      )
-        return;
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        navigate(
-          (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
-            (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
-              current.current.preferences.comicDirection === 'rtl')
-            ? 'prev'
-            : 'next',
-        );
-      }
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        navigate(
-          (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
-            (['cbz', 'cbr', 'cb7', 'pdf'].includes(book.format ?? 'epub') &&
-              current.current.preferences.comicDirection === 'rtl')
-            ? 'next'
-            : 'prev',
-        );
-      }
-    };
+    const handler = (event: KeyboardEvent) => keyboardHandler.current(event);
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [panel]);
+  }, []);
   const c = colors(preferences);
   const comicRTL =
     (viewRef.current?.isFixedLayout && viewRef.current.renderer.rtl) ||
@@ -898,6 +889,7 @@ export function Reader({
       </div>
       {ready && viewRef.current && !rsvp && (
         <ReaderTools
+          ref={toolsRef}
           otherPanelOpen={!!panel || contentsOpen}
           onOpen={() => {
             setPanel(null);
@@ -917,6 +909,7 @@ export function Reader({
         comic?.comicPages &&
         toolbar.current && (
           <ComicBookmarks
+            ref={comicToolsRef}
             book={book}
             position={comicPosition}
             count={comic.comicPages.length}

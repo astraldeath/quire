@@ -1,5 +1,12 @@
 import { createPortal } from 'react-dom';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Ref,
+} from 'react';
 import {
   Bookmark,
   BookOpen,
@@ -22,7 +29,13 @@ import { ReaderDialog } from './ReaderDialog';
 import { SelectionToolbar } from './SelectionToolbar';
 
 type Selection = { cfi: string; text: string; doc: Document; range: Range };
+export interface ReaderToolsHandle {
+  search?(): void;
+  bookmark(): void;
+  close(): void;
+}
 interface Props {
+  ref?: Ref<ReaderToolsHandle>;
   otherPanelOpen: boolean;
   onOpen(): void;
   toolbar: HTMLElement;
@@ -34,6 +47,7 @@ interface Props {
   navigate(cfi: string): Promise<boolean>;
 }
 export function ReaderTools({
+  ref,
   otherPanelOpen,
   onOpen,
   toolbar,
@@ -54,6 +68,7 @@ export function ReaderTools({
   const [note, setNote] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const saving = useRef(false);
   const [query, setQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [searched, setSearched] = useState(false);
@@ -209,6 +224,8 @@ export function ReaderTools({
     };
   }, [view]);
   const persist = async (next: Annotation[]) => {
+    if (saving.current) return false;
+    saving.current = true;
     setBusy(true);
     setMessage('');
     try {
@@ -218,6 +235,7 @@ export function ReaderTools({
       setMessage('Could not save changes. Try again.');
       return false;
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   };
@@ -344,6 +362,18 @@ export function ReaderTools({
   const marked = items.some(
     (a) => a.kind === 'bookmark' && a.cfi === book.position?.cfi,
   );
+  useImperativeHandle(ref, () => ({
+    search: fixedLayout
+      ? undefined
+      : () => {
+          setPanel('search');
+          setMessage('');
+        },
+    bookmark: () => {
+      void bookmark();
+    },
+    close,
+  }));
   return (
     <>
       {visible &&

@@ -2,12 +2,15 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { Reader } from '../src/features/reader/Reader';
-import { defaults } from '../src/domain/models';
+import { defaults, type ReaderPreferences } from '../src/domain/models';
 const state = vi.hoisted(() => ({
   fail: false,
   opens: 0,
   pending: null as Promise<void> | null,
   destroy: vi.fn(),
+  next: vi.fn(),
+  prev: vi.fn(),
+  doc: null as Document | null,
 }));
 vi.mock('../src/books', () => ({
   openBook: async () => {
@@ -36,10 +39,11 @@ vi.mock('foliate-js/view.js', () => {
     }
     async open() {}
     async init() {
+      state.doc = document.implementation.createHTMLDocument();
       this.dispatchEvent(
         new CustomEvent('load', {
           detail: {
-            doc: document.implementation.createHTMLDocument(),
+            doc: state.doc,
             index: 0,
           },
         }),
@@ -52,8 +56,12 @@ vi.mock('foliate-js/view.js', () => {
     resolveNavigation(target: string) {
       return target;
     }
-    async next() {}
-    async prev() {}
+    async next() {
+      state.next();
+    }
+    async prev() {
+      state.prev();
+    }
     close() {}
     clearSearch() {}
   }
@@ -70,8 +78,11 @@ afterEach(() => {
   state.opens = 0;
   state.pending = null;
   state.destroy.mockClear();
+  state.next.mockClear();
+  state.prev.mockClear();
+  state.doc = null;
 });
-async function setup() {
+async function setup(preferences: ReaderPreferences = defaults.reader) {
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -88,6 +99,7 @@ async function setup() {
   document.body.append(host);
   const root = createRoot(host),
     onPosition = vi.fn(),
+    onAnnotations = vi.fn().mockResolvedValue(undefined),
     onClose = vi.fn();
   await act(async () =>
     root.render(
@@ -109,15 +121,15 @@ async function setup() {
           },
         }}
         bytes={new Uint8Array([1])}
-        preferences={defaults.reader}
+        preferences={preferences}
         onPreferences={() => {}}
         onPosition={onPosition}
-        onAnnotations={async () => {}}
+        onAnnotations={onAnnotations}
         onClose={onClose}
       />,
     ),
   );
-  return { root, onPosition, onClose };
+  return { root, onPosition, onClose, onAnnotations };
 }
 async function click(text: string) {
   const button = [...document.querySelectorAll('button')].find(
@@ -127,6 +139,73 @@ async function click(text: string) {
   expect(button).toBeTruthy();
   await act(async () => button.click());
 }
+it('dispatches persisted shortcuts from the outer reader and book document', async () => {
+  const ctx = await setup({
+    ...defaults.reader,
+    shortcuts: {
+      next: 'n',
+      prev: 'p',
+      controls: 'c',
+      settings: 's',
+      search: 'f',
+      bookmark: 'b',
+    },
+  });
+  const key = async (
+    target: EventTarget,
+    value: string,
+    init: KeyboardEventInit = {},
+  ) => {
+    await act(async () => {
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: value,
+          bubbles: true,
+          cancelable: true,
+          ...init,
+        }),
+      );
+    });
+  };
+  try {
+    await key(window, 'ArrowRight');
+    expect(state.next).not.toHaveBeenCalled();
+    await key(window, 'n');
+    expect(state.next).toHaveBeenCalledOnce();
+    await key(state.doc!, 'p');
+    expect(state.prev).toHaveBeenCalledOnce();
+    await key(state.doc!, 'n', { ctrlKey: true });
+    expect(state.next).toHaveBeenCalledOnce();
+    const input = state.doc!.createElement('input');
+    state.doc!.body.append(input);
+    await key(input, 'n');
+    expect(state.next).toHaveBeenCalledOnce();
+    await key(window, 'b');
+    expect(ctx.onAnnotations).toHaveBeenCalledWith([
+      expect.objectContaining({ kind: 'bookmark', cfi: 'epubcfi(/6/2)' }),
+    ]);
+    await key(state.doc!, 's');
+    expect(
+      document.querySelector('[role="dialog"]')?.getAttribute('aria-label'),
+    ).toBe('Reading settings');
+    await key(state.doc!, 'n');
+    expect(state.next).toHaveBeenCalledOnce();
+    await key(state.doc!, 'Escape');
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await key(window, 'f');
+    expect(
+      document.querySelector('[role="dialog"]')?.getAttribute('aria-label'),
+    ).toBe('Search in book');
+    await key(state.doc!, 'Escape');
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await key(window, 'c');
+    expect(
+      document.querySelector('.reader')?.getAttribute('data-immersive'),
+    ).toBe('true');
+  } finally {
+    await act(async () => ctx.root.unmount());
+  }
+});
 it('offers recovery without opening immersive controls and retries loading', async () => {
   state.fail = true;
   const ctx = await setup();
