@@ -89,6 +89,24 @@ describe('per-book reading preferences', () => {
   });
 });
 
+it('applies absent optional preset fields as defaults instead of inheriting newer global choices', () => {
+  const p = {
+    ...defaults,
+    reader: {
+      ...defaults.reader,
+      fontWeight: 700,
+      shortcuts: { next: 'n' },
+      rsvpGuides: true,
+    },
+  };
+  const changed = setBookReaderPreferences(p, first, { ...defaults.reader });
+  expect(readerPreferences(changed, first)).toMatchObject({
+    fontWeight: 400,
+    shortcuts: { next: 'ArrowRight' },
+    rsvpGuides: false,
+  });
+});
+
 describe('custom font boundaries', () => {
   it('emits only local font data and safely falls back for untrusted family names', () => {
     const css = fontCss([

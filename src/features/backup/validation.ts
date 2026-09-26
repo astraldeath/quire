@@ -3,6 +3,7 @@ import {
   type Annotation,
   type Book,
   type Preferences,
+  type ReaderPreferences,
 } from '../../domain/models';
 const fail = (): never => {
   throw new Error('The backup contains invalid library data.');
@@ -110,12 +111,7 @@ export function validateBook(value: unknown): Book {
   return result;
 }
 export function validatePreferences(value: unknown): Preferences {
-  const p = obj(value),
-    r = obj(p.reader);
-  const color = (v: unknown) => {
-    const s = str(v, 7);
-    return /^#[a-f0-9]{6}$/i.test(s) ? s : fail();
-  };
+  const p = obj(value);
   return {
     theme: choice(p.theme, [
       'system',
@@ -143,45 +139,8 @@ export function validatePreferences(value: unknown): Preferences {
     groupSeries: bool(p.groupSeries),
     flatLibrary: p.flatLibrary === undefined ? false : bool(p.flatLibrary),
     coverSize: num(p.coverSize, 110, 210),
-    reader: {
-      rsvpWpm: r.rsvpWpm === undefined ? 250 : num(r.rsvpWpm, 60, 1000),
-      rsvpPunctuationPauses:
-        r.rsvpPunctuationPauses === undefined
-          ? true
-          : bool(r.rsvpPunctuationPauses),
-      theme: choice(r.theme, [
-        'app',
-        'light',
-        'dark',
-        'onyx',
-        'contrast',
-        'custom',
-      ]),
-      background: color(r.background),
-      foreground: color(r.foreground),
-      font: str(r.font, 200),
-      size: num(r.size, 8, 100),
-      lineHeight: num(r.lineHeight, 0.5, 5),
-      margin: num(r.margin, 0, 200),
-      maxWidth: num(r.maxWidth, 100, 3000),
-      flow: choice(r.flow, ['paginated', 'scrolled', 'continuous']),
-      publisherStyles: bool(r.publisherStyles),
-      columns:
-        r.columns === undefined
-          ? defaults.reader.columns
-          : choice(r.columns, ['one', 'two'] as const),
-      tapToTurn: r.tapToTurn === undefined ? true : bool(r.tapToTurn),
-      swipeToTurn: r.swipeToTurn === undefined ? true : bool(r.swipeToTurn),
-      comicMode:
-        r.comicMode === undefined
-          ? 'single'
-          : choice(r.comicMode, ['single', 'double', 'webtoon'] as const),
-      comicDirection:
-        r.comicDirection === undefined
-          ? 'ltr'
-          : choice(r.comicDirection, ['ltr', 'rtl'] as const),
-      animated: r.animated === undefined ? true : bool(r.animated),
-    },
+    reader: validateReaderPreferences(p.reader),
+    ...validateCustomization(p),
   };
 }
 import { validFolder, validFolders } from '../library/folders';
@@ -192,3 +151,172 @@ import {
 } from '../library/folderCatalog';
 export const validateBackupFolders = (value: unknown) =>
   validateFolderCatalog(value === undefined ? emptyFolderCatalog() : value);
+
+const color = (v: unknown) => {
+  const s = str(v, 7);
+  return /^#[a-f0-9]{6}$/i.test(s) ? s : fail();
+};
+
+export function validateReaderPreferences(value: unknown): ReaderPreferences {
+  const r = obj(value);
+  return {
+    rsvpWpm: r.rsvpWpm === undefined ? 250 : num(r.rsvpWpm, 60, 1000),
+    rsvpPunctuationPauses:
+      r.rsvpPunctuationPauses === undefined
+        ? true
+        : bool(r.rsvpPunctuationPauses),
+    theme: choice(r.theme, [
+      'app',
+      'light',
+      'dark',
+      'onyx',
+      'contrast',
+      'custom',
+    ]),
+    background: color(r.background),
+    foreground: color(r.foreground),
+    font: str(r.font, 200),
+    size: num(r.size, 8, 100),
+    lineHeight: num(r.lineHeight, 0.5, 5),
+    margin: num(r.margin, 0, 200),
+    maxWidth: num(r.maxWidth, 100, 3000),
+    flow: choice(r.flow, ['paginated', 'scrolled', 'continuous']),
+    publisherStyles: bool(r.publisherStyles),
+    columns:
+      r.columns === undefined
+        ? defaults.reader.columns
+        : choice(r.columns, ['one', 'two'] as const),
+    tapToTurn: r.tapToTurn === undefined ? true : bool(r.tapToTurn),
+    swipeToTurn: r.swipeToTurn === undefined ? true : bool(r.swipeToTurn),
+    comicMode:
+      r.comicMode === undefined
+        ? 'single'
+        : choice(r.comicMode, ['single', 'double', 'webtoon'] as const),
+    comicDirection:
+      r.comicDirection === undefined
+        ? 'ltr'
+        : choice(r.comicDirection, ['ltr', 'rtl'] as const),
+    animated: r.animated === undefined ? true : bool(r.animated),
+    ...validateReaderExtras(r),
+  };
+}
+
+function validateReaderExtras(
+  r: Record<string, unknown>,
+): Partial<ReaderPreferences> {
+  const out: Partial<ReaderPreferences> = {};
+  for (const key of ['linkColor', 'rsvpFocalColor'] as const)
+    if (r[key] !== undefined) out[key] = color(r[key]);
+  for (const key of ['rsvpGuides', 'rsvpLongWordPauses'] as const)
+    if (r[key] !== undefined) out[key] = bool(r[key]);
+  for (const [key, min, max] of [
+    ['fontWeight', 100, 900],
+    ['rsvpSize', 24, 96],
+    ['rsvpPunctuationMultiplier', 0, 3],
+    ['rsvpLongWordMultiplier', 1, 3],
+    ['rsvpLongWordLength', 4, 20],
+  ] as const)
+    if (r[key] !== undefined) out[key] = num(r[key], min, max);
+  if (r.rsvpFont !== undefined) out.rsvpFont = str(r.rsvpFont, 200);
+  if (r.tapZones !== undefined) {
+    const zones = obj(r.tapZones);
+    const actions = ['prev', 'next', 'controls', 'none'] as const;
+    out.tapZones = {
+      left: choice(zones.left, actions),
+      center: choice(zones.center, actions),
+      right: choice(zones.right, actions),
+      sideWidth: num(zones.sideWidth, 10, 45),
+    };
+  }
+  if (r.shortcuts !== undefined) {
+    const bindings = obj(r.shortcuts);
+    out.shortcuts = {};
+    for (const key of [
+      'prev',
+      'next',
+      'controls',
+      'search',
+      'settings',
+      'bookmark',
+    ] as const)
+      if (bindings[key] !== undefined)
+        out.shortcuts[key] = str(bindings[key], 50);
+  }
+  return out;
+}
+
+function validateCustomization(
+  p: Record<string, unknown>,
+): Partial<Preferences> {
+  const out: Partial<Preferences> = {};
+  const id = (value: unknown) => {
+    const result = str(value, 100);
+    if (!/^[a-zA-Z0-9_-]+$/.test(result)) fail();
+    return result;
+  };
+  const name = (value: unknown) => {
+    const result = str(value, 100).trim();
+    return result || fail();
+  };
+  const list = (value: unknown, max: number) => {
+    if (!Array.isArray(value) || value.length > max) return fail();
+    const ids = new Set<string>();
+    return value.map((v) => {
+      const item = obj(v);
+      const key = id(item.id);
+      if (ids.has(key)) fail();
+      ids.add(key);
+      return item;
+    });
+  };
+  if (p.bookReaderOverrides !== undefined) {
+    const records = obj(p.bookReaderOverrides);
+    if (Object.keys(records).length > 10000) fail();
+    out.bookReaderOverrides = {};
+    for (const [bookId, value] of Object.entries(records)) {
+      if (!/^[a-f0-9]{64}$/.test(bookId)) fail();
+      const partial = obj(value);
+      const valid = validateReaderPreferences({
+        ...defaults.reader,
+        ...partial,
+      });
+      const override: Partial<ReaderPreferences> = {};
+      for (const key of Object.keys(partial) as (keyof ReaderPreferences)[])
+        if (key in valid) Object.assign(override, { [key]: valid[key] });
+      out.bookReaderOverrides[bookId] = override;
+    }
+  }
+  if (p.readingPresets !== undefined)
+    out.readingPresets = list(p.readingPresets, 100).map((item) => ({
+      id: id(item.id),
+      name: name(item.name),
+      settings: validateReaderPreferences(item.settings),
+    }));
+  if (p.readingThemes !== undefined)
+    out.readingThemes = list(p.readingThemes, 100).map((item) => ({
+      id: id(item.id),
+      name: name(item.name),
+      foreground: color(item.foreground),
+      background: color(item.background),
+      linkColor: color(item.linkColor),
+    }));
+  if (p.customFonts !== undefined) {
+    let size = 0;
+    out.customFonts = list(p.customFonts, 20).map((item) => {
+      const key = id(item.id);
+      if (!/^quire-font-[a-f0-9]{64}$/.test(key)) fail();
+      const data = str(item.data, Math.ceil((4 * 1024 * 1024) / 3) * 4);
+      if (!data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data) || data.length % 4)
+        fail();
+      size += data.length;
+      if (size > 16 * 1024 * 1024) fail();
+      return {
+        id: key,
+        name: name(item.name),
+        data,
+        format: choice(item.format, ['truetype', 'opentype'] as const),
+      };
+    });
+  }
+  return out;
+}

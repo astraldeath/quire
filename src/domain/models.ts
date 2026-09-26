@@ -35,6 +35,28 @@ export interface Book {
   annotations?: Annotation[];
 }
 export interface ReaderPreferences {
+  fontWeight?: number;
+  linkColor?: string;
+  tapZones?: {
+    left: 'prev' | 'next' | 'controls' | 'none';
+    center: 'prev' | 'next' | 'controls' | 'none';
+    right: 'prev' | 'next' | 'controls' | 'none';
+    sideWidth: number;
+  };
+  shortcuts?: Partial<
+    Record<
+      'prev' | 'next' | 'controls' | 'search' | 'settings' | 'bookmark',
+      string
+    >
+  >;
+  rsvpFocalColor?: string;
+  rsvpGuides?: boolean;
+  rsvpFont?: string;
+  rsvpSize?: number;
+  rsvpPunctuationMultiplier?: number;
+  rsvpLongWordPauses?: boolean;
+  rsvpLongWordMultiplier?: number;
+  rsvpLongWordLength?: number;
   rsvpWpm?: number;
   rsvpPunctuationPauses?: boolean;
   theme: 'app' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom';
@@ -55,6 +77,10 @@ export interface ReaderPreferences {
   publisherStyles: boolean;
 }
 export interface Preferences {
+  bookReaderOverrides?: Record<string, Partial<ReaderPreferences>>;
+  readingPresets?: ReadingPreset[];
+  readingThemes?: ReadingTheme[];
+  customFonts?: CustomFont[];
   lastBackupAt?: number;
   theme: 'system' | 'light' | 'dark' | 'onyx' | 'contrast' | 'custom';
   background: string;
@@ -67,6 +93,24 @@ export interface Preferences {
   flatLibrary?: boolean;
   coverSize: number;
   reader: ReaderPreferences;
+}
+export interface ReadingPreset {
+  id: string;
+  name: string;
+  settings: ReaderPreferences;
+}
+export interface ReadingTheme {
+  id: string;
+  name: string;
+  background: string;
+  foreground: string;
+  linkColor: string;
+}
+export interface CustomFont {
+  id: string;
+  name: string;
+  data: string;
+  format: 'truetype' | 'opentype';
 }
 export const defaults: Preferences = {
   theme: 'system',
