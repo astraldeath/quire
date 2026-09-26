@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.13.0]
+
+- Search installed system fonts alongside default and imported fonts in reading and RSVP settings.
+- Compact reading settings with grouped typography controls, a font import action, and a live preview.
+- Notify iOS, Android, and other native builds about new releases even when automatic installation is unavailable. Show release notes and a manual download link.
+- Align upload progress and action icons with their labels.
+
 ## [0.12.0]
 
 - Swipe comic and PDF pages with finger-following animations, including double-page spreads and right-to-left reading. Preserve preloaded images and respect reduced motion.

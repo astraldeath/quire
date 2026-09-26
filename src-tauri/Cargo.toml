@@ -1,6 +1,6 @@
 [package]
 name = "quire-reader"
-version = "0.12.0"
+version = "0.13.0"
 description = "A personal EPUB reader"
 authors = ["Quire contributors"]
 edition = "2021"
