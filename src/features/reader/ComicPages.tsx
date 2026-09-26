@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
   type Ref,
+  type CSSProperties,
 } from 'react';
+import './comic-swipe.css';
 import type { ReaderBook } from '../../books';
 import type { Position, ReaderPreferences } from '../../domain/models';
 import {
@@ -15,7 +17,7 @@ import {
   comicSpread,
   turnComicPage,
 } from './comic-navigation';
-import { sideTurn } from './interactions';
+import { tapAction } from './control-mapping';
 
 export interface ComicNavigation {
   navigate(target: string): boolean;
@@ -36,6 +38,8 @@ function ComicImage({
   onNear,
   onSettled,
   onReady,
+  placement,
+  objectPosition,
 }: {
   page: Page;
   index: number;
@@ -50,6 +54,8 @@ function ComicImage({
   onNear(index: number, near: boolean): void;
   onSettled(index: number): void;
   onReady(index: number): void;
+  placement?: CSSProperties;
+  objectPosition?: string;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
@@ -109,12 +115,14 @@ function ComicImage({
       data-page={index}
       data-spread-side={spreadSide}
       aria-hidden={hidden || undefined}
+      inert={hidden || undefined}
       style={
-        hidden
+        placement ??
+        (hidden
           ? { display: 'none' }
           : continuous
             ? { aspectRatio: ratio }
-            : undefined
+            : undefined)
       }
     >
       {src && !failed && (
@@ -122,6 +130,7 @@ function ComicImage({
           src={src}
           alt={`Page ${index + 1}`}
           draggable={false}
+          style={{ objectPosition }}
           onLoad={(event) => {
             const image = event.currentTarget;
             const nextRatio = image.naturalWidth / image.naturalHeight;
@@ -191,6 +200,33 @@ export function ComicPages({
   const mode = preferences.comicMode ?? 'single';
   const rtl = preferences.comicDirection === 'rtl';
   const continuous = mode === 'webtoon';
+  const [reducedMotion, setReducedMotion] = useState(
+    () =>
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+  );
+  useEffect(() => {
+    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!query) return;
+    const changed = () => setReducedMotion(query.matches);
+    query.addEventListener('change', changed);
+    return () => query.removeEventListener('change', changed);
+  }, []);
+  const animated = preferences.animated !== false && !reducedMotion;
+  const [motion, setMotion] = useState({ offset: 0, settling: false });
+  const settling = useRef(false);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const resetMotion = () => {
+    clearTimeout(settleTimer.current);
+    settling.current = false;
+    setMotion({ offset: 0, settling: false });
+  };
+  useEffect(() => {
+    down.current = null;
+    resetMotion();
+  }, [mode, rtl, animated, preferences.swipeToTurn]);
+  useEffect(() => () => clearTimeout(settleTimer.current), []);
   const [near, setNear] = useState(new Set<number>());
   const [settled, setSettled] = useState(new Set<number>());
   const [ready, setReady] = useState(new Set<number>());
@@ -280,6 +316,7 @@ export function ComicPages({
     y: number;
     time: number;
     id: number;
+    dragging: boolean;
   } | null>(null);
   const select = (index: number) => {
     pageRef.current = index;
@@ -319,6 +356,8 @@ export function ComicPages({
   };
   useImperativeHandle(navigationRef, () => ({
     navigate(target) {
+      down.current = null;
+      resetMotion();
       if (continuous && (target === 'prev' || target === 'next')) {
         scrollViewport(target);
         onNavigate();
@@ -374,12 +413,81 @@ export function ComicPages({
     if (continuous) scrollToPage(next);
     onNavigate();
   };
+  const blockedGesture = () =>
+    Boolean(window.getSelection()?.toString()) ||
+    (window.visualViewport?.scale ?? 1) > 1;
+  const finishDrag = (direction?: 'prev' | 'next') => {
+    const next = direction
+      ? turnComicPage(visiblePage, pages.length, mode, direction)
+      : visiblePage;
+    const canTurn = !visibleSpread.includes(next) && Boolean(direction);
+    const destinationReady = comicSpread(next, pages.length, mode).every(
+      (index) => ready.has(index),
+    );
+    if (!animated || (canTurn && !destinationReady)) {
+      resetMotion();
+      if (canTurn) turn(direction!);
+      return;
+    }
+    settling.current = true;
+    const width = root.current?.getBoundingClientRect().width ?? 0;
+    setMotion({
+      offset: canTurn ? ((direction === 'next') !== rtl ? -width : width) : 0,
+      settling: true,
+    });
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      resetMotion();
+      if (canTurn) turn(direction!);
+    }, 180);
+  };
+  const cancelDrag = () => {
+    const dragging = down.current?.dragging;
+    down.current = null;
+    if (dragging) finishDrag();
+  };
+  // Keep every decoded image in its existing keyed slot, including neighboring
+  // spreads. Moving the slots never reloads or reparents their image elements.
+  const placements = new Map<
+    number,
+    { left: number; width: number; objectPosition: string }
+  >();
+  if (!continuous) {
+    for (const direction of ['prev', 'next', 'current'] as const) {
+      const neighbor =
+        direction === 'current'
+          ? visiblePage
+          : turnComicPage(visiblePage, pages.length, mode, direction);
+      if (direction !== 'current' && visibleSpread.includes(neighbor)) continue;
+      const spread = comicSpread(neighbor, pages.length, mode);
+      const offset =
+        direction === 'current'
+          ? 0
+          : (direction === 'next') !== rtl
+            ? 100
+            : -100;
+      spread.forEach((index, side) => {
+        const visualSide = rtl ? spread.length - side - 1 : side;
+        placements.set(index, {
+          left: offset + (visualSide * 100) / spread.length,
+          width: 100 / spread.length,
+          objectPosition:
+            spread.length === 1
+              ? 'center'
+              : visualSide === 0
+                ? 'right center'
+                : 'left center',
+        });
+      });
+    }
+  }
   return (
     <div
       ref={root}
       className={`comic-pages ${continuous ? 'comic-webtoon' : 'comic-paged'}`}
       data-direction={rtl ? 'rtl' : 'ltr'}
       data-spread={!continuous && visibleSpread.length === 2}
+      data-settling={motion.settling || undefined}
       onScroll={() => {
         if (!continuous || restoring.current) return;
         cancelAnimationFrame(frame.current);
@@ -403,9 +511,13 @@ export function ComicPages({
         if (
           !event.isPrimary ||
           event.button !== 0 ||
-          (event.target as HTMLElement).closest('button')
+          settling.current ||
+          blockedGesture() ||
+          (event.target as HTMLElement).closest(
+            'a,button,input,select,textarea,[contenteditable]',
+          )
         ) {
-          down.current = null;
+          cancelDrag();
           return;
         }
         down.current = {
@@ -413,30 +525,89 @@ export function ComicPages({
           y: event.clientY,
           time: Date.now(),
           id: event.pointerId,
+          dragging: false,
         };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
-      onPointerCancel={() => {
-        down.current = null;
+      onPointerCancel={cancelDrag}
+      onLostPointerCapture={cancelDrag}
+      onPointerMove={(event) => {
+        const start = down.current;
+        if (!start || start.id !== event.pointerId) return;
+        if (blockedGesture()) {
+          cancelDrag();
+          return;
+        }
+        if (
+          continuous ||
+          preferences.swipeToTurn === false ||
+          page !== visiblePage
+        )
+          return;
+        const dx = event.clientX - start.x,
+          dy = event.clientY - start.y;
+        if (
+          !start.dragging &&
+          (Math.abs(dx) <= 12 || Math.abs(dx) <= Math.abs(dy) * 1.5)
+        )
+          return;
+        start.dragging = true;
+        if (!animated) return;
+        const direction = dx < 0 !== rtl ? 'next' : 'prev';
+        const next = turnComicPage(visiblePage, pages.length, mode, direction);
+        const available =
+          !visibleSpread.includes(next) &&
+          comicSpread(next, pages.length, mode).every((index) =>
+            ready.has(index),
+          );
+        const width = event.currentTarget.getBoundingClientRect().width;
+        const offset = Math.max(-width, Math.min(width, dx));
+        setMotion({
+          offset: available ? offset : offset * 0.15,
+          settling: false,
+        });
       }}
       onPointerUp={(event) => {
         const start = down.current;
         down.current = null;
         if (!start || start.id !== event.pointerId) return;
+        if (blockedGesture()) {
+          if (start.dragging) finishDrag();
+          return;
+        }
         const dx = event.clientX - start.x,
           dy = event.clientY - start.y;
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (start.dragging) {
+          const threshold = Math.max(
+            40,
+            event.currentTarget.getBoundingClientRect().width * 0.2,
+          );
+          finishDrag(
+            Math.abs(dx) > threshold && Math.abs(dx) > Math.abs(dy) * 1.5
+              ? dx < 0 !== rtl
+                ? 'next'
+                : 'prev'
+              : undefined,
+          );
+        } else if (
+          !continuous &&
+          Math.abs(dx) > 40 &&
+          Math.abs(dx) > Math.abs(dy) * 1.5
+        ) {
           if (preferences.swipeToTurn !== false)
             turn(dx < 0 !== rtl ? 'next' : 'prev');
         } else if (Math.hypot(dx, dy) < 10 && Date.now() - start.time < 450) {
           const rect = event.currentTarget.getBoundingClientRect();
-          const direction = sideTurn(
+          const action = tapAction(
             event.clientX - rect.left,
             rect.width,
             rtl,
+            preferences,
           );
-          if (direction && preferences.tapToTurn !== false) turn(direction);
-          else if (!direction || preferences.tapToTurn === false) onCenterTap();
+          if (action === 'prev' || action === 'next') {
+            if (preferences.tapToTurn !== false) turn(action);
+            else onCenterTap();
+          } else if (action === 'controls') onCenterTap();
         }
       }}
     >
@@ -452,6 +623,22 @@ export function ComicPages({
           active={retained.has(index)}
           hidden={!continuous && !visibleSpread.includes(index)}
           spreadSide={index === visibleSpread[0] ? 'first' : 'last'}
+          placement={
+            continuous
+              ? undefined
+              : placements.has(index)
+                ? {
+                    left: `${placements.get(index)!.left}%`,
+                    width: `${placements.get(index)!.width}%`,
+                    transform: `translateX(${motion.offset}px)`,
+                    visibility:
+                      visibleSpread.includes(index) || ready.has(index)
+                        ? 'visible'
+                        : 'hidden',
+                  }
+                : { display: 'none' }
+          }
+          objectPosition={placements.get(index)?.objectPosition}
           onNear={onNear}
           onSettled={onSettled}
           onReady={onReady}

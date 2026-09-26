@@ -1,0 +1,15 @@
+.comic-pages.comic-paged .comic-image {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.comic-pages.comic-paged[data-settling] .comic-image {
+  transition: transform 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comic-pages.comic-paged[data-settling] .comic-image {
+    transition: none;
+  }
+}

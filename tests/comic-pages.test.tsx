@@ -437,3 +437,184 @@ it('finishes a tall final webtoon image only at its bottom, keeping its page loc
   expect(position.mock.lastCall?.[0].fraction).toBeLessThan(1);
   vi.useRealTimers();
 });
+
+function pointer(type: string, x: number, y = 100, primary = true) {
+  const element = host.querySelector<HTMLElement>('.comic-pages')!;
+  element.setPointerCapture = () => {};
+  element.getBoundingClientRect = () => ({ left: 0, width: 400 }) as DOMRect;
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    clientX: x,
+    clientY: y,
+  });
+  Object.defineProperties(event, {
+    isPrimary: { value: primary },
+    pointerId: { value: primary ? 1 : 2 },
+  });
+  element.dispatchEvent(event);
+}
+async function decodeImages() {
+  await act(async () => {
+    for (const image of host.querySelectorAll('img'))
+      image.dispatchEvent(new Event('load'));
+  });
+}
+it.each(['ltr', 'rtl'] as const)(
+  'follows the finger and commits a decoded %s spread without replacing images',
+  async (direction) => {
+    vi.useFakeTimers();
+    await render({ comicMode: 'double', comicDirection: direction });
+    await decodeImages();
+    const current = host.querySelector<HTMLElement>('[data-page="2"]')!;
+    const next = host.querySelector<HTMLElement>('[data-page="3"]')!;
+    const image = next.querySelector('img');
+    const dx = direction === 'ltr' ? -150 : 150;
+    await act(async () => pointer('pointerdown', 200));
+    await act(async () => pointer('pointermove', 200 + dx));
+    expect(current.style.transform).toBe(`translateX(${dx}px)`);
+    expect(next.style.transform).toBe(`translateX(${dx}px)`);
+    expect(position.mock.lastCall?.[0].section).toBe('Page 3');
+    await act(async () => pointer('pointerup', 200 + dx));
+    await act(async () => vi.advanceTimersByTime(300));
+    expect(position.mock.lastCall?.[0].section).toBe('Page 4');
+    expect(next.querySelector('img')).toBe(image);
+    expect(next.getAttribute('aria-hidden')).toBeNull();
+    vi.useRealTimers();
+  },
+);
+it('settles short drags back and cancels when a pointer is interrupted', async () => {
+  vi.useFakeTimers();
+  await render();
+  await decodeImages();
+  for (const release of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    await act(async () => pointer('pointerdown', 200));
+    await act(async () => pointer('pointermove', 170));
+    expect(
+      host.querySelector<HTMLElement>('[data-page="2"]')!.style.transform,
+    ).toBe('translateX(-30px)');
+    await act(async () => pointer(release, 170));
+    await act(async () => vi.advanceTimersByTime(300));
+    expect(position.mock.lastCall?.[0].section).toBe('Page 3');
+    expect(
+      host.querySelector<HTMLElement>('[data-page="2"]')!.style.transform,
+    ).toBe('translateX(0px)');
+  }
+  expect(center).not.toHaveBeenCalled();
+  vi.useRealTimers();
+});
+it.each([
+  { animated: false },
+  { swipeToTurn: false },
+  { comicMode: 'webtoon' as const },
+])('keeps direct motion disabled for %j', async (preferences) => {
+  await render(preferences);
+  await decodeImages();
+  await act(async () => pointer('pointerdown', 300));
+  await act(async () => pointer('pointermove', 100));
+  expect(
+    host.querySelector<HTMLElement>('[data-page="2"]')!.style.transform,
+  ).not.toBe('translateX(-200px)');
+});
+it('honors reduced motion and prevents zoomed or selected gestures from navigating', async () => {
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  await render();
+  await decodeImages();
+  await act(async () => pointer('pointerdown', 300));
+  await act(async () => pointer('pointermove', 100));
+  expect(
+    host.querySelector<HTMLElement>('[data-page="2"]')!.style.transform,
+  ).toBe('translateX(0px)');
+  await act(async () => pointer('pointerup', 100));
+  expect(position.mock.lastCall?.[0].section).toBe('Page 4');
+  vi.stubGlobal('visualViewport', { scale: 2 });
+  await act(async () => gesture(300, 100));
+  expect(position.mock.lastCall?.[0].section).toBe('Page 4');
+});
+
+it('keeps unreadied neighboring pages from replacing the decoded page during a swipe', async () => {
+  await render();
+  const current = host.querySelector('[data-page="2"] img')!;
+  await act(async () => current.dispatchEvent(new Event('load')));
+  await act(async () => pointer('pointerdown', 300));
+  await act(async () => pointer('pointermove', 100));
+  await act(async () => pointer('pointerup', 100));
+  expect(host.querySelector('.comic-image:not([aria-hidden]) img')).toBe(
+    current,
+  );
+  const next = host.querySelector('[data-page="3"] img')!;
+  await act(async () => next.dispatchEvent(new Event('load')));
+  expect(host.querySelector('.comic-image:not([aria-hidden]) img')).toBe(next);
+});
+it('bounces at the final spread and cancels a drag when selection or a second pointer appears', async () => {
+  vi.useFakeTimers();
+  await render({ comicMode: 'double' }, 7);
+  await act(async () => navigation.current!.navigate('5.png'));
+  await decodeImages();
+  for (const interruption of ['boundary', 'selection', 'pinch']) {
+    await act(async () => pointer('pointerdown', 300));
+    await act(async () => pointer('pointermove', 150));
+    let selected;
+    if (interruption === 'selection') {
+      selected = vi
+        .spyOn(window, 'getSelection')
+        .mockReturnValue({ toString: () => 'selected' } as Selection);
+      await act(async () => pointer('pointermove', 100));
+    }
+    if (interruption === 'pinch')
+      await act(async () => pointer('pointerdown', 100, 100, false));
+    await act(async () => pointer('pointerup', 100));
+    await act(async () => vi.advanceTimersByTime(300));
+    expect(position.mock.lastCall?.[0].section).toBe('Page 6');
+    expect(
+      host.querySelector<HTMLElement>('[data-page="5"]')!.style.transform,
+    ).toBe('translateX(0px)');
+    selected?.mockRestore();
+  }
+  vi.useRealTimers();
+});
+it('honors custom comic tap actions and inactive zones', async () => {
+  await render({
+    tapZones: {
+      left: 'controls',
+      center: 'next',
+      right: 'none',
+      sideWidth: 30,
+    },
+  });
+  await act(async () => gesture(30, 30));
+  expect(center).toHaveBeenCalledOnce();
+  await act(async () => gesture(370, 370));
+  expect(position.mock.lastCall?.[0].section).toBe('Page 3');
+  await act(async () => gesture(200, 200));
+  expect(position.mock.lastCall?.[0].section).toBe('Page 4');
+});
+
+it('cancels an active drag when text selection appears or the reading mode changes', async () => {
+  vi.useFakeTimers();
+  await render();
+  await decodeImages();
+  await act(async () => pointer('pointerdown', 300));
+  await act(async () => pointer('pointermove', 100));
+  const selected = vi
+    .spyOn(window, 'getSelection')
+    .mockReturnValue({ toString: () => 'selection' } as Selection);
+  await act(async () => pointer('pointerup', 100));
+  await act(async () => vi.advanceTimersByTime(300));
+  expect(position.mock.lastCall?.[0].section).toBe('Page 3');
+  selected.mockRestore();
+  await act(async () => pointer('pointerdown', 300));
+  await act(async () => pointer('pointermove', 100));
+  await render({ comicMode: 'double' });
+  await act(async () => pointer('pointerup', 100));
+  await act(async () => vi.advanceTimersByTime(300));
+  expect(position.mock.lastCall?.[0].section).toBe('Page 3');
+  expect(
+    host.querySelector<HTMLElement>('[data-page="2"]')!.style.transform,
+  ).toBe('translateX(0px)');
+  vi.useRealTimers();
+});
