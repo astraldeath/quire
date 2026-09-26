@@ -1,5 +1,6 @@
 import type { ReaderPreferences } from '../../domain/models';
 import type { View } from 'foliate-js/view.js';
+import { tapAction } from './control-mapping';
 
 export function sideTurn(x: number, width: number, rtl = false) {
   if (width <= 0 || x < 0 || x > width) return null;
@@ -144,7 +145,7 @@ export function installReadingInteractions(
   const tap = (clientX: number) => {
     const frame = doc.defaultView?.frameElement;
     const rect = view.getBoundingClientRect();
-    const direction = sideTurn(
+    const action = tapAction(
       clientX *
         (frame
           ? frame.getBoundingClientRect().width /
@@ -154,10 +155,15 @@ export function installReadingInteractions(
         rect.left,
       rect.width,
       rtl(),
+      preferences(),
     );
-    if (!direction && rect.width > 0) onCenterTap();
-    else if (direction && isPaginated() && preferences().tapToTurn !== false)
-      turn(direction);
+    if (action === 'controls') onCenterTap();
+    else if (
+      (action === 'prev' || action === 'next') &&
+      isPaginated() &&
+      preferences().tapToTurn !== false
+    )
+      turn(action);
   };
   target.addEventListener(
     'touchstart',
