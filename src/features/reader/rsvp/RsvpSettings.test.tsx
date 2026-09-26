@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { expect, it } from 'vitest';
+import { afterEach, expect, it } from 'vitest';
 import { defaults, type ReaderPreferences } from '../../../domain/models';
 import { RsvpSettings } from './RsvpSettings';
 
@@ -30,17 +30,26 @@ it('keeps regular reading typography independent while selecting an imported RSV
     );
   try {
     await act(async () => render());
-    const select = host.querySelector('select')!;
-    await act(async () => {
-      select.value = font;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    await act(async () =>
+      host
+        .querySelector<HTMLButtonElement>('[aria-label="RSVP font"]')!
+        .click(),
+    );
+    await act(async () =>
+      [
+        ...document.querySelectorAll<HTMLButtonElement>(
+          '.font-picker-group button',
+        ),
+      ]
+        .find((b) => b.textContent === 'My font')!
+        .click(),
+    );
     expect(preferences.rsvpFont).toBe(font);
     expect(preferences.font).toBe('publisher');
     expect(preferences.size).toBe(18);
     expect(
       (host.querySelector('.rsvp-word') as HTMLElement).style.fontFamily,
-    ).toBe(font);
+    ).toBe(`"${font}", Georgia, serif`);
     const guides = host.querySelector(
       '[aria-label="Alignment guides"]',
     ) as HTMLInputElement;
@@ -59,4 +68,14 @@ it('keeps regular reading typography independent while selecting an imported RSV
     await act(async () => root.unmount());
     host.remove();
   }
+});
+
+Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+  configurable: true,
+  value() {
+    this.open = true;
+  },
+});
+afterEach(() => {
+  Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
 });

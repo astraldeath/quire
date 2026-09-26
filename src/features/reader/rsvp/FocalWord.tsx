@@ -1,3 +1,4 @@
+import { fontFamily } from '../customization';
 import { useLayoutEffect, useRef } from 'react';
 import { splitFocalWord } from './focal';
 
@@ -46,7 +47,7 @@ export function FocalWord({
       aria-label={word}
       style={{
         fontSize: Number.isFinite(size) ? Math.min(96, Math.max(24, size)) : 40,
-        fontFamily: font,
+        fontFamily: fontFamily(font ?? 'Georgia'),
       }}
     >
       <span aria-hidden="true" className="rsvp-word-before">

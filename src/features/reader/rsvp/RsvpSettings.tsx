@@ -1,3 +1,4 @@
+import { FontPicker } from '../FontPicker';
 import { Play } from 'lucide-react';
 import type { ReaderPreferences } from '../../../domain/models';
 import {
@@ -23,30 +24,16 @@ export function RsvpSettings({
 }) {
   const patch = (value: Partial<ReaderPreferences>) =>
     onPreferences({ ...preferences, ...value });
-  const fontOptions = [
-    { value: 'Georgia', label: 'Serif' },
-    { value: 'sans-serif', label: 'Sans serif' },
-    { value: 'monospace', label: 'Monospace' },
-    ...fonts,
-  ];
   return (
     <div className="reader-settings rsvp-settings">
       <section className="rsvp-settings-group" aria-label="RSVP appearance">
         <h3>Appearance</h3>
-        <label className="rsvp-font-control">
-          Font
-          <select
-            aria-label="RSVP font"
-            value={preferences.rsvpFont ?? 'Georgia'}
-            onChange={(event) => patch({ rsvpFont: event.target.value })}
-          >
-            {fontOptions.map((font) => (
-              <option key={font.value} value={font.value}>
-                {font.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <FontPicker
+          rsvp
+          value={preferences.rsvpFont ?? 'Georgia'}
+          onChange={(rsvpFont) => patch({ rsvpFont })}
+          imported={fonts}
+        />
         <StepperControl
           label="RSVP font size"
           min={24}

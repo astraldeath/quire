@@ -1,0 +1,94 @@
+.font-picker {
+  display: grid;
+  gap: 8px;
+}
+.reader .font-picker-trigger {
+  width: 100%;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: left;
+}
+.font-picker-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.font-picker-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+.font-picker-dialog .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.font-picker-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  flex: none;
+}
+.font-picker-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  font-size: 16px;
+}
+.font-picker-search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.reader .font-picker-search input:focus-visible {
+  outline: none;
+}
+.font-picker-list {
+  overflow-y: auto;
+  min-height: 0;
+  max-height: min(420px, 55dvh);
+}
+.font-picker-group {
+  display: grid;
+  gap: 2px;
+}
+.font-picker-group + .font-picker-group {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.font-picker-group h3 {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 4px 10px 6px;
+}
+.reader .font-picker-group button {
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+  border-radius: 6px;
+  min-height: 40px;
+  padding: 8px 10px;
+  gap: 12px;
+}
+.font-picker-group button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.font-picker-group button svg {
+  flex: none;
+}
+.reader .font-picker-group button[aria-pressed='true'] {
+  background: var(--hover);
+}
+.font-picker-load {
+  margin: 4px 0;
+}

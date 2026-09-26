@@ -65,14 +65,25 @@ export function resetBookReaderPreferences(
   return { ...preferences, bookReaderOverrides };
 }
 
+// Escape every unsafe code point inside a quoted CSS family name.
+const quoteFamily = (name: string) =>
+  '"' +
+  Array.from(name, (c) =>
+    /[a-zA-Z0-9 _-]/.test(c) ? c : '\\' + c.codePointAt(0)!.toString(16) + ' ',
+  ).join('') +
+  '"';
 export const fontFamily = (font: string) =>
-  /^quire-font-[a-f0-9]{64}$/.test(font)
-    ? `"${font}", Georgia, serif`
-    : font === 'sans-serif'
-      ? 'system-ui, sans-serif'
-      : font === 'publisher'
-        ? 'inherit'
-        : 'Georgia, Charter, serif';
+  font.startsWith('system:') && font.length > 7 && font.length <= 187
+    ? `${quoteFamily(font.slice(7))}, Georgia, serif`
+    : font === 'monospace'
+      ? 'monospace'
+      : /^quire-font-[a-f0-9]{64}$/.test(font)
+        ? `"${font}", Georgia, serif`
+        : font === 'sans-serif'
+          ? 'system-ui, sans-serif'
+          : font === 'publisher'
+            ? 'inherit'
+            : 'Georgia, Charter, serif';
 
 export function fontCss(fonts: CustomFont[] = []): string {
   return fonts

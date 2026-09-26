@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, Trash2, Upload } from 'lucide-react';
 import type { Preferences, ReaderPreferences } from '../../domain/models';
 import { importReadingFont } from './customization';
@@ -142,94 +142,103 @@ export function CustomFontSettings({
 }: {
   customization: ReadingCustomization;
 }) {
+  const fileInput = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const { preferences: p, onChange } = customization;
   return (
-    <details className="custom-font-settings">
-      <summary>Manage fonts</summary>
-      <label className="field">
-        Import font
-        <input
-          type="file"
-          accept=".ttf,.otf"
-          disabled={busy}
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (!file) return;
-            setBusy(true);
-            setError('');
-            try {
-              const imported = (await importReadingFont(file, []))[0];
-              onChange((current) => {
-                const fonts = current.customFonts ?? [];
-                if (fonts.some((font) => font.id === imported.id))
-                  return current;
-                if (
-                  fonts.length >= 20 ||
-                  fonts.reduce((size, font) => size + font.data.length, 0) +
-                    imported.data.length >
-                    16 * 1024 * 1024
-                )
-                  throw new Error(
-                    'Remove an unused custom font before importing another.',
-                  );
-                return { ...current, customFonts: [...fonts, imported] };
-              });
-            } catch (error) {
-              setError(
-                error instanceof Error
-                  ? error.message
-                  : 'Could not import font.',
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      </label>
+    <div className="custom-font-settings">
+      <button
+        type="button"
+        className="font-import-action"
+        disabled={busy}
+        onClick={() => fileInput.current?.click()}
+      >
+        <Upload size={16} />
+        {busy ? 'Importing font...' : 'Import font'}
+      </button>
+      <input
+        ref={fileInput}
+        hidden
+        aria-label="Import font"
+        type="file"
+        accept=".ttf,.otf"
+        disabled={busy}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          setBusy(true);
+          setError('');
+          try {
+            const imported = (await importReadingFont(file, []))[0];
+            onChange((current) => {
+              const fonts = current.customFonts ?? [];
+              if (fonts.some((font) => font.id === imported.id)) return current;
+              if (
+                fonts.length >= 20 ||
+                fonts.reduce((size, font) => size + font.data.length, 0) +
+                  imported.data.length >
+                  16 * 1024 * 1024
+              )
+                throw new Error(
+                  'Remove an unused custom font before importing another.',
+                );
+              return { ...current, customFonts: [...fonts, imported] };
+            });
+          } catch (error) {
+            setError(
+              error instanceof Error ? error.message : 'Could not import font.',
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
       {busy && (
-        <p role="status">
-          <Upload size={16} />
+        <span className="sr-only" role="status">
           Importing font...
-        </p>
+        </span>
       )}
       {error && <p role="alert">{error}</p>}
-      {p.customFonts?.map((font) => (
-        <div className="reading-style-row" key={font.id}>
-          <span>{font.name}</span>
-          <button
-            aria-label={`Remove ${font.name}`}
-            onClick={() => {
-              const clean = <T extends Partial<ReaderPreferences>>(
-                r: T,
-              ): T => ({
-                ...r,
-                ...(r.font === font.id ? { font: 'Georgia' } : {}),
-                ...(r.rsvpFont === font.id ? { rsvpFont: 'Georgia' } : {}),
-              });
-              onChange({
-                ...p,
-                customFonts: p.customFonts?.filter((f) => f.id !== font.id),
-                reader: clean(p.reader),
-                bookReaderOverrides: Object.fromEntries(
-                  Object.entries(p.bookReaderOverrides ?? {}).map(([id, r]) => [
-                    id,
-                    clean(r),
-                  ]),
-                ),
-                readingPresets: p.readingPresets?.map((preset) => ({
-                  ...preset,
-                  settings: clean(preset.settings),
-                })),
-              });
-            }}
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      ))}
-    </details>
+      {!!p.customFonts?.length && (
+        <details>
+          <summary>Imported fonts ({p.customFonts.length})</summary>
+          {p.customFonts?.map((font) => (
+            <div className="reading-style-row" key={font.id}>
+              <span>{font.name}</span>
+              <button
+                aria-label={`Remove ${font.name}`}
+                onClick={() => {
+                  const clean = <T extends Partial<ReaderPreferences>>(
+                    r: T,
+                  ): T => ({
+                    ...r,
+                    ...(r.font === font.id ? { font: 'Georgia' } : {}),
+                    ...(r.rsvpFont === font.id ? { rsvpFont: 'Georgia' } : {}),
+                  });
+                  onChange({
+                    ...p,
+                    customFonts: p.customFonts?.filter((f) => f.id !== font.id),
+                    reader: clean(p.reader),
+                    bookReaderOverrides: Object.fromEntries(
+                      Object.entries(p.bookReaderOverrides ?? {}).map(
+                        ([id, r]) => [id, clean(r)],
+                      ),
+                    ),
+                    readingPresets: p.readingPresets?.map((preset) => ({
+                      ...preset,
+                      settings: clean(preset.settings),
+                    })),
+                  });
+                }}
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))}
+        </details>
+      )}
+    </div>
   );
 }

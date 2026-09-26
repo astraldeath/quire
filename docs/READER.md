@@ -18,7 +18,7 @@ The reader opens with its controls hidden. Tap or click the middle to toggle the
 
 Choose **All books** to edit your defaults or **This book** for an override. Unchanged book settings continue following your defaults. **Use global defaults** removes that book's overrides. **Presets** saves the current combination of reading settings; applying one copies it into the selected scope.
 
-Under **Text**, import TTF or OTF files with **Manage fonts**. Font weight depends on the font's available weights. Removing a custom font switches its saved uses to the built-in serif font. Under **Theme > Custom**, choose page, text, and link colors and save named themes. These colors do not change the app theme.
+Under **Text**, the font picker groups defaults, system fonts, and imported fonts, with search for longer lists. Native apps list installed font families. Supported browsers ask for font access when you choose **Load system fonts**; other browsers can use **Import font** to load TTF or OTF files. System font availability depends on the device and its WebView. Backups save the chosen system font name, not the installed font file. Font weight depends on the font's available weights. Removing an imported font switches its saved uses to the built-in serif font. The same picker is available in RSVP settings. Under **Theme > Custom**, choose page, text, and link colors and save named themes. These colors do not change the app theme.
 
 Under **Behavior**, assign left, center, and right tap zones and adjust their width. Page actions reverse for right-to-left books. Desktop shortcuts can be reassigned or disabled; assigning a used key clears its previous action. Shortcuts do not run while typing or using a focused control.
 

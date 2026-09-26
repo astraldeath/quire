@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { defaults, type Preferences } from '../src/domain/models';
 import { ReadingSettings } from '../src/features/reader/ReadingSettings';
 import { readerPreferences } from '../src/features/reader/customization';
@@ -39,11 +39,21 @@ it('keeps global defaults separate from book settings and resets the override', 
   await act(async () =>
     host.querySelector<HTMLInputElement>('input[value="book"]')!.click(),
   );
-  const font = host.querySelector<HTMLSelectElement>('select')!;
-  await act(async () => {
-    font.value = 'sans-serif';
-    font.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  const chooseFont = async () => {
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('[aria-label="Font"]')!.click(),
+    );
+    await act(async () =>
+      [
+        ...document.querySelectorAll<HTMLButtonElement>(
+          '.font-picker-group button',
+        ),
+      ]
+        .find((b) => b.textContent === 'Sans serif')!
+        .click(),
+    );
+  };
+  await chooseFont();
   expect(p.reader.font).toBe(defaults.reader.font);
   expect(p.bookReaderOverrides?.[bookId].font).toBe('sans-serif');
   await act(async () =>
@@ -55,13 +65,20 @@ it('keeps global defaults separate from book settings and resets the override', 
   await act(async () =>
     host.querySelector<HTMLInputElement>('input[value="global"]')!.click(),
   );
-  await act(async () => {
-    font.value = 'sans-serif';
-    font.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await chooseFont();
   expect(p.reader.font).toBe('sans-serif');
   expect(p.bookReaderOverrides?.[bookId]).toBeUndefined();
   await act(async () => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+});
+
+Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+  configurable: true,
+  value() {
+    this.open = true;
+  },
+});
+afterEach(() => {
+  Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
 });

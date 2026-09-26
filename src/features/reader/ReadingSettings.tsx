@@ -1,3 +1,4 @@
+import { FontPicker } from './FontPicker';
 import { useState } from 'react';
 import { ReadingControls } from './ReadingControls';
 import { RsvpSettings } from './rsvp/RsvpSettings';
@@ -154,28 +155,17 @@ export function ReadingSettings({
                     label: 'Text',
                     icon: Type,
                     content: (
-                      <div className="reader-settings">
-                        {' '}
-                        <label>
-                          Font
-                          <select
-                            aria-label="Font"
+                      <div className="reader-settings reading-typography">
+                        <div className="reading-font-section">
+                          <FontPicker
                             value={preferences.font}
-                            onChange={(e) => patch({ font: e.target.value })}
-                          >
-                            <option value="publisher">Publisher</option>
-                            <option value="Georgia">Serif</option>
-                            <option value="sans-serif">Sans serif</option>
-                            {fonts.map((f) => (
-                              <option key={f.value} value={f.value}>
-                                {f.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {customization && (
-                          <CustomFontSettings customization={customization} />
-                        )}
+                            onChange={(font) => patch({ font })}
+                            imported={fonts}
+                          />
+                          {customization && (
+                            <CustomFontSettings customization={customization} />
+                          )}
+                        </div>
                         <div className="stepper-group">
                           <StepperControl
                             label="Font size"
@@ -193,18 +183,15 @@ export function ReadingSettings({
                             value={preferences.lineHeight}
                             onChange={(lineHeight) => patch({ lineHeight })}
                           />
+                          <StepperControl
+                            label="Font weight"
+                            min={100}
+                            max={900}
+                            step={100}
+                            value={preferences.fontWeight ?? 400}
+                            onChange={(fontWeight) => patch({ fontWeight })}
+                          />
                         </div>
-                        <StepperControl
-                          label="Font weight"
-                          min={100}
-                          max={900}
-                          step={100}
-                          value={preferences.fontWeight ?? 400}
-                          onChange={(fontWeight) => patch({ fontWeight })}
-                        />
-                        <p className="settings-note">
-                          Available weights depend on the font.
-                        </p>
                         <div
                           className="reading-style-preview"
                           aria-label="Typography preview"

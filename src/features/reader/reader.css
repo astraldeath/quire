@@ -961,3 +961,84 @@
     max-width: 100%;
   }
 }
+/* Keep scope and typography compact while the content panel scrolls. */
+.reader-dialog .reading-scope {
+  align-items: center;
+  padding-bottom: 12px;
+}
+.reading-scope .control-group {
+  max-width: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.reading-scope .control-group legend {
+  float: left;
+  margin: 0 12px 0 0;
+  padding: 0;
+  line-height: 36px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.reading-scope .segmented {
+  width: 236px;
+  flex: none;
+}
+.reading-scope .segmented label {
+  min-height: 32px;
+}
+.reader-settings.reading-typography {
+  gap: 16px;
+  align-content: start;
+}
+.reading-font-section {
+  display: grid;
+  gap: 6px;
+}
+.reader .custom-font-settings {
+  display: block;
+}
+.font-import-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  min-height: 32px;
+  font-size: 12px;
+}
+.custom-font-settings > details {
+  margin-top: 4px;
+}
+.custom-font-settings > details > summary {
+  cursor: pointer;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.custom-font-settings .reading-style-row {
+  margin-block: 4px;
+}
+.reading-typography .reading-style-preview {
+  min-height: 110px;
+  max-height: 150px;
+}
+@media (max-width: 600px) {
+  .reader-dialog .reading-scope {
+    gap: 4px;
+  }
+  .reading-scope .control-group {
+    gap: 0;
+  }
+  .reading-scope .control-group legend {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .reading-scope .segmented {
+    width: 100%;
+  }
+  .reader-settings.reading-typography {
+    gap: 12px;
+  }
+}

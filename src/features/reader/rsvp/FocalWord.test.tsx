@@ -74,14 +74,14 @@ it('applies independent RSVP typography and refits after a custom font loads', a
         <FocalWord
           word="reading"
           size={64}
-          font="Custom Reader"
+          font="system:Custom Reader"
           focalColor="#123456"
         />,
       ),
     );
     const word = host.querySelector('.rsvp-word') as HTMLElement;
     expect(word.style.fontSize).toBe('64px');
-    expect(word.style.fontFamily).toBe('"Custom Reader"');
+    expect(word.style.fontFamily).toBe('"Custom Reader", Georgia, serif');
     expect(
       (host.querySelector('.rsvp-word-focal') as HTMLElement).style.color,
     ).toBe('rgb(18, 52, 86)');
