@@ -2,12 +2,15 @@
 
 ## [Unreleased]
 
+## [0.11.0]
+
 - Search within books and preview a page or percentage before continuing there, with a shortcut back to the previous position.
-- Show visible retry and library actions when a book cannot load, and preview typography changes in reading settings.
-- Upload individual books, whole series, or selected books directly from the library, with progress and retry for failed files.
+- Keep an exit visible while books open, show retry and library actions after loading errors, and preview typography changes in reading settings.
+- Upload individual books, whole series, or selected books directly from the library, with progress and retry for failed files. Return to upload confirmation automatically after connecting a server.
 - Add an optional view of books inside folders, simplify folder creation, and keep mobile selection controls and series cards aligned.
 - Clarify file removal, storage usage, sorting, and update actions; group library settings and protect unsaved catalog changes.
 - Preserve the current book when connecting a server from tracking, and improve bookmark, catalog, and OPDS controls.
+- Explain RSVP availability during location previews and retain the RSVP name in reading settings.
 
 ## [0.10.1]
 
