@@ -113,11 +113,132 @@ it('never calls native APIs in browsers or hosted builds, but still checks conne
   expect(mocks.check).not.toHaveBeenCalled();
 });
 it('uses native support information to exclude mobile updater calls', async () => {
-  mocks.invoke.mockResolvedValue({ version: '0.2.0', supported: false });
+  mocks.invoke.mockImplementation(async (command) =>
+    command === 'updates_info'
+      ? { version: '0.2.0', supported: false }
+      : {
+          tag_name: 'v0.3.0',
+          body: 'New reader',
+          draft: false,
+          prerelease: false,
+        },
+  );
   const service = await import('./service');
   await service.checkUpdates();
   expect(mocks.check).not.toHaveBeenCalled();
   expect(service.getUpdatesSnapshot().reader.supported).toBe(false);
+  expect(service.getUpdatesSnapshot().reader.available).toEqual({
+    version: '0.3.0',
+    notes: 'New reader',
+    releaseUrl: 'https://github.com/astraldeath/quire/releases/tag/v0.3.0',
+  });
+  await service.installReaderUpdate();
+  expect(mocks.flush).not.toHaveBeenCalled();
+});
+it.each(['v0.2.0', 'v0.1.99'])(
+  'does not offer same or older manual releases (%s)',
+  async (tag_name) => {
+    mocks.invoke.mockImplementation(async (command) =>
+      command === 'updates_info'
+        ? { version: '0.2.0', supported: false }
+        : { tag_name, body: '', draft: false, prerelease: false },
+    );
+    const service = await import('./service');
+    await service.checkUpdates();
+    expect(service.getUpdatesSnapshot().reader.available).toBeUndefined();
+    expect(service.getUpdatesSnapshot().reader.error).toBeUndefined();
+  },
+);
+it.each(['v1.2.0-beta.1', 'v01.2.0', 'garbage', 'v999999999999999999.0.0'])(
+  'rejects invalid stable release tags (%s)',
+  async (tag_name) => {
+    mocks.invoke.mockImplementation(async (command) =>
+      command === 'updates_info'
+        ? { version: '0.2.0', supported: false }
+        : { tag_name, body: '', draft: false, prerelease: false },
+    );
+    const service = await import('./service');
+    await service.checkUpdates();
+    expect(service.getUpdatesSnapshot().reader.available).toBeUndefined();
+    expect(service.getUpdatesSnapshot().reader.error).toContain(
+      'Could not check',
+    );
+  },
+);
+it('caches manual release checks, preserves known updates on failure, and retries explicitly', async () => {
+  vi.useFakeTimers();
+  let fail = false;
+  mocks.invoke.mockImplementation(async (command) => {
+    if (command === 'updates_info')
+      return { version: '0.9.0', supported: false };
+    if (fail) throw new Error('offline');
+    return {
+      tag_name: 'v0.10.0',
+      body: 'New',
+      draft: false,
+      prerelease: false,
+    };
+  });
+  const service = await import('./service');
+  await service.checkUpdates(false);
+  await service.checkUpdates(false);
+  expect(
+    mocks.invoke.mock.calls.filter(([command]) => command === 'updates_latest'),
+  ).toHaveLength(1);
+  fail = true;
+  vi.setSystemTime(Date.now() + 6 * 60 * 60 * 1000);
+  await service.checkUpdates(false);
+  expect(service.getUpdatesSnapshot().reader.available?.version).toBe('0.10.0');
+  expect(service.getUpdatesSnapshot().reader.error).toBeDefined();
+  fail = false;
+  await service.checkUpdates();
+  expect(service.getUpdatesSnapshot().reader.error).toBeUndefined();
+  expect(mocks.check).not.toHaveBeenCalled();
+});
+it('automatically discovers a manual update at startup and rejects nonstable metadata', async () => {
+  let release = {
+    tag_name: 'v0.3.0',
+    body: '',
+    draft: false,
+    prerelease: false,
+  };
+  mocks.invoke.mockImplementation(async (command) =>
+    command === 'updates_info'
+      ? { version: '0.2.0', supported: false }
+      : release,
+  );
+  const service = await import('./service');
+  const cleanup = service.initializeUpdates();
+  try {
+    await vi.waitFor(() =>
+      expect(service.getUpdatesSnapshot().reader.available?.version).toBe(
+        '0.3.0',
+      ),
+    );
+    for (const invalid of [
+      { draft: true },
+      { prerelease: true },
+      { body: 'x'.repeat(32001) },
+    ]) {
+      release = {
+        tag_name: 'v0.4.0',
+        body: '',
+        draft: false,
+        prerelease: false,
+        ...invalid,
+      };
+      await service.checkUpdates();
+      expect(service.getUpdatesSnapshot().reader.available?.version).toBe(
+        '0.3.0',
+      );
+      expect(service.getUpdatesSnapshot().reader.error).toContain(
+        'Could not check',
+      );
+    }
+    expect(mocks.check).not.toHaveBeenCalled();
+  } finally {
+    cleanup();
+  }
 });
 it('caches automatic checks six hours and allows explicit refresh without installing', async () => {
   vi.useFakeTimers();

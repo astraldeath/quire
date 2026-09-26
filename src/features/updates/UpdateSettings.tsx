@@ -34,9 +34,7 @@ export function UpdateSettings({
   }, [reader.installing, onBusy]);
   const currentNotes =
     changelog.split(/^## /m)[1]?.replace(/^.*\n/, '').trim() ?? '';
-  const canCheckReader =
-    reader.supported ||
-    (isTauri() && import.meta.env.VITE_HOSTED !== 'true' && !!reader.error);
+  const canCheckReader = isTauri() && import.meta.env.VITE_HOSTED !== 'true';
   const canCheckServer = !!server.connected;
   const busy = reader.installing || reader.checking || server.checking;
   return (
@@ -50,20 +48,30 @@ export function UpdateSettings({
           <>
             <p>Version {reader.available.version} is available.</p>
             <Notes text={reader.available.notes} />
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={() => void installReaderUpdate(beforeUpdate)}
-            >
-              <Download />
-              {reader.installing ? 'Installing…' : 'Update and restart'}
-            </button>
+            {reader.supported ? (
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => void installReaderUpdate(beforeUpdate)}
+              >
+                <Download />
+                {reader.installing ? 'Installing…' : 'Update and restart'}
+              </button>
+            ) : (
+              <a
+                href={reader.available.releaseUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View reader release
+              </a>
+            )}
           </>
         ) : (
           <p className="muted">
             {reader.checking
               ? 'Checking for updates…'
-              : reader.supported
+              : canCheckReader || reader.supported
                 ? reader.error || 'You have the latest reader.'
                 : import.meta.env.VITE_HOSTED === 'true'
                   ? 'The web reader updates with your server.'
@@ -84,15 +92,17 @@ export function UpdateSettings({
             </span>
           </div>
         )}
-        {!reader.supported && import.meta.env.VITE_HOSTED !== 'true' && (
-          <a
-            href="https://github.com/astraldeath/quire/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Download reader releases
-          </a>
-        )}
+        {!reader.supported &&
+          !reader.available &&
+          import.meta.env.VITE_HOSTED !== 'true' && (
+            <a
+              href="https://github.com/astraldeath/quire/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Download reader releases
+            </a>
+          )}
         {reader.available && reader.error && (
           <p className="update-error" role="status">
             {reader.error}

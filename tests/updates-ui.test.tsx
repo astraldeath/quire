@@ -22,18 +22,24 @@ const mocks = vi.hoisted(() => ({
   } as any,
   install: vi.fn(),
   check: vi.fn(),
+  native: vi.fn(() => false),
 }));
+vi.mock('@tauri-apps/api/core', () => ({ isTauri: mocks.native }));
 vi.mock('../src/features/updates/service', () => ({
   useUpdates: () => mocks.state,
   installReaderUpdate: mocks.install,
   checkUpdates: mocks.check,
 }));
-import { UpdateSettings } from '../src/features/updates/UpdateSettings';
+import {
+  UpdateSettings,
+  UpdateNotice,
+} from '../src/features/updates/UpdateSettings';
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const host = document.createElement('div');
 const root = createRoot(host);
 afterEach(() => {
   vi.clearAllMocks();
+  mocks.native.mockReturnValue(false);
 });
 it('only installs on explicit click and hides admin commands from ordinary users', async () => {
   await act(async () => root.render(<UpdateSettings />));
@@ -95,6 +101,51 @@ it.each([false, true])(
     vi.unstubAllEnvs();
   },
 );
+
+it('shows native manual updates with release notes, a release link and a notice', async () => {
+  mocks.native.mockReturnValue(true);
+  mocks.state.reader = {
+    version: '0.2.0',
+    supported: false,
+    checking: false,
+    installing: false,
+    available: {
+      version: '0.3.0',
+      notes: 'Better mobile reading.',
+      releaseUrl: 'https://github.com/astraldeath/quire/releases/tag/v0.3.0',
+    },
+  };
+  mocks.state.server = { checking: false };
+  const node = document.createElement('div'),
+    r = createRoot(node),
+    onOpen = vi.fn();
+  await act(async () =>
+    r.render(
+      <>
+        <UpdateSettings />
+        <UpdateNotice onOpen={onOpen} />
+      </>,
+    ),
+  );
+  expect(node.textContent).toContain('Better mobile reading.');
+  expect(node.textContent).not.toContain('Update and restart');
+  expect(node.querySelector('a')?.getAttribute('href')).toBe(
+    mocks.state.reader.available.releaseUrl,
+  );
+  expect(node.querySelector('.update-check')?.textContent).toContain(
+    'Check reader updates',
+  );
+  await act(async () =>
+    node.querySelector<HTMLButtonElement>('.update-notice')!.click(),
+  );
+  expect(onOpen).toHaveBeenCalledOnce();
+  expect(mocks.install).not.toHaveBeenCalled();
+  mocks.state.reader.available = undefined;
+  mocks.state.reader.error = 'Could not check for reader updates. Try again.';
+  await act(async () => r.render(<UpdateSettings />));
+  expect(node.textContent).toContain(mocks.state.reader.error);
+  await act(async () => r.unmount());
+});
 
 it.each([false, true])(
   'only offers checks with an available server target (%s)',

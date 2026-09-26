@@ -4,6 +4,8 @@ Windows x64 builds from 0.2.0 include the desktop updater. Readers can check for
 
 The stable update feed is [latest.json](https://github.com/astraldeath/quire/releases/latest/download/latest.json). A missing feed is an update-check error; it does not establish that the installation is current. Releases include a Windows x64 installer, Linux x64 AppImage and Debian packages, a signed universal Android APK, and an unsigned iOS IPA. The feed lists all four released platforms with detached Tauri signatures; automatic installation is supported on Windows and Linux AppImage. Android users install the newer APK over the existing app; iOS users must sign and sideload the new IPA. Server images retain their separate publishing workflow.
 
+All native builds check for updates automatically and show a reader update notice when a newer stable version is available. Android, iOS, Debian, and other builds without automatic installation fetch the latest published release through a fixed native GitHub API request. Settings > Updates shows its notes and a link to the versioned release; installation stays manual. Checks are cached for six hours while the app runs, and Check reader updates forces a refresh. A failed check preserves any previously found update and shows a retry message. Hosted web readers continue to update with their server.
+
 ## Configure signing once
 
 The public key in `src-tauri/tauri.conf.json` is pinned in installed readers. Store the matching private key outside the repository and back it up securely. Do not regenerate it for each release: existing readers trust the original key.

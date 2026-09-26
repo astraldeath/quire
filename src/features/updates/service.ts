@@ -25,7 +25,7 @@ export interface UpdatesState {
     version: string;
     supported: boolean;
     checking: boolean;
-    available?: { version: string; notes: string };
+    available?: { version: string; notes: string; releaseUrl?: string };
     error?: string;
     installing: boolean;
     progress?: number;
@@ -137,6 +137,36 @@ export function parseServerUpdates(value: unknown): ServerUpdates {
 let update: Update | null = null;
 let readerChecked = -Infinity;
 let readerRequest: Promise<void> | undefined;
+function stableVersion(value: unknown): number[] {
+  const version = text(value, 100);
+  if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version))
+    throw new Error('Invalid stable version.');
+  const parts = version.split('.').map(Number);
+  if (!parts.every(Number.isSafeInteger))
+    throw new Error('Invalid stable version.');
+  return parts;
+}
+function manualRelease(
+  value: unknown,
+  currentVersion: string,
+): UpdatesState['reader']['available'] {
+  const release = object(value);
+  if (release.draft !== false || release.prerelease !== false)
+    throw new Error('Invalid stable release.');
+  const tag = text(release.tag_name, 100);
+  const version = tag.replace(/^v/, '');
+  const latest = stableVersion(version),
+    current = stableVersion(currentVersion);
+  const notes = text(release.body ?? '', 32000, true);
+  const difference = latest.findIndex((part, index) => part !== current[index]);
+  return difference >= 0 && latest[difference] > current[difference]
+    ? {
+        version,
+        notes,
+        releaseUrl: `https://github.com/astraldeath/quire/releases/tag/${tag}`,
+      }
+    : undefined;
+}
 async function close(handle: Update | null) {
   try {
     await handle?.close();
@@ -163,9 +193,13 @@ async function checkReader(force: boolean): Promise<void> {
         throw new Error('Invalid platform information.');
       reader({ version: text(info.version, 100), supported: info.supported });
       if (!info.supported) {
+        const available = manualRelease(
+          await invoke('updates_latest'),
+          state.reader.version,
+        );
         await close(update);
         update = null;
-        reader({ available: undefined });
+        reader({ available });
         return;
       }
       // Mobile and hosted builds never load or call the updater plugin.
