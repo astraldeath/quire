@@ -20,6 +20,12 @@ import { RsvpActivity } from './activity';
 import { StepperControl } from '../../../components/Controls';
 import { FocalWord } from './FocalWord';
 import './rsvp.css';
+const timing = (preferences: ReaderPreferences) => ({
+  punctuationMultiplier: preferences.rsvpPunctuationMultiplier,
+  longWordPauses: preferences.rsvpLongWordPauses,
+  longWordMultiplier: preferences.rsvpLongWordMultiplier,
+  longWordLength: preferences.rsvpLongWordLength,
+});
 interface Props {
   bookId: string;
   volume: number | null;
@@ -153,6 +159,7 @@ export function RsvpReader(props: Props) {
             complete(chapter);
         },
         (milliseconds) => activity.add(milliseconds),
+        timing(latest.current.preferences),
       );
       if (auto && resume && available()) player.play();
     };
@@ -213,6 +220,7 @@ export function RsvpReader(props: Props) {
         player?.configure(
           normalizeWpm(latest.current.preferences.rsvpWpm),
           latest.current.preferences.rsvpPunctuationPauses !== false,
+          timing(latest.current.preferences),
         ),
     };
     const obscure = () => {
@@ -290,7 +298,14 @@ export function RsvpReader(props: Props) {
   }, [props.bookId, props.publication, props.locator]);
   useEffect(() => {
     controls.current?.configure();
-  }, [props.preferences.rsvpWpm, props.preferences.rsvpPunctuationPauses]);
+  }, [
+    props.preferences.rsvpWpm,
+    props.preferences.rsvpPunctuationPauses,
+    props.preferences.rsvpPunctuationMultiplier,
+    props.preferences.rsvpLongWordPauses,
+    props.preferences.rsvpLongWordMultiplier,
+    props.preferences.rsvpLongWordLength,
+  ]);
   return (
     <section className="rsvp-reader" aria-label="RSVP reading">
       <header className="rsvp-header">
@@ -303,8 +318,16 @@ export function RsvpReader(props: Props) {
         </button>
         <span>{label}</span>
       </header>
-      <div className="rsvp-display" aria-live="off">
-        <FocalWord word={word} size={props.preferences.size} />
+      <div
+        className={`rsvp-display${props.preferences.rsvpGuides ? ' rsvp-display-guides' : ''}`}
+        aria-live="off"
+      >
+        <FocalWord
+          word={word}
+          size={props.preferences.rsvpSize ?? 40}
+          font={props.preferences.rsvpFont ?? 'Georgia'}
+          focalColor={props.preferences.rsvpFocalColor}
+        />
       </div>
       {error && <p role="alert">{error}</p>}
       {loading && <p role="status">Loading text…</p>}

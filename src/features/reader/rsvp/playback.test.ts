@@ -123,3 +123,118 @@ it('credits partial dwell on pause but excludes a long suspended timer', () => {
   expect(time).toHaveBeenCalledTimes(1);
   p.dispose();
 });
+
+it('combines custom punctuation and long-word pauses without multiplying them together', () => {
+  vi.useFakeTimers();
+  let state!: RsvpState;
+  const credited: number[] = [];
+  const dwelled: number[] = [];
+  const p = new RsvpPlayback(
+    tokens('lengthyword, next'),
+    300,
+    true,
+    (s) => (state = s),
+    vi.fn(),
+    0,
+    (_index, ms) => dwelled.push(ms),
+    (ms) => credited.push(ms),
+    {
+      punctuationMultiplier: 2,
+      longWordPauses: true,
+      longWordMultiplier: 2.5,
+      longWordLength: 8,
+    },
+  );
+  p.play();
+  vi.advanceTimersByTime(499);
+  expect(state.index).toBe(0);
+  vi.advanceTimersByTime(1);
+  expect(state.index).toBe(1);
+  expect(dwelled).toEqual([500]);
+  expect(credited).toEqual([500]);
+  p.dispose();
+});
+
+it('credits elapsed time once when live pause settings restart the current word', () => {
+  vi.useFakeTimers();
+  let state!: RsvpState;
+  const credited: number[] = [];
+  const p = new RsvpPlayback(
+    tokens('lengthyword next'),
+    300,
+    false,
+    (s) => (state = s),
+    vi.fn(),
+    0,
+    undefined,
+    (ms) => credited.push(ms),
+  );
+  p.play();
+  vi.advanceTimersByTime(100);
+  p.configure(300, false, {
+    longWordPauses: true,
+    longWordMultiplier: 2,
+    longWordLength: 8,
+  });
+  vi.advanceTimersByTime(399);
+  expect(state.index).toBe(0);
+  vi.advanceTimersByTime(1);
+  expect(state.index).toBe(1);
+  expect(credited).toEqual([100, 400]);
+  p.pause();
+  vi.advanceTimersByTime(60000);
+  expect(credited.reduce((sum, ms) => sum + ms, 0)).toBe(500);
+  p.dispose();
+});
+
+it('counts letters rather than surrounding punctuation for long-word pauses', () => {
+  vi.useFakeTimers();
+  let state!: RsvpState;
+  const p = new RsvpPlayback(
+    tokens('“word!!!” next'),
+    300,
+    false,
+    (s) => (state = s),
+    vi.fn(),
+    0,
+    undefined,
+    undefined,
+    { longWordPauses: true, longWordMultiplier: 3, longWordLength: 8 },
+  );
+  p.play();
+  vi.advanceTimersByTime(200);
+  expect(state.index).toBe(1);
+  p.dispose();
+});
+
+it.each([
+  ['word, next', true, 2, 400],
+  ['word. next', true, 2, 600],
+  ['word', true, 2, 800],
+  ['word. next', true, 0, 200],
+  ['word. next', false, 3, 200],
+  ['word. next', true, NaN, 400],
+] as const)(
+  'uses bounded custom punctuation timing for %s',
+  (text, pauses, strength, milliseconds) => {
+    vi.useFakeTimers();
+    const dwelled: number[] = [];
+    const p = new RsvpPlayback(
+      tokens(text),
+      300,
+      pauses,
+      vi.fn(),
+      vi.fn(),
+      0,
+      (_index, ms) => dwelled.push(ms),
+      undefined,
+      { punctuationMultiplier: strength },
+    );
+    p.play();
+    vi.advanceTimersByTime(milliseconds - 1);
+    expect(dwelled).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(dwelled).toEqual([milliseconds]);
+    p.dispose();
+  },
+);

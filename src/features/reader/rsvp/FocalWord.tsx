@@ -1,7 +1,17 @@
 import { useLayoutEffect, useRef } from 'react';
 import { splitFocalWord } from './focal';
 
-export function FocalWord({ word, size }: { word: string; size: number }) {
+export function FocalWord({
+  word,
+  size,
+  font,
+  focalColor,
+}: {
+  word: string;
+  size: number;
+  font?: string;
+  focalColor?: string;
+}) {
   const container = useRef<HTMLSpanElement>(null);
   const { before, focal, after } = splitFocalWord(word);
   useLayoutEffect(() => {
@@ -21,23 +31,32 @@ export function FocalWord({ word, size }: { word: string; size: number }) {
       typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
     observer?.observe(element);
     window.addEventListener('resize', fit);
+    document.fonts?.addEventListener('loadingdone', fit);
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', fit);
+      document.fonts?.removeEventListener('loadingdone', fit);
     };
-  }, [word, size]);
+  }, [word, size, font]);
   return (
     <span
       ref={container}
       className="rsvp-word"
       role="img"
       aria-label={word}
-      style={{ fontSize: `clamp(1.5rem, 8vw, ${Math.max(32, size * 2)}px)` }}
+      style={{
+        fontSize: Number.isFinite(size) ? Math.min(96, Math.max(24, size)) : 40,
+        fontFamily: font,
+      }}
     >
       <span aria-hidden="true" className="rsvp-word-before">
         {before}
       </span>
-      <span aria-hidden="true" className="rsvp-word-focal">
+      <span
+        aria-hidden="true"
+        className="rsvp-word-focal"
+        style={{ color: focalColor }}
+      >
         {focal}
       </span>
       <span aria-hidden="true" className="rsvp-word-after">

@@ -3,6 +3,18 @@ export interface RsvpState {
   index: number;
   playing: boolean;
 }
+export interface RsvpTiming {
+  punctuationMultiplier?: number;
+  longWordPauses?: boolean;
+  longWordMultiplier?: number;
+  longWordLength?: number;
+}
+const bounded = (
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+) => (Number.isFinite(value) ? Math.min(max, Math.max(min, value!)) : fallback);
 export function normalizeWpm(value: number | undefined): number {
   return Number.isFinite(value)
     ? Math.min(1000, Math.max(60, Math.round(value!)))
@@ -25,6 +37,7 @@ export class RsvpPlayback {
     startIndex = 0,
     private onDwell?: (index: number, milliseconds: number) => void,
     private onTime?: (milliseconds: number) => void,
+    private timing: RsvpTiming = {},
   ) {
     this.wpm = normalizeWpm(wpm);
     this.state = {
@@ -42,6 +55,17 @@ export class RsvpPlayback {
       if (/[,;:，；：]["'”’)]*$/u.test(token.text)) multiplier = 1.5;
       if (/[.!?。！？]["'”’)]*$/u.test(token.text)) multiplier = 2;
       if (token.paragraphEnd) multiplier = 2.5;
+      multiplier =
+        1 +
+        (multiplier - 1) * bounded(this.timing.punctuationMultiplier, 1, 0, 3);
+    }
+    if (this.timing.longWordPauses && token) {
+      const length = token.text.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+      if (length >= bounded(this.timing.longWordLength, 8, 4, 20))
+        multiplier = Math.max(
+          multiplier,
+          bounded(this.timing.longWordMultiplier, 1.5, 1, 3),
+        );
     }
     return (60000 / this.wpm) * multiplier;
   }
@@ -105,10 +129,15 @@ export class RsvpPlayback {
     this.ended = false;
     this.emit();
   }
-  configure(wpm: number, punctuationPauses: boolean) {
+  configure(
+    wpm: number,
+    punctuationPauses: boolean,
+    timing: RsvpTiming = this.timing,
+  ) {
     if (this.timer !== undefined) this.creditPartial();
     this.wpm = normalizeWpm(wpm);
     this.punctuationPauses = punctuationPauses;
+    this.timing = timing;
     if (this.state.playing) {
       clearTimeout(this.timer);
       this.schedule();
