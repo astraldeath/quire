@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.12.0",
-      "versionDate": "2026-09-26T18:04:00.000Z",
-      "versionDescription": "- Swipe comic and PDF pages with finger-following animations, including double-page spreads and right-to-left reading. Preserve preloaded images and respect reduced motion.\n- Save per-book reading settings, reset them to global defaults, and reuse named reading presets.\n- Import TTF and OTF fonts, adjust supported font weights, and save reading themes with independent page, text, and link colors.\n- Customize tap zones and desktop keyboard shortcuts for navigation, controls, settings, search, and bookmarks.\n- Customize RSVP fonts, size, focal-letter color, alignment guides, punctuation pauses, and long-word pauses.\n- Include reading customizations and imported fonts in backups. Keep newer preferences when a font import finishes and safely fall back when a font is removed.\n- Avoid unnecessary repagination during reading and ignore delayed reflow callbacks for detached chapter documents.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.12.0/Quire_0.12.0_ios-unsigned.ipa",
-      "size": 8258704,
+      "version": "0.13.0",
+      "versionDate": "2026-09-26T19:50:26.000Z",
+      "versionDescription": "- Search installed system fonts alongside default and imported fonts in reading and RSVP settings.\n- Compact reading settings with grouped typography controls, a font import action, and a live preview.\n- Notify iOS, Android, and other native builds about new releases even when automatic installation is unavailable. Show release notes and a manual download link.\n- Align upload progress and action icons with their labels.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.13.0/Quire_0.13.0_ios-unsigned.ipa",
+      "size": 8274644,
       "versions": [
+        {
+          "version": "0.13.0",
+          "date": "2026-09-26T19:50:26.000Z",
+          "localizedDescription": "- Search installed system fonts alongside default and imported fonts in reading and RSVP settings.\n- Compact reading settings with grouped typography controls, a font import action, and a live preview.\n- Notify iOS, Android, and other native builds about new releases even when automatic installation is unavailable. Show release notes and a manual download link.\n- Align upload progress and action icons with their labels.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.13.0/Quire_0.13.0_ios-unsigned.ipa",
+          "size": 8274644
+        },
         {
           "version": "0.12.0",
           "date": "2026-09-26T18:04:00.000Z",
