@@ -698,6 +698,21 @@ label {
 .form-grid input {
   width: 100%;
 }
+.upload-status,
+.upload-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.upload-action {
+  justify-content: center;
+}
+.upload-status svg,
+.upload-action svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
 .modal-footer {
   display: flex;
   justify-content: flex-end;

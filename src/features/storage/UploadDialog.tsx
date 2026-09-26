@@ -114,9 +114,11 @@ export function UploadDialog({
           ) : (
             <>
               {busy && (
-                <p role="status">
-                  <LoaderCircle className="spinning" /> Uploading {progress[0]}{' '}
-                  of {progress[1]}…
+                <p role="status" className="upload-status">
+                  <LoaderCircle className="spinning" aria-hidden="true" />
+                  <span>
+                    Uploading {progress[0]} of {progress[1]}…
+                  </span>
                 </p>
               )}
               {result ? (
@@ -163,7 +165,7 @@ export function UploadDialog({
                 </button>
                 {(!result || result.failed.length > 0) && (
                   <button
-                    className="primary"
+                    className="primary upload-action"
                     disabled={
                       busy ||
                       !account ||
@@ -173,8 +175,10 @@ export function UploadDialog({
                       void run(result ? result.failed.map((f) => f.id) : ids)
                     }
                   >
-                    <CloudUpload />
-                    {result ? 'Retry failed' : `Upload ${ids.length}`}
+                    <CloudUpload aria-hidden="true" />
+                    <span>
+                      {result ? 'Retry failed' : `Upload ${ids.length}`}
+                    </span>
                   </button>
                 )}
               </div>
