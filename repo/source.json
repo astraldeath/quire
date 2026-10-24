@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.13.0",
-      "versionDate": "2026-09-26T19:50:26.000Z",
-      "versionDescription": "- Search installed system fonts alongside default and imported fonts in reading and RSVP settings.\n- Compact reading settings with grouped typography controls, a font import action, and a live preview.\n- Notify iOS, Android, and other native builds about new releases even when automatic installation is unavailable. Show release notes and a manual download link.\n- Align upload progress and action icons with their labels.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.13.0/Quire_0.13.0_ios-unsigned.ipa",
-      "size": 8274644,
+      "version": "0.14.0",
+      "versionDate": "2026-10-24T03:21:24.000Z",
+      "versionDescription": "- Fix EPUB chapters with an empty XHTML document type subset failing to load.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.14.0/Quire_0.14.0_ios-unsigned.ipa",
+      "size": 8278900,
       "versions": [
+        {
+          "version": "0.14.0",
+          "date": "2026-10-24T03:21:24.000Z",
+          "localizedDescription": "- Fix EPUB chapters with an empty XHTML document type subset failing to load.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.14.0/Quire_0.14.0_ios-unsigned.ipa",
+          "size": 8278900
+        },
         {
           "version": "0.13.0",
           "date": "2026-09-26T19:50:26.000Z",
