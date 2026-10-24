@@ -12,8 +12,18 @@ import {
 const MB = 1024 * 1024;
 export const CSP =
   "default-src 'none'; script-src 'none'; connect-src 'none'; img-src blob: data:; style-src 'unsafe-inline' blob:; font-src blob: data:; media-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+export function hasUnsupportedDocumentEntities(text: string): boolean {
+  // Some EPUB producers serialize an empty internal subset (`<!DOCTYPE html []>`).
+  // It declares no entities, so strip it before applying the DTD safety check.
+  const withoutEmptySubset = text.replace(
+    /<!DOCTYPE\s+[A-Za-z_][\w.:-]*\s*\[\s*\]\s*>/gi,
+    '',
+  );
+  return /<!ENTITY|<!DOCTYPE[^>]*\[/i.test(withoutEmptySubset);
+}
+
 const xml = (text: string) => {
-  if (/<!ENTITY|<!DOCTYPE[^>]*\[/i.test(text))
+  if (hasUnsupportedDocumentEntities(text))
     throw new Error('EPUB XML contains unsupported document entities.');
   text = text.replace(/<!DOCTYPE[^>]*>/gi, '');
   const doc = new DOMParser().parseFromString(text, 'application/xml');

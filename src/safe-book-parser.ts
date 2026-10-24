@@ -1,10 +1,10 @@
-import { sanitizeDocument } from './epub';
+import { hasUnsupportedDocumentEntities, sanitizeDocument } from './epub';
 
 /** Never activate source HTML while a format parser builds its document. */
 export class SafeBookParser {
   parseFromString(source: string, type: DOMParserSupportedType): Document {
     if (type === 'application/xml') {
-      if (/<!ENTITY|<!DOCTYPE[^>]*\[/i.test(source))
+      if (hasUnsupportedDocumentEntities(source))
         throw new Error('Unsupported XML entities.');
       return new DOMParser().parseFromString(source, type);
     }
@@ -25,7 +25,7 @@ export class SafeBookParser {
       // Kindle HTML is often tagged XHTML without being well-formed XML.
       if (
         type !== 'application/xhtml+xml' ||
-        /<!ENTITY|<!DOCTYPE[^>]*\[/i.test(source)
+        hasUnsupportedDocumentEntities(source)
       )
         throw error;
       safe = sanitizeDocument(source, true);
