@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.14.0]
+
+- Fix EPUB chapters with an empty XHTML document type subset failing to load.
+
 ## [0.13.0]
 
 - Search installed system fonts alongside default and imported fonts in reading and RSVP settings.
