@@ -3,41 +3,44 @@ import { createRoot } from 'react-dom/client';
 import { it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { App } from '../src/App';
 import { defaults } from '../src/domain/models';
-const { books, ensure, saveBook, putBook, folderCatalog } = vi.hoisted(() => ({
-  saveBook: vi.fn(async (_book: import('../src/domain/models').Book) => {}),
-  putBook: vi.fn(
-    async (
-      _book: import('../src/domain/models').Book,
-      _bytes: Uint8Array,
-    ) => {},
-  ),
-  books: [
-    {
-      id: 'a'.repeat(64),
-      title: 'Book One',
-      folder: 'Shelf/Nested',
-      author: 'Author',
-      series: 'A/B',
-      volume: 1,
-      cover: '',
-      addedAt: 1,
-      local: true,
-    },
-    {
-      id: 'b'.repeat(64),
-      title: 'Book Two',
-      folder: 'Shelf',
-      author: 'Author',
-      series: 'A/B',
-      volume: 2,
-      cover: '',
-      addedAt: 1,
-      local: true,
-    },
-  ],
-  ensure: vi.fn(async () => new Uint8Array([1])),
-  folderCatalog: { library: [] as string[], hidden: [] as string[] },
-}));
+const { books, ensure, saveBook, putBook, folderCatalog, mode } = vi.hoisted(
+  () => ({
+    mode: { hosted: true },
+    saveBook: vi.fn(async (_book: import('../src/domain/models').Book) => {}),
+    putBook: vi.fn(
+      async (
+        _book: import('../src/domain/models').Book,
+        _bytes: Uint8Array,
+      ) => {},
+    ),
+    books: [
+      {
+        id: 'a'.repeat(64),
+        title: 'Book One',
+        folder: 'Shelf/Nested',
+        author: 'Author',
+        series: 'A/B',
+        volume: 1,
+        cover: '',
+        addedAt: 1,
+        local: true,
+      },
+      {
+        id: 'b'.repeat(64),
+        title: 'Book Two',
+        folder: 'Shelf',
+        author: 'Author',
+        series: 'A/B',
+        volume: 2,
+        cover: '',
+        addedAt: 1,
+        local: true,
+      },
+    ],
+    ensure: vi.fn(async () => new Uint8Array([1])),
+    folderCatalog: { library: [] as string[], hidden: [] as string[] },
+  }),
+);
 vi.mock('../src/books', async () => ({
   ...(await vi.importActual('../src/books')),
   importBook: vi.fn(async (file: File) => ({
@@ -53,7 +56,9 @@ vi.mock('../src/books', async () => ({
 }));
 vi.mock('../src/features/navigation/routes', async () => ({
   ...(await vi.importActual('../src/features/navigation/routes')),
-  hostedWeb: true,
+  get hostedWeb() {
+    return mode.hosted;
+  },
 }));
 vi.mock('../src/storage', () => ({
   devicePrivacyKey: () => 'privacy-folder-test',
@@ -125,6 +130,7 @@ const libraries = [
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
+  mode.hosted = true;
   saveBook.mockClear();
   putBook.mockClear();
   folderCatalog.library = [];
@@ -153,6 +159,66 @@ async function click(text: string) {
       .click(),
   );
 }
+it('keeps the selected shared library when switching between Library and Reading', async () => {
+  await mount('/library?collection=one', true);
+  await click('Reading');
+  expect(location.pathname).toBe('/reading');
+  expect(new URLSearchParams(location.search).get('collection')).toBe('one');
+  await click('Library');
+  expect(location.pathname).toBe('/library');
+  expect(new URLSearchParams(location.search).get('collection')).toBe('one');
+});
+it('switches named shared libraries from the destination menu and marks the current choice', async () => {
+  await mount('/library?collection=one', true);
+  const destination = host.querySelector<HTMLButtonElement>(
+    '.library-destination',
+  )!;
+  expect(destination.textContent).toBe('First collection');
+  await act(async () => destination.click());
+  expect(
+    document
+      .querySelector('[data-menu-id="collection-one"]')
+      ?.getAttribute('aria-current'),
+  ).toBe('true');
+  await act(async () =>
+    document
+      .querySelector<HTMLButtonElement>('[data-menu-id="collection-two"]')!
+      .click(),
+  );
+  expect(new URLSearchParams(location.search).get('collection')).toBe('two');
+  expect(host.querySelector('[aria-label="Library collection"]')).toBeNull();
+});
+it('clears a named shared-library chip to all shared libraries', async () => {
+  await mount('/library?collection=one', true);
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('.filter-chips button')!.click(),
+  );
+  expect(new URLSearchParams(location.search).get('collection')).toBe('shared');
+  expect(host.querySelector('.library-destination')?.textContent).toBe(
+    'Shared libraries',
+  );
+});
+it('preserves native shared destinations across section changes', async () => {
+  mode.hosted = false;
+  await mount('/library', true);
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('.library-destination')!.click(),
+  );
+  await act(async () =>
+    document
+      .querySelector<HTMLButtonElement>('[data-menu-id="collection-one"]')!
+      .click(),
+  );
+  await click('Reading');
+  expect(host.querySelector('.library-destination')?.textContent).toBe(
+    'First collection',
+  );
+  await click('Library');
+  expect(host.querySelector('.library-destination')?.textContent).toBe(
+    'First collection',
+  );
+  expect(location.pathname).toBe('/library');
+});
 it('can browse books inside folders in the flat library view', async () => {
   defaults.flatLibrary = true;
   try {

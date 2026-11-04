@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Library, EyeOff, LibraryBig } from 'lucide-react';
+import { Check, ChevronDown, Library, EyeOff, LibraryBig } from 'lucide-react';
 import {
   ActionPopover,
   type ActionAnchor,
@@ -12,6 +12,9 @@ export function LibraryDestination({
   onShared,
   onLibrary,
   onHidden,
+  collections = [],
+  collection = 'all',
+  onCollection,
 }: {
   hidden: boolean;
   shared?: boolean;
@@ -19,13 +22,22 @@ export function LibraryDestination({
   onShared?(): void;
   onLibrary(): void;
   onHidden(): void;
+  collections?: { id: string; name: string }[];
+  collection?: string;
+  onCollection?(id: string): void;
 }) {
   const [anchor, setAnchor] = useState<ActionAnchor>();
+  const label = hidden
+    ? 'Hidden books'
+    : shared
+      ? (collections.find((item) => item.id === collection)?.name ??
+        'Shared libraries')
+      : 'All books';
   return (
     <>
       <button
         className="library-destination"
-        aria-label={`Current library: ${hidden ? 'Hidden books' : shared ? 'Shared libraries' : 'All books'}`}
+        aria-label={`Current library: ${label}`}
         aria-haspopup="menu"
         aria-expanded={!!anchor}
         onClick={(e) => {
@@ -38,7 +50,7 @@ export function LibraryDestination({
           });
         }}
       >
-        {hidden ? 'Hidden books' : shared ? 'Shared libraries' : 'All books'}
+        {label}
         <ChevronDown aria-hidden="true" />
       </button>
       {anchor && (
@@ -50,6 +62,7 @@ export function LibraryDestination({
           <div className="book-action-list">
             <ActionMenuItem
               menuId="library"
+              aria-current={!hidden && !shared ? 'true' : undefined}
               onClick={() => {
                 setAnchor(undefined);
                 onLibrary();
@@ -57,9 +70,13 @@ export function LibraryDestination({
             >
               <Library />
               All books
+              {!hidden && !shared && (
+                <Check className="destination-check" aria-hidden="true" />
+              )}
             </ActionMenuItem>
             <ActionMenuItem
               menuId="hidden"
+              aria-current={hidden ? 'true' : undefined}
               onClick={() => {
                 setAnchor(undefined);
                 onHidden();
@@ -67,10 +84,18 @@ export function LibraryDestination({
             >
               <EyeOff />
               Hidden books
+              {hidden && (
+                <Check className="destination-check" aria-hidden="true" />
+              )}
             </ActionMenuItem>
             {hasShared && (
               <ActionMenuItem
                 menuId="shared"
+                aria-current={
+                  !hidden && shared && collection === 'shared'
+                    ? 'true'
+                    : undefined
+                }
                 onClick={() => {
                   setAnchor(undefined);
                   onShared?.();
@@ -78,8 +103,30 @@ export function LibraryDestination({
               >
                 <LibraryBig />
                 Shared libraries
+                {!hidden && shared && collection === 'shared' && (
+                  <Check className="destination-check" aria-hidden="true" />
+                )}
               </ActionMenuItem>
             )}
+            {collections.map((item) => (
+              <ActionMenuItem
+                key={item.id}
+                menuId={`collection-${item.id}`}
+                aria-current={
+                  !hidden && collection === item.id ? 'true' : undefined
+                }
+                onClick={() => {
+                  setAnchor(undefined);
+                  onCollection?.(item.id);
+                }}
+              >
+                <LibraryBig />
+                <span className="destination-name">{item.name}</span>
+                {!hidden && collection === item.id && (
+                  <Check className="destination-check" aria-hidden="true" />
+                )}
+              </ActionMenuItem>
+            ))}
           </div>
         </ActionPopover>
       )}

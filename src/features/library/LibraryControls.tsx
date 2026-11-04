@@ -29,11 +29,7 @@ export function LibraryControls({
   series,
   selecting,
   onSelect,
-  collections = [],
-  collection = 'all',
 }: {
-  collections?: { id: string; name: string }[];
-  collection?: string;
   preferences: Preferences;
   onChange(p: Preferences): void;
   status: string;
@@ -91,9 +87,7 @@ export function LibraryControls({
         >
           <ListFilter />
           Filters
-          {(status !== 'all' ||
-            availability !== 'all' ||
-            (collection !== 'all' && collection !== 'shared')) && (
+          {(status !== 'all' || availability !== 'all') && (
             <span className="filter-dot" />
           )}
         </button>
@@ -104,6 +98,7 @@ export function LibraryControls({
         >
           <ArrowDownWideNarrow />
           Sort
+          <span className="sort-summary">{labels.get(sort)}</span>
         </button>
         <span id={sortDescription} className="sr-only">
           Sorted by {labels.get(sort)}, {directionLabel(direction)}
@@ -133,24 +128,6 @@ export function LibraryControls({
           <div className="library-options">
             {panel === 'Filters' && (
               <>
-                {collections.length > 0 && (
-                  <label className="mobile-collection">
-                    Library
-                    <select
-                      value={collection}
-                      onChange={(event) =>
-                        onFilter('collection', event.target.value)
-                      }
-                    >
-                      <option value="shared">All shared libraries</option>
-                      {collections.map((library) => (
-                        <option key={library.id} value={library.id}>
-                          {library.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
                 <Segments
                   label="Reading status"
                   value={status}

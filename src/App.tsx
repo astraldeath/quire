@@ -2,7 +2,6 @@ import {
   readerPreferences,
   setBookReaderPreferences,
 } from './features/reader/customization';
-import { ViewOptions } from './features/library/ViewOptions';
 import { LibraryDestination } from './features/library/LibraryDestination';
 import {
   emptyFolderCatalog,
@@ -191,7 +190,6 @@ function AppContent({
   const serverFiles = useServerFiles();
   const connectedLibraries = useSharedLibraries();
   const wasUnlocked = useRef(false);
-  const [viewOptions, setViewOptions] = useState(false);
   const [uploadSelection, setUploadSelection] = useState<Book[] | null>(null);
   const [hiddenBooks, setHiddenBooks] = useState(false);
   const webPath = useWebPath();
@@ -1225,18 +1223,66 @@ function AppContent({
   const removalBook = books.find(
     (book) => book.id === removalOrigin?.bookId && privacy.access(book.id),
   );
-  const goLibrary = (read = false) => {
-    setHiddenBooks(false);
-    setLibraryScope('all');
+  const goLibrary = (read = false, resetScope = false) => {
+    if (resetScope) {
+      setHiddenBooks(false);
+      setLibraryScope('all');
+    }
     setFolder('');
     if (hostedWeb) {
-      navigateWeb(read ? '/reading' : '/library');
+      const params = new URLSearchParams();
+      if (!resetScope && libraryScope !== 'all')
+        params.set('collection', libraryScope);
+      navigateWeb(
+        (read ? '/reading' : '/library') +
+          (params.size ? '?' + params.toString() : ''),
+      );
       return;
     }
     setReading(read);
     setGroup(null);
     setQuery('');
   };
+  const goCollection = (collection: string) => {
+    setHiddenBooks(false);
+    setSelected([]);
+    setSelecting(false);
+    setStatus('all');
+    setAvailability('all');
+    setFolder('');
+    setGroup(null);
+    setQuery('');
+    if (hostedWeb) {
+      const params = new URLSearchParams();
+      if (collection !== 'all') params.set('collection', collection);
+      navigateWeb(
+        (reading ? '/reading' : '/library') +
+          (params.size ? '?' + params.toString() : ''),
+      );
+    } else setLibraryScope(collection);
+  };
+  const destination = (
+    <LibraryDestination
+      hidden={hiddenBooks}
+      shared={sharedDestination}
+      hasShared={serverLibraries.length > 0}
+      collections={serverLibraries}
+      collection={libraryScope}
+      onCollection={goCollection}
+      onShared={() => goCollection('shared')}
+      onLibrary={() => goCollection('all')}
+      onHidden={() => {
+        void privacy.authenticate().then((ok) => {
+          if (ok) {
+            goLibrary(reading, true);
+            setHiddenBooks(true);
+            setGroup(null);
+            setQuery('');
+          }
+        });
+      }}
+    />
+  );
   return (
     <>
       <input
@@ -1556,47 +1602,15 @@ function AppContent({
                   )}
                   <h1>
                     {group ??
-                      (reading ? (
-                        'Currently reading'
-                      ) : folder ? (
-                        folder.split('/').at(-1)
-                      ) : (
-                        <LibraryDestination
-                          hidden={hiddenBooks}
-                          shared={sharedDestination}
-                          hasShared={serverLibraries.length > 0}
-                          onShared={() => {
-                            setHiddenBooks(false);
-                            setSelected([]);
-                            setSelecting(false);
-                            setStatus('all');
-                            setAvailability('all');
-                            setFolder('');
-                            setGroup(null);
-                            setReading(false);
-                            setQuery('');
-                            if (hostedWeb)
-                              navigateWeb('/library?collection=shared');
-                            else setLibraryScope('shared');
-                          }}
-                          onLibrary={() => {
-                            setHiddenBooks(false);
-                            goLibrary(false);
-                          }}
-                          onHidden={() => {
-                            void privacy.authenticate().then((ok) => {
-                              if (ok) {
-                                goLibrary(false);
-                                goFolder('');
-                                setHiddenBooks(true);
-                                setGroup(null);
-                                setQuery('');
-                              }
-                            });
-                          }}
-                        />
-                      ))}
+                      (reading
+                        ? 'Currently reading'
+                        : folder
+                          ? folder.split('/').at(-1)
+                          : destination)}
                   </h1>
+                  {reading && !group && (
+                    <div className="reading-destination">{destination}</div>
+                  )}
                   <span className="muted">
                     {browsingFolders
                       ? folderBooks.length
@@ -1716,25 +1730,7 @@ function AppContent({
                 />
               ) : (
                 <>
-                  {sharedDestination && serverLibraries.length > 0 && (
-                    <select
-                      aria-label="Library collection"
-                      value={libraryScope}
-                      onChange={(event) =>
-                        changeFilter('collection', event.target.value)
-                      }
-                    >
-                      <option value="shared">All shared libraries</option>
-                      {serverLibraries.map((library) => (
-                        <option key={library.id} value={library.id}>
-                          {library.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
                   <LibraryControls
-                    collections={sharedDestination ? serverLibraries : []}
-                    collection={libraryScope}
                     preferences={shelfPreferences}
                     onChange={(next) => {
                       if (group && next.sort !== seriesSort)
@@ -1762,7 +1758,14 @@ function AppContent({
               (libraryScope !== 'all' && libraryScope !== 'shared')) && (
               <div className="filter-chips">
                 {libraryScope !== 'all' && libraryScope !== 'shared' && (
-                  <button onClick={() => changeFilter('collection', 'all')}>
+                  <button
+                    onClick={() =>
+                      changeFilter(
+                        'collection',
+                        sharedDestination ? 'shared' : 'all',
+                      )
+                    }
+                  >
                     {libraryScope === 'shared'
                       ? 'Shared libraries'
                       : libraryScope === 'personal'
@@ -2031,17 +2034,8 @@ function AppContent({
           </button>
         </div>
       )}
-      {viewOptions && (
-        <Modal title="View options" onClose={() => setViewOptions(false)}>
-          <ViewOptions preferences={preferences} onChange={changePreferences} />
-        </Modal>
-      )}
       {settings && (
         <Settings
-          onViewOptions={() => {
-            goSettings(false);
-            setViewOptions(true);
-          }}
           onLibrary={() => {
             goSettings(false);
             goLibrary(false);
