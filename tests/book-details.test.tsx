@@ -288,3 +288,43 @@ it.each([
     await act(async () => root.unmount());
   },
 );
+
+it.each([
+  { fraction: 0, label: 'Start reading' },
+  { fraction: 0.42, label: 'Continue reading' },
+  { fraction: 1, label: 'Read again' },
+])(
+  'opens the book from its progress-aware primary action ($label)',
+  async ({ fraction, label }) => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const read = vi.fn();
+    await act(async () =>
+      root.render(
+        <BookDetails
+          book={{
+            ...book,
+            position: { fraction, updatedAt: 2, cfi: '', section: '' },
+          }}
+          onClose={() => {}}
+          onSave={async () => {}}
+          onRemove={async () => {}}
+          onRead={read}
+          onImport={() => {}}
+          onDelete={() => {}}
+        />,
+      ),
+    );
+    const primary = host.querySelector<HTMLButtonElement>(
+      '.book-details-primary .primary',
+    )!;
+    expect(primary.textContent).toBe(label);
+    await act(async () => primary.click());
+    expect(read).toHaveBeenCalledOnce();
+    await act(async () => root.unmount());
+  },
+);

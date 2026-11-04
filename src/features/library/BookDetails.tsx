@@ -2,7 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, HardDriveDownload, Pencil, Trash2 } from 'lucide-react';
 import type { Book } from '../../domain/models';
-import { readingStatusLabel } from '../../domain/library';
+import { readingStatus, readingStatusLabel } from '../../domain/library';
 import { Modal } from '../../components/Modal';
 import { TaskError } from '../../components/TaskError';
 import { useDraftGuard } from '../../components/useDraftGuard';
@@ -241,7 +241,11 @@ export function BookDetails({
                 onClick={onRead}
               >
                 {book.local ? <BookOpen /> : <HardDriveDownload />}
-                {book.local ? 'Open book' : 'Download and read'}
+                {readingStatus(book) === 'finished'
+                  ? 'Read again'
+                  : readingStatus(book) === 'reading'
+                    ? 'Continue reading'
+                    : 'Start reading'}
               </button>
               <button
                 ref={editButton}

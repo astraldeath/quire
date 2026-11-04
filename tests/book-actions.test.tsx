@@ -29,7 +29,7 @@ async function setup() {
   );
   return { root, open, actions, button: host.querySelector('button')! };
 }
-it('offers scoped upload directly and hides it when every file is on the server', async () => {
+it('offers scoped upload under files and hides it when every file is on the server', async () => {
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
@@ -58,6 +58,12 @@ it('offers scoped upload directly and hides it when every file is on the server'
       />,
     );
   await act(async () => render(true, 1));
+  expect(document.body.textContent).not.toContain('Upload series');
+  await act(async () =>
+    document
+      .querySelector<HTMLButtonElement>('[data-menu-id="files"]')!
+      .click(),
+  );
   const button = [...document.querySelectorAll('button')].find(
     (b) => b.textContent === 'Upload series (1)',
   )!;
@@ -328,23 +334,26 @@ it.each([
     name: 'unread',
     position: undefined,
     shown: ['Unread', 'Mark finished'],
-    hidden: ['Reading status', 'Mark unread'],
+    hidden: ['Mark unread'],
+    read: 'Start reading',
   },
   {
     name: 'reading',
     position: { fraction: 0.42, updatedAt: 2, cfi: '', section: '' },
     shown: ['42% read', 'Mark finished', 'Mark unread'],
-    hidden: ['Reading status'],
+    hidden: [],
+    read: 'Continue reading',
   },
   {
     name: 'finished',
     position: { fraction: 1, updatedAt: 2, cfi: '', section: '' },
     shown: ['Finished', 'Mark unread'],
-    hidden: ['Reading status', 'Mark finished'],
+    hidden: ['Mark finished'],
+    read: 'Read again',
   },
 ])(
-  'shows direct status actions for a $name book',
-  async ({ position, shown, hidden }) => {
+  'opens status actions for a $name book and returns focus to their parent',
+  async ({ position, shown, hidden, read }) => {
     const host = document.createElement('div');
     document.body.append(host);
     const root = createRoot(host);
@@ -379,7 +388,17 @@ it.each([
       ),
     );
     const menu = document.querySelector('[role="menu"]')!;
-    for (const label of shown) expect(menu.textContent).toContain(label);
+    expect(menu.querySelector('[data-menu-id="open"]')?.textContent).toBe(read);
+    expect(menu.textContent).not.toContain('Mark finished');
+    const status = menu.querySelector<HTMLButtonElement>(
+      '[data-menu-id="status"]',
+    )!;
+    expect(status).toBeTruthy();
+    await act(async () => status.click());
+    expect(menu.getAttribute('aria-label')).toBe('Reading status');
+    expect(menu.querySelector('.submenu-back')?.textContent).toBe('Back');
+    for (const label of shown.slice(1))
+      expect(menu.textContent).toContain(label);
     for (const label of hidden) expect(menu.textContent).not.toContain(label);
     if (shown.includes('Mark finished')) {
       await act(async () =>
@@ -388,7 +407,18 @@ it.each([
           .click(),
       );
       expect(mark).toHaveBeenCalledWith(true);
+    } else {
+      await act(async () =>
+        menu
+          .querySelector<HTMLButtonElement>('[data-menu-id="mark-unread"]')!
+          .click(),
+      );
+      expect(mark).toHaveBeenCalledWith(false);
     }
+    await act(async () =>
+      menu.querySelector<HTMLButtonElement>('.submenu-back')!.click(),
+    );
+    expect(document.activeElement?.getAttribute('data-menu-id')).toBe('status');
     await act(async () => root.unmount());
   },
 );
