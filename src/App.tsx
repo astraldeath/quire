@@ -1210,7 +1210,15 @@ function AppContent({
         );
       else
         setNotice(
-          `${ids.length} ${ids.length === 1 ? 'book' : 'books'} updated.`,
+          `${ids.length} ${ids.length === 1 ? 'book' : 'books'} ${
+            action === 'finished'
+              ? 'marked finished'
+              : action === 'unread'
+                ? 'marked unread'
+                : action === 'download'
+                  ? 'downloaded'
+                  : 'removed from downloads'
+          }.`,
         );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update books.');
@@ -1546,212 +1554,225 @@ function AppContent({
                   </span>
                 </button>
               )}
-            {!group && !reading && !!folder && (
-              <FolderNavigation
-                path={folder}
-                count={folderBooks.length}
-                childCount={childFolders(folders, folder).length}
-                focusKey={focusFolder}
-                onFocused={() => setFocusFolder('')}
-                href={hostedWeb ? folderHref : undefined}
-                onOpen={goFolder}
-                onNewFolder={(origin) => void openNewFolder(origin)}
-                onRename={() => setRenameFolder(true)}
-                onDelete={async () => {
-                  await updateBookFolders(
-                    scopedBooks
-                      .filter((book) => bookInFolder(book, folder))
-                      .map((book) => book.id),
-                    (paths) =>
-                      paths.filter((path) => !folderContains(folder, path)),
-                    (state) => {
-                      const scope = hiddenBooks ? 'hidden' : 'library';
-                      state.value[scope] = state.value[scope].filter(
-                        (path) => !folderContains(folder, path),
-                      );
-                    },
-                  );
-                  goFolder(
-                    folder.includes('/')
-                      ? folder.slice(0, folder.lastIndexOf('/'))
-                      : '',
-                  );
-                }}
-              />
-            )}
-            {(!folder || !!group || reading) && (
-              <div className="shelf-toolbar">
-                <div className="shelf-label">
-                  {(group || hiddenBooks) && (
-                    <button
-                      className="icon"
-                      aria-label={
-                        group
-                          ? hiddenBooks
-                            ? 'Back to hidden books'
-                            : 'Back to all books'
-                          : 'Back to library'
-                      }
-                      onClick={() => {
-                        if (group) goGroup(null);
-                        else setHiddenBooks(false);
-                      }}
-                    >
-                      <ArrowLeft />
-                    </button>
-                  )}
-                  <h1>
-                    {group ??
-                      (reading
-                        ? 'Currently reading'
-                        : folder
-                          ? folder.split('/').at(-1)
-                          : destination)}
-                  </h1>
-                  {reading && !group && (
-                    <div className="reading-destination">{destination}</div>
-                  )}
-                  <span className="muted">
-                    {browsingFolders
-                      ? folderBooks.length
-                      : entries.reduce((n, e) => n + e.books.length, 0)}
-                  </span>
-                  {group && (
-                    <button
-                      aria-label="Series actions"
-                      aria-haspopup="menu"
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        void showActions(
-                          {
-                            key: group,
-                            title: group,
-                            series: true,
-                            books: seriesBooks,
-                          },
-                          false,
-                          {
-                            left: rect.left,
-                            top: rect.top,
-                            bottom: rect.bottom,
-                            element: e.currentTarget,
-                          },
+            <div
+              className={group ? 'series-browse-heading' : 'browse-heading-row'}
+            >
+              {!group && !reading && !!folder && (
+                <FolderNavigation
+                  path={folder}
+                  count={folderBooks.length}
+                  childCount={childFolders(folders, folder).length}
+                  focusKey={focusFolder}
+                  onFocused={() => setFocusFolder('')}
+                  href={hostedWeb ? folderHref : undefined}
+                  onOpen={goFolder}
+                  onNewFolder={(origin) => void openNewFolder(origin)}
+                  onRename={() => setRenameFolder(true)}
+                  onDelete={async () => {
+                    await updateBookFolders(
+                      scopedBooks
+                        .filter((book) => bookInFolder(book, folder))
+                        .map((book) => book.id),
+                      (paths) =>
+                        paths.filter((path) => !folderContains(folder, path)),
+                      (state) => {
+                        const scope = hiddenBooks ? 'hidden' : 'library';
+                        state.value[scope] = state.value[scope].filter(
+                          (path) => !folderContains(folder, path),
                         );
-                      }}
-                    >
-                      <Ellipsis />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-            {group && seriesBooks.length > 0 && (
-              <div className="series-actions">
-                <span className="muted">
-                  {
-                    seriesBooks.filter((b) => readingStatus(b) === 'finished')
-                      .length
-                  }{' '}
-                  of {seriesBooks.length} finished
-                </span>
-                {seriesNext && (
-                  <button onClick={() => void openBook(seriesNext)}>
-                    <BookOpen />
-                    {seriesBooks.some(
-                      (book) => readingStatus(book) !== 'unread',
-                    )
-                      ? 'Continue reading'
-                      : 'Start reading'}
-                  </button>
-                )}
-                {(hostedWeb || isTauri()) && (
-                  <TrackingButton
-                    bookId=""
-                    series={group}
-                    onClick={() => goTracking(seriesBooks[0], group)}
-                  />
-                )}
-              </div>
-            )}
-            <div className="shelf-controls">
-              {selecting ? (
-                <SelectionToolbar
-                  uploadCount={
-                    books.filter(
-                      (b) =>
-                        activeIds.includes(b.id) &&
-                        b.local &&
-                        !serverFiles?.has(b.id),
-                    ).length
-                  }
-                  onUpload={() =>
-                    setUploadSelection(
-                      books.filter(
-                        (b) => activeIds.includes(b.id) && privacy.access(b.id),
-                      ),
-                    )
-                  }
-                  selectedIds={activeIds}
-                  totalEligible={visibleIds.length}
-                  busy={!!busy}
-                  onSelectAll={() =>
-                    setSelected(
-                      activeIds.length === visibleIds.length ? [] : visibleIds,
-                    )
-                  }
-                  onDone={() => {
-                    flushSync(() => {
-                      setSelecting(false);
-                      setSelected([]);
-                    });
-                    queueMicrotask(() =>
-                      document
-                        .querySelector<HTMLElement>(
-                          '[aria-label="Select books"]',
-                        )
-                        ?.focus({ preventScroll: true }),
+                      },
+                    );
+                    goFolder(
+                      folder.includes('/')
+                        ? folder.slice(0, folder.lastIndexOf('/'))
+                        : '',
                     );
                   }}
-                  onFolders={(origin) =>
-                    openFolderMembership(activeIds, origin)
-                  }
-                  onDownload={() => void batch(activeIds, 'download')}
-                  onMarkFinished={() => void batch(activeIds, 'finished')}
-                  onMarkUnread={() => void batch(activeIds, 'unread')}
-                  onRemove={() => {
-                    void (async () => {
-                      if (
-                        activeIds.every((id) => privacy.access(id)) ||
-                        (await privacy.authenticate())
-                      )
-                        setBulkRemove(true);
-                    })();
-                  }}
                 />
-              ) : (
-                <>
-                  <LibraryControls
-                    preferences={shelfPreferences}
-                    onChange={(next) => {
-                      if (group && next.sort !== seriesSort)
-                        changeFilter('sort', next.sort);
-                      changePreferences({
-                        ...next,
-                        sort: group ? preferences.sort : next.sort,
+              )}
+              {(!folder || !!group || reading) && (
+                <div className="shelf-toolbar">
+                  <div className="shelf-label">
+                    {(group || hiddenBooks) && (
+                      <button
+                        className="icon"
+                        aria-label={
+                          group
+                            ? hiddenBooks
+                              ? 'Back to hidden books'
+                              : 'Back to all books'
+                            : 'Back to library'
+                        }
+                        onClick={() => {
+                          if (group) goGroup(null);
+                          else setHiddenBooks(false);
+                        }}
+                      >
+                        <ArrowLeft />
+                      </button>
+                    )}
+                    <h1>
+                      {group ??
+                        (reading
+                          ? 'Currently reading'
+                          : folder
+                            ? folder.split('/').at(-1)
+                            : destination)}
+                    </h1>
+                    {reading && !group && (
+                      <div className="reading-destination">{destination}</div>
+                    )}
+                    <span className="muted">
+                      {browsingFolders
+                        ? folderBooks.length
+                        : entries.reduce((n, e) => n + e.books.length, 0)}
+                    </span>
+                    {group && (
+                      <button
+                        aria-label="Series actions"
+                        aria-haspopup="menu"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          void showActions(
+                            {
+                              key: group,
+                              title: group,
+                              series: true,
+                              books: seriesBooks,
+                            },
+                            false,
+                            {
+                              left: rect.left,
+                              top: rect.top,
+                              bottom: rect.bottom,
+                              element: e.currentTarget,
+                            },
+                          );
+                        }}
+                      >
+                        <Ellipsis />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {group && seriesBooks.length > 0 && (
+                <div className="series-actions">
+                  <span className="muted">
+                    {
+                      seriesBooks.filter((b) => readingStatus(b) === 'finished')
+                        .length
+                    }{' '}
+                    of {seriesBooks.length} finished
+                  </span>
+                  {seriesNext && (
+                    <button
+                      className="primary"
+                      onClick={() => void openBook(seriesNext)}
+                    >
+                      <BookOpen />
+                      {(seriesBooks.some(
+                        (book) => readingStatus(book) !== 'unread',
+                      )
+                        ? 'Continue'
+                        : 'Start') +
+                        (seriesNext.volume != null
+                          ? ` volume ${seriesNext.volume}`
+                          : ' reading')}
+                    </button>
+                  )}
+                  {(hostedWeb || isTauri()) && (
+                    <TrackingButton
+                      bookId=""
+                      series={group}
+                      onClick={() => goTracking(seriesBooks[0], group)}
+                    />
+                  )}
+                </div>
+              )}
+              <div className="shelf-controls">
+                {selecting ? (
+                  <SelectionToolbar
+                    uploadCount={
+                      books.filter(
+                        (b) =>
+                          activeIds.includes(b.id) &&
+                          b.local &&
+                          !serverFiles?.has(b.id),
+                      ).length
+                    }
+                    onUpload={() =>
+                      setUploadSelection(
+                        books.filter(
+                          (b) =>
+                            activeIds.includes(b.id) && privacy.access(b.id),
+                        ),
+                      )
+                    }
+                    selectedIds={activeIds}
+                    totalEligible={visibleIds.length}
+                    busy={!!busy}
+                    onSelectAll={() =>
+                      setSelected(
+                        activeIds.length === visibleIds.length
+                          ? []
+                          : visibleIds,
+                      )
+                    }
+                    onDone={() => {
+                      flushSync(() => {
+                        setSelecting(false);
+                        setSelected([]);
                       });
+                      queueMicrotask(() =>
+                        document
+                          .querySelector<HTMLElement>(
+                            '[aria-label="Select books"]',
+                          )
+                          ?.focus({ preventScroll: true }),
+                      );
                     }}
-                    series={!!group}
-                    status={status}
-                    availability={availability}
-                    onFilter={changeFilter}
-                    selecting={false}
-                    onSelect={() => {
-                      setSelecting(true);
-                      setSelected([]);
+                    onFolders={(origin) =>
+                      openFolderMembership(activeIds, origin)
+                    }
+                    onDownload={() => void batch(activeIds, 'download')}
+                    onMarkFinished={() => void batch(activeIds, 'finished')}
+                    onMarkUnread={() => void batch(activeIds, 'unread')}
+                    onRemove={() => {
+                      void (async () => {
+                        if (
+                          activeIds.every((id) => privacy.access(id)) ||
+                          (await privacy.authenticate())
+                        )
+                          setBulkRemove(true);
+                      })();
                     }}
                   />
-                </>
-              )}
+                ) : (
+                  <>
+                    <LibraryControls
+                      preferences={shelfPreferences}
+                      onChange={(next) => {
+                        if (group && next.sort !== seriesSort)
+                          changeFilter('sort', next.sort);
+                        changePreferences({
+                          ...next,
+                          sort: group ? preferences.sort : next.sort,
+                        });
+                      }}
+                      series={!!group}
+                      status={status}
+                      availability={availability}
+                      onFilter={changeFilter}
+                      selecting={false}
+                      onSelect={() => {
+                        setSelecting(true);
+                        setSelected([]);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
             </div>
             {(status !== 'all' ||
               availability !== 'all' ||

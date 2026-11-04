@@ -219,6 +219,34 @@ it('preserves native shared destinations across section changes', async () => {
   );
   expect(location.pathname).toBe('/library');
 });
+it('keeps folder navigation and selection controls in the shared browse heading', async () => {
+  await mount('/library?folder=Shelf');
+  const heading = host.querySelector('.browse-heading-row')!;
+  expect(
+    heading.querySelector('[aria-label="Folder breadcrumbs"]'),
+  ).not.toBeNull();
+  await click('Select');
+  expect(heading.querySelector('[aria-label="Selected books"]')).not.toBeNull();
+});
+it('names and opens the next series volume from the primary reading action', async () => {
+  const first = books[0] as import('../src/domain/models').Book;
+  first.position = {
+    fraction: 1,
+    updatedAt: 1,
+  } as import('../src/domain/models').Position;
+  ensure.mockClear();
+  try {
+    await mount('/series/A%2FB');
+    const action = host.querySelector<HTMLButtonElement>(
+      '.series-actions .primary',
+    )!;
+    expect(action?.textContent).toBe('Continue volume 2');
+    await act(async () => action.click());
+    expect(ensure).toHaveBeenCalledWith(books[1].id);
+  } finally {
+    delete first.position;
+  }
+});
 it('can browse books inside folders in the flat library view', async () => {
   defaults.flatLibrary = true;
   try {
