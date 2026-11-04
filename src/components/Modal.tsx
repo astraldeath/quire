@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { dialogPosition, safeInsets, visualBox } from './dialogPosition';
+import { scrollFocusedField } from './scrollFocusedField';
 export function Modal({
   title,
   onClose,
@@ -50,6 +51,17 @@ export function Modal({
         keyboard ? anchor : undefined,
         placement,
       );
+      const mobilePage =
+        box.width <= 600 &&
+        panel.matches(':has(.settings-layout), :has(.book-details-edit)');
+      if (mobilePage && !keyboard) {
+        position.top = box.top + safe.top + 8;
+        position.maxHeight = Math.max(
+          0,
+          box.height - safe.top - safe.bottom - 16,
+        );
+        position.anchor = safe.top + 8;
+      }
       if (!keyboard) anchor = position.anchor;
       Object.assign(panel.style, {
         position: 'fixed',
@@ -57,22 +69,11 @@ export function Modal({
         left: `${position.left}px`,
         top: `${position.top}px`,
         transform: 'translateX(-50%)',
-        maxWidth: `${Math.max(0, box.width - 32)}px`,
+        maxWidth: `${Math.max(0, box.width - (mobilePage ? 16 : 32))}px`,
         maxHeight: `${position.maxHeight}px`,
       });
       if (keyboard) {
-        const body = panel.querySelector<HTMLElement>('.modal-body');
-        const field = panel.querySelector<HTMLElement>(
-          'input:focus,textarea:focus,[contenteditable=true]:focus',
-        );
-        if (body && field && body.contains(field)) {
-          const bounds = body.getBoundingClientRect(),
-            input = field.getBoundingClientRect();
-          if (input.bottom > bounds.bottom - 12)
-            body.scrollTop += input.bottom - bounds.bottom + 12;
-          else if (input.top < bounds.top + 12)
-            body.scrollTop -= bounds.top + 12 - input.top;
-        }
+        scrollFocusedField(panel);
       }
     };
     const resize =

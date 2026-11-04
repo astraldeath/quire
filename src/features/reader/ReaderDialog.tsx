@@ -4,6 +4,7 @@ import {
   visualBox,
 } from '../../components/dialogPosition';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { scrollFocusedField } from '../../components/scrollFocusedField';
 export function ReaderDialog({
   label,
   onClose,
@@ -50,12 +51,18 @@ export function ReaderDialog({
         paddingBottom: keyboard ? safe.bottom + 12 : undefined,
         alignItems: keyboard ? 'flex-start' : undefined,
       });
+      if (keyboard && element.current)
+        requestAnimationFrame(() => {
+          if (element.current) scrollFocusedField(element.current);
+        });
     };
     update();
     const vv = window.visualViewport;
     vv?.addEventListener('resize', update);
     vv?.addEventListener('scroll', update);
     window.addEventListener('resize', update);
+    element.current?.addEventListener('focusin', update);
+    const panel = element.current;
     const previous = document.activeElement as HTMLElement | null;
     if (!element.current?.contains(document.activeElement))
       element.current?.focus();
@@ -63,6 +70,7 @@ export function ReaderDialog({
       vv?.removeEventListener('resize', update);
       vv?.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
+      panel?.removeEventListener('focusin', update);
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);

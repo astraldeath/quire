@@ -58,7 +58,7 @@ it('keeps global defaults separate from book settings and resets the override', 
   expect(p.bookReaderOverrides?.[bookId].font).toBe('sans-serif');
   await act(async () =>
     [...host.querySelectorAll('button')]
-      .find((b) => b.textContent === 'Use global defaults')!
+      .find((b) => b.textContent === 'Use book defaults')!
       .click(),
   );
   expect(p.bookReaderOverrides?.[bookId]).toBeUndefined();

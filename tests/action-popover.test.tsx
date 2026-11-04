@@ -15,6 +15,58 @@ import { positionMenu } from '../src/components/menuPosition';
 afterEach(() => {
   document.body.replaceChildren();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+it('uses a dismissible modal action sheet on phones', async () => {
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  const show = vi.fn(function (this: HTMLDialogElement) {
+    this.open = true;
+  });
+  const original = Object.getOwnPropertyDescriptor(
+    HTMLDialogElement.prototype,
+    'showModal',
+  );
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: show,
+  });
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const close = vi.fn();
+  try {
+    await act(async () =>
+      root.render(
+        <ActionPopover title="Book actions" onClose={close}>
+          <ActionMenuItem menuId="read">Read book</ActionMenuItem>
+        </ActionPopover>,
+      ),
+    );
+    expect(show).toHaveBeenCalledOnce();
+    expect(document.querySelector('dialog[open] [role="menu"]')).not.toBeNull();
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="Close menu"]')!
+        .click(),
+    );
+    expect(close).toHaveBeenCalledOnce();
+    await act(async () =>
+      document
+        .querySelector('dialog')!
+        .dispatchEvent(new Event('cancel', { cancelable: true })),
+    );
+    expect(close).toHaveBeenCalledTimes(2);
+  } finally {
+    await act(async () => root.unmount());
+    if (original)
+      Object.defineProperty(HTMLDialogElement.prototype, 'showModal', original);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  }
 });
 
 it('keeps an above-anchor submenu on its original side', () => {
