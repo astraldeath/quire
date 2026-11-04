@@ -981,11 +981,25 @@
   font-weight: 400;
 }
 .reading-scope .segmented {
-  width: 236px;
+  width: 256px;
   flex: none;
 }
 .reading-scope .segmented label {
   min-height: 32px;
+}
+.reading-scope-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.reading-scope-status .settings-note {
+  margin: 0;
+}
+.reading-scope-status .text-action {
+  min-height: 32px;
+  padding: 4px 0;
+  font-size: 12px;
 }
 .reader-settings.reading-typography {
   gap: 16px;
@@ -1024,6 +1038,7 @@
 @media (max-width: 600px) {
   .reader-dialog .reading-scope {
     gap: 4px;
+    padding-bottom: 8px;
   }
   .reading-scope .control-group {
     gap: 0;
@@ -1037,6 +1052,11 @@
   }
   .reading-scope .segmented {
     width: 100%;
+  }
+  .reading-scope-status {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0 8px;
   }
   .reader-settings.reading-typography {
     gap: 12px;

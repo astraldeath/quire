@@ -52,6 +52,8 @@ export function ReadingSettings({
       ? 'book'
       : 'global',
   );
+  const hasOverrides =
+    !!customization?.preferences.bookReaderOverrides?.[customization.bookId];
   const preferences = customization
     ? scope === 'global'
       ? customization.preferences.reader
@@ -84,29 +86,34 @@ export function ReadingSettings({
             label="Apply changes to"
             value={scope}
             options={[
-              { value: 'global', label: 'All books' },
+              { value: 'global', label: 'Book defaults' },
               { value: 'book', label: 'This book' },
             ]}
             onChange={setScope}
           />
-          {scope === 'book' && (
-            <button
-              disabled={
-                !customization.preferences.bookReaderOverrides?.[
-                  customization.bookId
-                ]
-              }
-              onClick={() =>
-                customization.onChange(
-                  resetBookReaderPreferences(
-                    customization.preferences,
-                    customization.bookId,
-                  ),
-                )
-              }
-            >
-              Use global defaults
-            </button>
+          {hasOverrides && (
+            <div className="reading-scope-status">
+              <span className="settings-note">
+                {scope === 'global'
+                  ? 'This book has custom settings.'
+                  : 'Custom settings for this book'}
+              </span>
+              {scope === 'book' && (
+                <button
+                  className="text-action"
+                  onClick={() =>
+                    customization.onChange(
+                      resetBookReaderPreferences(
+                        customization.preferences,
+                        customization.bookId,
+                      ),
+                    )
+                  }
+                >
+                  Use book defaults
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -2,7 +2,8 @@ import { FileHandlingSettings } from '../desktop/FileHandlingSettings';
 import { StorageSettings } from '../storage/StorageSettings';
 import { UpdateSettings } from '../updates/UpdateSettings';
 import './library-settings.css';
-import { ChevronRight, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { ViewOptions } from './ViewOptions';
 import { PrivacySettings } from '../privacy/PrivacySettings';
 import { usePrivacy } from '../privacy/Privacy';
 import { Shield } from 'lucide-react';
@@ -32,10 +33,8 @@ export function Settings({
   activeTab,
   onTabChange,
   beforeUpdate,
-  onViewOptions,
   onLibrary,
 }: {
-  onViewOptions(): void;
   onLibrary(): void;
   beforeUpdate?: () => Promise<void>;
   activeTab?: string;
@@ -93,54 +92,61 @@ export function Settings({
             icon: Palette,
             content: (
               <div className="settings-body">
-                <ThemePicker
-                  label="App theme"
-                  value={p.theme}
-                  options={[
-                    'system',
-                    'light',
-                    'dark',
-                    'onyx',
-                    'contrast',
-                    'custom',
-                  ]}
-                  onChange={(theme) => onChange({ ...p, theme })}
-                />
-                {p.theme === 'custom' && (
-                  <>
-                    <ColorControl
-                      label="Background color"
-                      value={p.background}
-                      onChange={(background) => onChange({ ...p, background })}
-                    />
-                    <ColorControl
-                      label="Text color"
-                      value={p.foreground}
-                      onChange={(foreground) => onChange({ ...p, foreground })}
-                    />
-                  </>
-                )}
-                {p.theme !== 'contrast' && (
-                  <ColorControl
-                    label="Accent color"
-                    value={p.accent}
-                    onChange={(accent) => onChange({ ...p, accent })}
+                <section className="library-settings-section">
+                  <h3>App appearance</h3>
+                  <ThemePicker
+                    label="App theme"
+                    value={p.theme}
+                    options={[
+                      'system',
+                      'light',
+                      'dark',
+                      'onyx',
+                      'contrast',
+                      'custom',
+                    ]}
+                    onChange={(theme) => onChange({ ...p, theme })}
                   />
-                )}
-                <button
-                  className="text-action"
-                  onClick={() =>
-                    onChange({
-                      ...p,
-                      theme: defaults.theme,
-                      accent: defaults.accent,
-                      background: defaults.background,
-                      foreground: defaults.foreground,
-                    })
-                  }
-                >
-                  Reset appearance
-                </button>
+                  {p.theme === 'custom' && (
+                    <>
+                      <ColorControl
+                        label="Background color"
+                        value={p.background}
+                        onChange={(background) =>
+                          onChange({ ...p, background })
+                        }
+                      />
+                      <ColorControl
+                        label="Text color"
+                        value={p.foreground}
+                        onChange={(foreground) =>
+                          onChange({ ...p, foreground })
+                        }
+                      />
+                    </>
+                  )}
+                  {p.theme !== 'contrast' && (
+                    <ColorControl
+                      label="Accent color"
+                      value={p.accent}
+                      onChange={(accent) => onChange({ ...p, accent })}
+                    />
+                  )}
+                  <button
+                    className="text-action"
+                    onClick={() =>
+                      onChange({
+                        ...p,
+                        theme: defaults.theme,
+                        accent: defaults.accent,
+                        background: defaults.background,
+                        foreground: defaults.foreground,
+                      })
+                    }
+                  >
+                    Reset appearance
+                  </button>
+                </section>
               </div>
             ),
           },
@@ -152,10 +158,7 @@ export function Settings({
               <div className="settings-body">
                 <section className="library-settings-section">
                   <h3>Library display</h3>
-                  <button className="primary" onClick={onViewOptions}>
-                    View options
-                    <ChevronRight aria-hidden="true" />
-                  </button>
+                  <ViewOptions preferences={p} onChange={onChange} />
                   <button
                     className="text-action"
                     onClick={() =>
