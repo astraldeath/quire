@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { dialogPosition, safeInsets, visualBox } from './dialogPosition';
 import { scrollFocusedField } from './scrollFocusedField';
+import { getLayoutViewport, isKeyboardVisible } from '../viewport';
 export function Modal({
   title,
   onClose,
@@ -26,7 +27,7 @@ export function Modal({
     ref.current?.showModal();
     if (document.activeElement?.getAttribute('aria-label') === 'Close dialog')
       ref.current?.focus({ preventScroll: true });
-    let resting = visualBox();
+    let resting = { ...visualBox(), ...getLayoutViewport() };
     let anchor: number | undefined;
     const update = () => {
       const panel = ref.current;
@@ -36,10 +37,11 @@ export function Modal({
       const editing = !!panel.querySelector(
         'input:focus,textarea:focus,[contenteditable=true]:focus',
       );
-      const keyboard =
-        Math.abs(box.width - resting.width) <= 24 &&
-        (box.height < resting.height - 80 ||
-          (editing && box.height < resting.height));
+      const keyboard = getLayoutViewport()
+        ? isKeyboardVisible()
+        : Math.abs(box.width - resting.width) <= 24 &&
+          (box.height < resting.height - 80 ||
+            (editing && box.height < resting.height));
       if (!keyboard) {
         resting = box;
         panel.style.maxHeight = `${Math.max(0, box.height - safe.top - safe.bottom - 24)}px`;
@@ -48,13 +50,17 @@ export function Modal({
         box,
         panel.getBoundingClientRect().height,
         safe,
-        keyboard ? anchor : undefined,
+        keyboard
+          ? (anchor ?? (box.width <= 600 ? safe.top + 12 : undefined))
+          : undefined,
         placement,
       );
       const mobilePage =
         box.width <= 600 &&
-        panel.matches(':has(.settings-layout), :has(.book-details-edit)');
-      if (mobilePage && !keyboard) {
+        panel.matches(
+          '.tracking-modal, :has(.settings-layout), :has(.book-details-edit)',
+        );
+      if (mobilePage && (!keyboard || anchor === undefined)) {
         position.top = box.top + safe.top + 8;
         position.maxHeight = Math.max(
           0,

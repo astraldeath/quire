@@ -5,6 +5,7 @@ import {
 } from '../../components/dialogPosition';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { scrollFocusedField } from '../../components/scrollFocusedField';
+import { getLayoutViewport, isKeyboardVisible } from '../../viewport';
 export function ReaderDialog({
   label,
   onClose,
@@ -25,7 +26,7 @@ export function ReaderDialog({
     alignItems: undefined as 'flex-start' | undefined,
   }));
   useLayoutEffect(() => {
-    let resting = visualBox();
+    let resting = { ...visualBox(), ...getLayoutViewport() };
     let anchor: number | undefined;
     const update = () => {
       const box = visualBox(),
@@ -33,16 +34,17 @@ export function ReaderDialog({
       const editing = !!element.current?.querySelector(
         'input:focus,textarea:focus,[contenteditable=true]:focus',
       );
-      const keyboard =
-        Math.abs(box.width - resting.width) <= 24 &&
-        (box.height < resting.height - 80 ||
-          (editing && box.height < resting.height));
+      const keyboard = getLayoutViewport()
+        ? isKeyboardVisible()
+        : Math.abs(box.width - resting.width) <= 24 &&
+          (box.height < resting.height - 80 ||
+            (editing && box.height < resting.height));
       if (!keyboard) resting = box;
       const position = dialogPosition(
         box,
         element.current?.getBoundingClientRect().height ?? 680,
         safe,
-        keyboard ? anchor : undefined,
+        keyboard ? (anchor ?? safe.top + 12) : undefined,
       );
       if (!keyboard) anchor = position.anchor;
       setViewport({

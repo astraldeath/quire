@@ -38,6 +38,18 @@
 body {
   margin: 0;
   min-width: 320px;
+  position: fixed;
+  inset: 0;
+  height: var(--app-height, 100%);
+  overflow: hidden;
+}
+html {
+  height: 100%;
+  overflow: hidden;
+}
+#root {
+  height: 100%;
+  min-height: 0;
 }
 button,
 input,
@@ -1817,9 +1829,12 @@ dialog :is(input, textarea, select, button, summary):focus-visible,
 }
 
 .hosted-entry {
-  min-height: 100dvh;
+  height: var(--visual-height, 100dvh);
+  min-height: 0;
+  overflow: auto;
   display: grid;
   place-items: center;
+  align-items: safe center;
   padding: 24px;
   background: var(--bg);
   color: var(--fg);
@@ -3874,5 +3889,44 @@ dialog:has(.settings-layout) .modal-inner {
 @media (max-width: 600px) {
   .reader .reader-dialog:has(.settings-layout) {
     height: 100%;
+  }
+}
+/* Forms use the available surface, with spacing between independent tasks. */
+dialog.tracking-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+.book-details-edit .form-grid {
+  gap: 20px;
+}
+.book-details-edit .form-grid label {
+  gap: 8px;
+}
+.book-details-edit .form-grid input {
+  width: 100%;
+}
+.book-details-edit .modal-footer {
+  margin-top: 20px;
+}
+@media (max-width: 600px) {
+  dialog.tracking-modal {
+    width: calc(100vw - 16px);
+    height: calc(var(--app-height, 100dvh) - 16px);
+  }
+  dialog.tracking-modal .modal-inner {
+    height: 100%;
+    padding: 16px;
+  }
+  .book-details-edit .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .book-details-edit .form-grid .wide {
+    grid-column: auto;
+  }
+  .book-details-edit .modal-footer {
+    gap: 12px;
+  }
+  .book-details-modal .details-intro {
+    gap: 16px;
   }
 }

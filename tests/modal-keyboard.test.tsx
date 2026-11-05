@@ -2,9 +2,90 @@ import { act, createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { Modal } from '../src/components/Modal';
+import {
+  getLayoutViewport,
+  installViewport,
+  isKeyboardVisible,
+} from '../src/viewport';
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+
+it('opens a new form against the shared baseline while the native keyboard remains open after blur', async () => {
+  const show = Object.getOwnPropertyDescriptor(
+    HTMLDialogElement.prototype,
+    'showModal',
+  );
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  vi.stubGlobal('innerWidth', 390);
+  vi.stubGlobal('innerHeight', 844);
+  vi.stubGlobal('matchMedia', () => ({ matches: true }));
+  const visual = Object.assign(new EventTarget(), {
+    width: 390,
+    height: 844,
+    offsetTop: 0,
+    offsetLeft: 0,
+  });
+  vi.stubGlobal('visualViewport', visual);
+  const dispose = installViewport();
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () =>
+      root.render(
+        <Modal key="details" title="Details" onClose={() => {}}>
+          <input />
+        </Modal>,
+      ),
+    );
+    host.querySelector('input')!.focus();
+    await act(async () => {
+      vi.stubGlobal('innerHeight', 410);
+      visual.height = 410;
+      window.dispatchEvent(new Event('resize'));
+      visual.dispatchEvent(new Event('resize'));
+    });
+    host.querySelector('input')!.blur();
+    await act(async () =>
+      root.render(
+        <Modal
+          key="tracking"
+          className="tracking-modal"
+          title="Tracking"
+          onClose={() => {}}
+        >
+          <input />
+        </Modal>,
+      ),
+    );
+    expect(isKeyboardVisible()).toBe(true);
+    expect(getLayoutViewport()?.height).toBe(844);
+    expect(host.querySelector('dialog')!.style.top).toBe('8px');
+    expect(host.querySelector('dialog')!.style.maxHeight).toBe('394px');
+    await act(async () => {
+      vi.stubGlobal('innerHeight', 844);
+      visual.height = 844;
+      window.dispatchEvent(new Event('resize'));
+      visual.dispatchEvent(new Event('resize'));
+    });
+    expect(isKeyboardVisible()).toBe(false);
+    expect(host.querySelector('dialog')!.style.top).toBe('8px');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    dispose();
+    vi.unstubAllGlobals();
+    if (show)
+      Object.defineProperty(HTMLDialogElement.prototype, 'showModal', show);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  }
+});
 it('Escape closes only the innermost dialog', async () => {
   const show = HTMLDialogElement.prototype.showModal;
   HTMLDialogElement.prototype.showModal = function () {
