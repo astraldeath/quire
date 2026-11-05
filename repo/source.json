@@ -15,12 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/astraldeath/quire/refs/heads/main/src-tauri/icons/ios/AppIcon-512%402x.png",
       "tintColor": "728EAE",
       "category": "books",
-      "version": "0.14.0",
-      "versionDate": "2026-10-24T03:21:24.000Z",
-      "versionDescription": "- Fix EPUB chapters with an empty XHTML document type subset failing to load.\n",
-      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.14.0/Quire_0.14.0_ios-unsigned.ipa",
-      "size": 8278900,
+      "version": "0.15.0",
+      "versionDate": "2026-11-05T04:06:28.000Z",
+      "versionDescription": "- Give nested tracking and book-edit forms more room, keep phone save actions visible, and restore focus when returning from editors and confirmations.\n- Keep the background layout steady through native keyboard resizing, focus changes, and dialog transitions while allowing the active form to scroll above the keyboard.\n- Use mobile action sheets for book and library menus, with clearer reading, status, file, and privacy actions.\n- Preserve the selected library when switching between Library and Reading, and choose shared libraries directly from the library menu.\n- Combine the desktop browsing header, identify the volume opened by series continuation, and clarify bulk-action feedback.\n- Keep library display controls inside Settings, clarify reading defaults, and use consistent phone settings layouts with keyboard-aware scrolling.\n- Show one catalog surface at a time and provide appropriate empty-state actions for shared libraries.\n",
+      "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.15.0/Quire_0.15.0_ios-unsigned.ipa",
+      "size": 8280569,
       "versions": [
+        {
+          "version": "0.15.0",
+          "date": "2026-11-05T04:06:28.000Z",
+          "localizedDescription": "- Give nested tracking and book-edit forms more room, keep phone save actions visible, and restore focus when returning from editors and confirmations.\n- Keep the background layout steady through native keyboard resizing, focus changes, and dialog transitions while allowing the active form to scroll above the keyboard.\n- Use mobile action sheets for book and library menus, with clearer reading, status, file, and privacy actions.\n- Preserve the selected library when switching between Library and Reading, and choose shared libraries directly from the library menu.\n- Combine the desktop browsing header, identify the volume opened by series continuation, and clarify bulk-action feedback.\n- Keep library display controls inside Settings, clarify reading defaults, and use consistent phone settings layouts with keyboard-aware scrolling.\n- Show one catalog surface at a time and provide appropriate empty-state actions for shared libraries.\n",
+          "downloadURL": "https://github.com/astraldeath/quire/releases/download/v0.15.0/Quire_0.15.0_ios-unsigned.ipa",
+          "size": 8280569
+        },
         {
           "version": "0.14.0",
           "date": "2026-10-24T03:21:24.000Z",
