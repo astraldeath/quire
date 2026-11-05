@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Give nested tracking and book-edit forms more room, keep phone save actions visible, and restore focus when returning from editors and confirmations.
+- Keep the background layout steady through native keyboard resizing, focus changes, and dialog transitions while allowing the active form to scroll above the keyboard.
+
 - Use mobile action sheets for book and library menus, with clearer reading, status, file, and privacy actions.
 - Preserve the selected library when switching between Library and Reading, and choose shared libraries directly from the library menu.
 - Combine the desktop browsing header, identify the volume opened by series continuation, and clarify bulk-action feedback.
