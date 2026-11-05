@@ -527,8 +527,8 @@ export function TrackingDialog({
           'DELETE',
         );
       if (!current()) return;
-      setUnlink(false);
       await refresh();
+      if (current()) setUnlink(false);
     });
   }
   if (connectingServer)

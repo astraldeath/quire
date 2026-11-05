@@ -404,3 +404,37 @@ it('returns focus after mapping and unlink cancellation and hides empty series o
     'Unlink tracker',
   );
 });
+
+it('focuses Add tracker after unlinking removes the old controls', async () => {
+  let linked = true;
+  vi.mocked(trackingRequest).mockImplementation(
+    async (_session, path, _body, method) => {
+      if (path === '/v1/tracking/books/book' && method === 'DELETE')
+        linked = false;
+      return {
+        ...status,
+        links: linked
+          ? [
+              {
+                bookId: 'book',
+                title: 'Linked novel',
+                seriesId: 1,
+                seriesKey: '',
+              },
+            ]
+          : [],
+      };
+    },
+  );
+  await mount();
+  await click('Unlink tracker');
+  await act(async () =>
+    host
+      .querySelector<HTMLButtonElement>(
+        '.tracker-confirm .tracker-actions button:last-child',
+      )!
+      .click(),
+  );
+  expect(host.querySelector('.tracker-confirm')).toBeNull();
+  expect(document.activeElement?.textContent).toBe('Add tracker');
+});
