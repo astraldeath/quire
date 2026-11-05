@@ -6,6 +6,31 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it('keeps the edited field above sticky save actions', () => {
+  document.body.innerHTML =
+    '<div id="panel"><div style="overflow-y:auto"><input /><footer class="tracker-entry-actions" style="position:sticky"></footer></div></div>';
+  const panel = document.querySelector<HTMLElement>('#panel')!;
+  const body = panel.firstElementChild as HTMLElement;
+  const field = document.querySelector('input')!;
+  const actions = document.querySelector<HTMLElement>('footer')!;
+  vi.spyOn(body, 'getBoundingClientRect').mockReturnValue({
+    top: 100,
+    bottom: 310,
+  } as DOMRect);
+  vi.spyOn(field, 'getBoundingClientRect').mockReturnValue({
+    top: 240,
+    bottom: 280,
+  } as DOMRect);
+  vi.spyOn(actions, 'getBoundingClientRect').mockReturnValue({
+    top: 260,
+    bottom: 310,
+    height: 50,
+  } as DOMRect);
+  field.focus();
+  scrollFocusedField(panel);
+  expect(body.scrollTop).toBe(32);
+});
+
 it('scrolls the nested settings panel instead of its non-scrolling modal wrapper', () => {
   document.body.innerHTML =
     '<dialog open><div class="modal-body" style="overflow-y:hidden"><div class="settings-panels" style="overflow-y:auto"><label>Name<input /></label></div></div></dialog>';

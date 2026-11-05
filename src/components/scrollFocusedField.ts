@@ -9,8 +9,24 @@ export function scrollFocusedField(panel: HTMLElement) {
     if (/(auto|scroll)/.test(getComputedStyle(body).overflowY)) {
       const bounds = body.getBoundingClientRect();
       const input = field.getBoundingClientRect();
-      if (input.bottom > bounds.bottom - 12)
-        body.scrollTop += input.bottom - bounds.bottom + 12;
+      let bottom = bounds.bottom - 12;
+      for (const actions of body.querySelectorAll<HTMLElement>(
+        '.modal-footer, .tracker-entry-actions, .tracker-footer',
+      )) {
+        if (
+          actions.contains(field) ||
+          getComputedStyle(actions).position !== 'sticky'
+        )
+          continue;
+        const footer = actions.getBoundingClientRect();
+        if (
+          footer.height > 0 &&
+          footer.top > bounds.top &&
+          footer.top < bounds.bottom
+        )
+          bottom = Math.min(bottom, footer.top - 12);
+      }
+      if (input.bottom > bottom) body.scrollTop += input.bottom - bottom;
       else if (input.top < bounds.top + 12)
         body.scrollTop -= bounds.top + 12 - input.top;
     }

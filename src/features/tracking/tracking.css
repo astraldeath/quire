@@ -94,6 +94,14 @@
   gap: 12px;
 }
 @media (max-width: 600px) {
+  .tracker-body .tracker-entry-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--surface);
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
   .tracker-body .tracker-card {
     padding: 16px 12px;
   }
