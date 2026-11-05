@@ -1062,3 +1062,18 @@
     gap: 12px;
   }
 }
+@media (max-width: 600px) {
+  .reader-dialog-layer:has(.settings-layout) {
+    padding: max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .reader .reader-dialog:has(.settings-layout) {
+    height: 100%;
+    padding: 16px 12px;
+    border-radius: 14px;
+  }
+  .reader .settings-layout .settings-panels {
+    padding: 16px 4px;
+  }
+}

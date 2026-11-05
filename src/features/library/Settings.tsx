@@ -93,7 +93,6 @@ export function Settings({
             content: (
               <div className="settings-body">
                 <section className="library-settings-section">
-                  <h3>App appearance</h3>
                   <ThemePicker
                     label="App theme"
                     value={p.theme}

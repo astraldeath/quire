@@ -3860,3 +3860,19 @@ dialog:has(.settings-layout) .modal-inner {
     pointer-events: none;
   }
 }
+.book.selectable .book-tail > button {
+  visibility: hidden;
+  pointer-events: none;
+}
+@media (min-width: 900px) {
+  .browse-heading-row > .folder-navigation {
+    margin-bottom: 0;
+    min-width: 0;
+    flex: 1;
+  }
+}
+@media (max-width: 600px) {
+  .reader .reader-dialog:has(.settings-layout) {
+    height: 100%;
+  }
+}

@@ -86,6 +86,9 @@ dialog.account-settings:has(.settings-layout) .modal-inner {
   flex-basis: 220px;
 }
 @media (max-width: 600px) {
+  dialog.account-settings:has(.settings-layout) {
+    height: calc(100dvh - 16px);
+  }
   .account-settings .settings-layout .settings-tablist {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
