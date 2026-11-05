@@ -325,11 +325,10 @@ it('protects entry edits and a submitted status mutation from dialog dismissal',
   await click('Save changes');
   await click('Close dialog');
   expect(close).not.toHaveBeenCalled();
-  expect(
-    [...host.querySelectorAll('button')].find(
-      (b) => b.textContent?.trim() === 'Change match',
-    )!.disabled,
-  ).toBe(true);
+  expect(host.querySelector('.tracker-primary-actions')).toBeNull();
+  expect(host.querySelector('form h4')?.textContent).toBe(
+    'Edit reading status',
+  );
   await act(async () =>
     mutation.resolve({
       accountId: 'reader',
@@ -371,4 +370,37 @@ it('asks once before navigating away from an edited status', async () => {
   await act(async () => requestNavigation(navigate));
   await click('Discard changes');
   expect(navigate).toHaveBeenCalledOnce();
+});
+
+it('returns focus after mapping and unlink cancellation and hides empty series options', async () => {
+  vi.mocked(trackingRequest).mockImplementation(async () => ({
+    ...status,
+    links: [
+      {
+        bookId: 'book',
+        title: 'Linked novel',
+        seriesId: 1,
+        seriesKey: 'Novel series',
+        volume: 1,
+      },
+    ],
+  }));
+  await act(async () =>
+    root.render(
+      <TrackingDialog
+        book={{ ...book, series: 'Novel series' }}
+        onClose={close}
+      />,
+    ),
+  );
+  await click('Change match');
+  expect(host.querySelector('.tracker-options')).toBeNull();
+  await click('Cancel');
+  expect(document.activeElement?.textContent).toBe('Change match');
+  await click('Unlink tracker');
+  expect(document.activeElement?.textContent).toBe('Cancel');
+  await click('Cancel');
+  expect(document.activeElement?.getAttribute('aria-label')).toBe(
+    'Unlink tracker',
+  );
 });

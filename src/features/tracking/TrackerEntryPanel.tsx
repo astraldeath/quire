@@ -17,12 +17,14 @@ export function TrackerEntryPanel({
   seriesId,
   refreshKey,
   onGuardChange,
+  onEditingChange,
   onRequestLeave,
 }: {
   account: TrackingSession;
   seriesId: number;
   refreshKey: number;
   onGuardChange?: (dirty: boolean, busy: boolean) => void;
+  onEditingChange?: (editing: boolean) => void;
   onRequestLeave?: (action: () => void) => void;
 }) {
   const [entry, setEntry] = useState<TrackerEntry | null>();
@@ -35,6 +37,8 @@ export function TrackerEntryPanel({
     [reload, setReload] = useState(0);
   const [privateEntry, setPrivateEntry] = useState(true);
   const statusInput = useRef<HTMLSelectElement>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
   const generation = useRef(0);
   const mutation = useRef(false);
   const identity =
@@ -55,7 +59,12 @@ export function TrackerEntryPanel({
   const requestLeave = onRequestLeave ?? guard.requestLeave;
   useLayoutEffect(() => {
     if (draft) statusInput.current?.focus({ preventScroll: true });
-  }, [!!draft]);
+    else if (wasEditing.current)
+      editButton.current?.focus({ preventScroll: true });
+    wasEditing.current = !!draft;
+    onEditingChange?.(!!draft);
+  }, [!!draft, onEditingChange]);
+  useLayoutEffect(() => () => onEditingChange?.(false), [onEditingChange]);
   useLayoutEffect(() => {
     onGuardChange?.(dirty, busy);
   }, [dirty, busy, onGuardChange]);
@@ -230,6 +239,7 @@ export function TrackerEntryPanel({
             void save();
           }}
         >
+          <h4 className="tracker-entry-edit-title">Edit reading status</h4>
           <fieldset disabled={busy} className="tracker-entry-fields">
             <label>
               Reading status
@@ -308,6 +318,7 @@ export function TrackerEntryPanel({
                 <RefreshCw size={16} />
               </button>
               <button
+                ref={editButton}
                 disabled={busy}
                 onClick={() => {
                   setEditBase(entry);

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -102,6 +108,7 @@ export function TrackingDialog({
     [searching, setSearching] = useState(false);
   const [mode, setMode] = useState<ProgressMode>(progressMode(inferredVolume));
   const [draftChanged, setDraftChanged] = useState(false);
+  const [entryEditing, setEntryEditing] = useState(false);
   const [entryGuard, setEntryGuard] = useState({ dirty: false, busy: false });
   const updateEntryGuard = useCallback(
     (dirty: boolean, busy: boolean) => setEntryGuard({ dirty, busy }),
@@ -115,6 +122,11 @@ export function TrackingDialog({
   const searchInput = useRef<HTMLInputElement>(null);
   const modeInput = useRef<HTMLSelectElement>(null);
   const saveButton = useRef<HTMLButtonElement>(null);
+  const mappingButton = useRef<HTMLButtonElement>(null);
+  const unlinkButton = useRef<HTMLButtonElement>(null);
+  const unlinkCancel = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  const wasUnlinking = useRef(false);
   const [editing, setEditing] = useState(false),
     [editAccountId, setEditAccountId] = useState(''),
     [query, setQuery] = useState(title),
@@ -128,6 +140,22 @@ export function TrackingDialog({
     [automatic, setAutomatic] = useState(false),
     [complete, setComplete] = useState(inferredVolume > 0),
     [unlink, setUnlink] = useState(false);
+  useLayoutEffect(() => {
+    if (wasEditing.current && !editing)
+      mappingButton.current?.focus({ preventScroll: true });
+    wasEditing.current = editing;
+  }, [editing]);
+  useLayoutEffect(() => {
+    if (unlink) {
+      unlinkCancel.current?.focus({ preventScroll: true });
+      unlinkCancel.current?.scrollIntoView?.({ block: 'nearest' });
+    } else if (wasUnlinking.current) {
+      (unlinkButton.current ?? mappingButton.current)?.focus({
+        preventScroll: true,
+      });
+    }
+    wasUnlinking.current = unlink;
+  }, [unlink]);
   const [privateEntry, setPrivateEntry] = useState(true);
   const [entryRefresh, setEntryRefresh] = useState(0);
   const seriesLinks =
@@ -520,6 +548,7 @@ export function TrackingDialog({
     );
   return (
     <Modal
+      className="tracking-modal"
       title={series ? 'Series tracking' : 'Tracking'}
       onClose={close}
       initialFocus={selected ? (series ? saveButton : modeInput) : searchInput}
@@ -596,48 +625,56 @@ export function TrackingDialog({
                       seriesId={link.seriesId}
                       refreshKey={entryRefresh}
                       onGuardChange={updateEntryGuard}
+                      onEditingChange={setEntryEditing}
                       onRequestLeave={guard.requestLeave}
                     />
                   )}
-                  <div className="tracker-actions tracker-primary-actions">
-                    <button
-                      disabled={!!busy || entryGuard.busy}
-                      onClick={() => guard.requestLeave(edit)}
-                    >
-                      <Link2 />
-                      Change match
-                    </button>
-                    {state.connected && linkedAuto && (
+                  {!entryEditing && (
+                    <div className="tracker-actions tracker-primary-actions">
                       <button
+                        ref={mappingButton}
+                        disabled={!!busy || entryGuard.busy}
+                        onClick={() => guard.requestLeave(edit)}
+                      >
+                        <Link2 />
+                        Change match
+                      </button>
+                      {state.connected && linkedAuto && (
+                        <button
+                          disabled={!!busy || entryGuard.busy}
+                          onClick={() =>
+                            void run('Updating', async (current) => {
+                              if (!isTauri()) await syncNow();
+                              if (!current()) return;
+                              await trackingRequest(
+                                account!,
+                                '/v1/tracking/sync',
+                                {},
+                                'POST',
+                              );
+                              if (current()) await refresh();
+                            })
+                          }
+                        >
+                          <RefreshCw />
+                          Send reading progress
+                        </button>
+                      )}
+                      <button
+                        className="tracker-unlink"
+                        ref={unlinkButton}
+                        title="Unlink tracker"
+                        aria-label="Unlink tracker"
                         disabled={!!busy || entryGuard.busy}
                         onClick={() =>
-                          void run('Updating', async (current) => {
-                            if (!isTauri()) await syncNow();
-                            if (!current()) return;
-                            await trackingRequest(
-                              account!,
-                              '/v1/tracking/sync',
-                              {},
-                              'POST',
-                            );
-                            if (current()) await refresh();
-                          })
+                          guard.requestLeave(() => setUnlink(true))
                         }
                       >
-                        <RefreshCw />
-                        Send reading progress
+                        <Unlink />
+                        Unlink
                       </button>
-                    )}
-                    <button
-                      className="icon"
-                      title="Unlink tracker"
-                      aria-label="Unlink tracker"
-                      disabled={!!busy || entryGuard.busy}
-                      onClick={() => guard.requestLeave(() => setUnlink(true))}
-                    >
-                      <Unlink />
-                    </button>
-                  </div>
+                    </div>
+                  )}
                   {unlink && (
                     <div className="tracker-confirm">
                       <p>
@@ -647,6 +684,7 @@ export function TrackingDialog({
                       </p>
                       <div className="tracker-actions">
                         <button
+                          ref={unlinkCancel}
                           disabled={!!busy}
                           onClick={() => setUnlink(false)}
                         >
@@ -663,7 +701,12 @@ export function TrackingDialog({
                   )}
                 </>
               ) : (
-                <button className="primary" disabled={!!busy} onClick={edit}>
+                <button
+                  ref={mappingButton}
+                  className="primary"
+                  disabled={!!busy}
+                  onClick={edit}
+                >
                   <Link2 />
                   {series ? 'Track series' : 'Add tracker'}
                 </button>
@@ -956,35 +999,37 @@ export function TrackingDialog({
                       </button>
                     </div>
                   )}
-                  <details className="tracker-options">
-                    <summary>
-                      Progress options
-                      <ChevronDown size={16} />
-                    </summary>
-                    <div className="tracker-option-content">
-                      {series ? (
-                        <p className="muted">
-                          Finished books update their volume number. Individual
-                          book matches are kept.
-                        </p>
-                      ) : (
-                        <>
-                          {scope === 'book' && (
-                            <fieldset disabled={!!busy}>
-                              <Switch
-                                label="Mark entry completed when finished"
-                                checked={complete}
-                                onChange={(value) => {
-                                  setComplete(value);
-                                  setDraftChanged(true);
-                                }}
-                              />
-                            </fieldset>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </details>
+                  {(series || scope === 'book') && (
+                    <details className="tracker-options">
+                      <summary>
+                        Progress options
+                        <ChevronDown size={16} />
+                      </summary>
+                      <div className="tracker-option-content">
+                        {series ? (
+                          <p className="muted">
+                            Finished books update their volume number.
+                            Individual book matches are kept.
+                          </p>
+                        ) : (
+                          <>
+                            {scope === 'book' && (
+                              <fieldset disabled={!!busy}>
+                                <Switch
+                                  label="Mark entry completed when finished"
+                                  checked={complete}
+                                  onChange={(value) => {
+                                    setComplete(value);
+                                    setDraftChanged(true);
+                                  }}
+                                />
+                              </fieldset>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </details>
+                  )}
                 </div>
                 {(selected.description || selected.sources.length > 0) && (
                   <details className="tracker-about">

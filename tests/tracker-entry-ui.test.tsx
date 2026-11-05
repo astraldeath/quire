@@ -63,6 +63,9 @@ it.each(['native', 'hosted'] as const)(
       expect(host.textContent).toContain('75 / 100');
       expect(host.querySelectorAll('dt')).toHaveLength(6);
       await click('Edit status');
+      expect(host.querySelector('form h4')?.textContent).toBe(
+        'Edit reading status',
+      );
       const select = host.querySelector('select')!;
       await act(async () => {
         select.value = 'paused';
@@ -90,6 +93,10 @@ it.each(['native', 'hosted'] as const)(
           vi.mocked(trackingRequest).mock.invocationCallOrder.at(-1)!,
         );
       } else expect(syncNow).not.toHaveBeenCalled();
+      expect(document.activeElement?.textContent).toBe('Edit status');
+      await click('Edit status');
+      await click('Cancel');
+      expect(document.activeElement?.textContent).toBe('Edit status');
     } finally {
       await act(async () => root.unmount());
       host.remove();

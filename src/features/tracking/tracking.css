@@ -39,3 +39,96 @@
     flex-wrap: wrap;
   }
 }
+
+/* Forms use the dialog width instead of compressing nested controls. */
+.tracker-body {
+  gap: 20px;
+}
+.tracker-body .tracker-card {
+  padding: 20px;
+  gap: 20px;
+}
+.tracker-body .tracker-card form {
+  gap: 20px;
+}
+.tracker-body .tracker-entry-fields {
+  margin: 0;
+  gap: 20px;
+}
+.tracker-body .tracker-entry-fields label:not(.toggle-control) {
+  gap: 8px;
+}
+.tracker-entry-edit-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.tracker-body .tracker-entry-heading {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.tracker-body .tracker-entry-tools {
+  gap: 12px;
+}
+.tracker-body .tracker-mapping {
+  padding: 18px;
+  gap: 18px;
+  align-items: end;
+}
+.tracker-body .tracker-primary-actions {
+  gap: 12px;
+  padding-top: 16px;
+}
+.tracker-body .tracker-primary-actions > button:not(.icon) {
+  flex: 0 1 auto;
+  padding: 10px 12px;
+  min-height: 44px;
+  font-size: 13px;
+  white-space: normal;
+}
+.tracker-body .tracker-confirm {
+  padding-top: 18px;
+  gap: 16px;
+}
+.tracker-body .tracker-entry-actions {
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .tracker-body .tracker-card {
+    padding: 16px 12px;
+  }
+  .tracker-body .tracker-entry-fields,
+  .tracker-body .tracker-mapping {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tracker-body .tracker-mapping {
+    padding: 16px 12px;
+  }
+  .tracker-body .tracker-entry-wide {
+    grid-column: auto;
+  }
+  .tracker-body .tracker-entry-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+  }
+  .tracker-body .tracker-primary-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tracker-body .tracker-primary-actions > button,
+  .tracker-body .tracker-entry-actions > button {
+    min-height: 44px;
+  }
+  .tracker-body .tracker-primary-actions > button {
+    width: 100%;
+  }
+  .tracker-body .tracker-entry-actions {
+    flex-wrap: wrap;
+  }
+  .tracker-body .tracker-entry-actions > button {
+    flex: 1;
+  }
+  .tracker-body .tracker-preferences .toggle-control {
+    padding: 16px 12px;
+  }
+}
