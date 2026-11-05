@@ -269,317 +269,321 @@ export function Catalogs({
   );
   return (
     <>
-      <Modal
-        title="Catalogs"
-        className="catalog-dialog"
-        placement="top"
-        onClose={() => {
-          requestNavigation(() => {
-            controller.current?.abort();
-            onClose();
-          });
-        }}
-      >
-        <div className="catalog-browser">
-          {destination && (
-            <nav
-              className="catalog-breadcrumbs"
-              aria-label="Catalog navigation"
-            >
-              <button onClick={() => go()} disabled={!!progress}>
-                Catalogs
-              </button>
-              {source && (
-                <>
-                  <ChevronRight />
-                  <button
-                    onClick={() =>
-                      go({
-                        sourceId: source.id,
-                        url: source.url,
-                        title: source.name,
-                      })
-                    }
-                    disabled={!!progress}
-                  >
-                    {source.name}
-                  </button>
-                  {feed && feed.url !== source.url && (
-                    <>
-                      <ChevronRight />
-                      <span>{feed.title}</span>
-                    </>
-                  )}
-                </>
-              )}
-            </nav>
-          )}
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          {!destination ? (
-            <>
-              <div className="catalog-toolbar">
-                <button className="primary" onClick={() => setEditing(null)}>
-                  <Plus />
-                  Add catalog
-                </button>
-                {(sources.some((s) => !s.deleted || s.conflict) || error) && (
-                  <button onClick={() => void run(syncCatalogSources)}>
-                    Refresh
-                  </button>
-                )}
-              </div>
-              {!sources.some((s) => !s.deleted) && (
-                <p className="muted">
-                  Browse and download books from OPDS catalogs.
-                </p>
-              )}
-              <div className="catalog-sources">
-                {sources
-                  .filter((s) => !s.deleted || s.conflict)
-                  .map((s) => (
-                    <div className="catalog-source" key={s.id}>
-                      <button
-                        className="catalog-source-open"
-                        disabled={s.deleted}
-                        onClick={() =>
-                          go({ sourceId: s.id, url: s.url, title: s.name })
-                        }
-                      >
-                        <Globe />
-                        <span>
-                          <strong>{s.name}</strong>
-                          <small>{new URL(s.url).host}</small>
-                        </span>
-                        <ChevronRight />
-                      </button>
-                      <button
-                        className="icon"
-                        aria-label={`Edit ${s.name}`}
-                        onClick={() => setEditing(s)}
-                      >
-                        <Pencil />
-                      </button>
-                      <button
-                        className="icon"
-                        aria-label={`Remove ${s.name}`}
-                        onClick={() => setRemoving(s)}
-                      >
-                        <Trash2 />
-                      </button>
-                      {s.conflict && (
-                        <div className="catalog-conflict">
-                          <p>Changed on another device.</p>
-                          <button
-                            onClick={() =>
-                              void run(async () => {
-                                await resolveCatalogSource(s.id, true);
-                                await syncCatalogSources();
-                              })
-                            }
-                          >
-                            Keep this version
-                          </button>
-                          <button
-                            onClick={() =>
-                              void run(async () => {
-                                await resolveCatalogSource(s.id, false);
-                                await syncCatalogSources();
-                              })
-                            }
-                          >
-                            Use server version
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="catalog-toolbar">
-                <button
-                  onClick={() => {
-                    if (hostedWeb) history.back();
-                    else setStack((s) => s.slice(0, -1));
-                  }}
-                  disabled={!!progress}
-                >
-                  <ArrowLeft />
-                  Back
+      {editing === undefined && !removing && !selected && (
+        <Modal
+          title="Catalogs"
+          className="catalog-dialog"
+          placement="top"
+          onClose={() => {
+            requestNavigation(() => {
+              controller.current?.abort();
+              onClose();
+            });
+          }}
+        >
+          <div className="catalog-browser">
+            {destination && (
+              <nav
+                className="catalog-breadcrumbs"
+                aria-label="Catalog navigation"
+              >
+                <button onClick={() => go()} disabled={!!progress}>
+                  Catalogs
                 </button>
                 {source && (
-                  <button onClick={() => setEditing(source)}>
-                    <Pencil />
-                    Edit catalog
-                  </button>
-                )}
-              </div>
-              {loading && <p role="status">Loading catalog…</p>}
-              {!source && ctx && (
-                <p role="alert">This catalog is no longer available.</p>
-              )}
-              {feed && (
-                <>
-                  <h3>{feed.title}</h3>
-                  {feed.search && (
-                    <form
-                      className="catalog-search"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!query.trim() || !ctx || !source) return;
-                        try {
-                          let template = feed.search!.url;
-                          if (
-                            /opensearchdescription/.test(
-                              feed.search!.type ?? '',
-                            )
-                          ) {
-                            const description = await fetchCatalog(
-                              ctx,
-                              source,
-                              template,
-                              new AbortController().signal,
-                            );
-                            if (/<!DOCTYPE|<!ENTITY/i.test(description.body))
-                              throw new Error('Invalid search description.');
-                            const xml = new DOMParser().parseFromString(
-                              description.body,
-                              'application/xml',
-                            );
-                            template =
-                              Array.from(xml.getElementsByTagNameNS('*', 'Url'))
-                                .find((n) =>
-                                  /atom|opds/.test(
-                                    n.getAttribute('type') ?? '',
-                                  ),
-                                )
-                                ?.getAttribute('template') ?? '';
-                            if (!template)
-                              throw new Error('No supported catalog search.');
-                            template = catalogSearchUrl(
-                              template,
-                              query,
-                              description.url,
-                            );
-                          } else
-                            template = catalogSearchUrl(
-                              template,
-                              query,
-                              feed.url,
-                            );
-                          follow(template, 'Search');
-                        } catch (e) {
-                          setError(
-                            e instanceof Error ? e.message : 'Search failed.',
-                          );
-                        }
-                      }}
+                  <>
+                    <ChevronRight />
+                    <button
+                      onClick={() =>
+                        go({
+                          sourceId: source.id,
+                          url: source.url,
+                          title: source.name,
+                        })
+                      }
+                      disabled={!!progress}
                     >
-                      <input
-                        aria-label="Search catalog"
-                        placeholder="Search catalog"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                      />
-                      <button
-                        disabled={!!progress || !query.trim()}
-                        aria-label="Search"
-                      >
-                        <Search />
-                      </button>
-                    </form>
-                  )}
-                  {feed.facets.map((facet, i) => (
-                    <div className="catalog-toolbar" key={i}>
-                      <span>{facet.title}</span>
-                      {facet.links.map((l) => (
-                        <button
-                          key={l.url}
-                          disabled={!!progress}
-                          onClick={() => follow(l.url, l.title)}
-                        >
-                          {l.title}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                  <div className="catalog-navigation">
-                    {feed.navigation.map((l) => (
-                      <button
-                        key={l.url}
-                        onClick={() => follow(l.url, l.title)}
-                        disabled={!!progress}
-                      >
-                        {l.title || 'Browse'}
+                      {source.name}
+                    </button>
+                    {feed && feed.url !== source.url && (
+                      <>
                         <ChevronRight />
-                      </button>
+                        <span>{feed.title}</span>
+                      </>
+                    )}
+                  </>
+                )}
+              </nav>
+            )}
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {!destination ? (
+              <>
+                <div className="catalog-toolbar">
+                  <button className="primary" onClick={() => setEditing(null)}>
+                    <Plus />
+                    Add catalog
+                  </button>
+                  {(sources.some((s) => !s.deleted || s.conflict) || error) && (
+                    <button onClick={() => void run(syncCatalogSources)}>
+                      Refresh
+                    </button>
+                  )}
+                </div>
+                {!sources.some((s) => !s.deleted) && (
+                  <p className="muted">
+                    Browse and download books from OPDS catalogs.
+                  </p>
+                )}
+                <div className="catalog-sources">
+                  {sources
+                    .filter((s) => !s.deleted || s.conflict)
+                    .map((s) => (
+                      <div className="catalog-source" key={s.id}>
+                        <button
+                          className="catalog-source-open"
+                          disabled={s.deleted}
+                          onClick={() =>
+                            go({ sourceId: s.id, url: s.url, title: s.name })
+                          }
+                        >
+                          <Globe />
+                          <span>
+                            <strong>{s.name}</strong>
+                            <small>{new URL(s.url).host}</small>
+                          </span>
+                          <ChevronRight />
+                        </button>
+                        <button
+                          className="icon"
+                          aria-label={`Edit ${s.name}`}
+                          onClick={() => setEditing(s)}
+                        >
+                          <Pencil />
+                        </button>
+                        <button
+                          className="icon"
+                          aria-label={`Remove ${s.name}`}
+                          onClick={() => setRemoving(s)}
+                        >
+                          <Trash2 />
+                        </button>
+                        {s.conflict && (
+                          <div className="catalog-conflict">
+                            <p>Changed on another device.</p>
+                            <button
+                              onClick={() =>
+                                void run(async () => {
+                                  await resolveCatalogSource(s.id, true);
+                                  await syncCatalogSources();
+                                })
+                              }
+                            >
+                              Keep this version
+                            </button>
+                            <button
+                              onClick={() =>
+                                void run(async () => {
+                                  await resolveCatalogSource(s.id, false);
+                                  await syncCatalogSources();
+                                })
+                              }
+                            >
+                              Use server version
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ))}
-                  </div>
-                  {publications(feed.publications)}
-                  {feed.groups.map((group, i) => (
-                    <section key={i}>
-                      <h3>{group.title}</h3>
-                      <div className="catalog-navigation">
-                        {group.navigation.map((l) => (
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="catalog-toolbar">
+                  <button
+                    onClick={() => {
+                      if (hostedWeb) history.back();
+                      else setStack((s) => s.slice(0, -1));
+                    }}
+                    disabled={!!progress}
+                  >
+                    <ArrowLeft />
+                    Back
+                  </button>
+                  {source && (
+                    <button onClick={() => setEditing(source)}>
+                      <Pencil />
+                      Edit catalog
+                    </button>
+                  )}
+                </div>
+                {loading && <p role="status">Loading catalog…</p>}
+                {!source && ctx && (
+                  <p role="alert">This catalog is no longer available.</p>
+                )}
+                {feed && (
+                  <>
+                    <h3>{feed.title}</h3>
+                    {feed.search && (
+                      <form
+                        className="catalog-search"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!query.trim() || !ctx || !source) return;
+                          try {
+                            let template = feed.search!.url;
+                            if (
+                              /opensearchdescription/.test(
+                                feed.search!.type ?? '',
+                              )
+                            ) {
+                              const description = await fetchCatalog(
+                                ctx,
+                                source,
+                                template,
+                                new AbortController().signal,
+                              );
+                              if (/<!DOCTYPE|<!ENTITY/i.test(description.body))
+                                throw new Error('Invalid search description.');
+                              const xml = new DOMParser().parseFromString(
+                                description.body,
+                                'application/xml',
+                              );
+                              template =
+                                Array.from(
+                                  xml.getElementsByTagNameNS('*', 'Url'),
+                                )
+                                  .find((n) =>
+                                    /atom|opds/.test(
+                                      n.getAttribute('type') ?? '',
+                                    ),
+                                  )
+                                  ?.getAttribute('template') ?? '';
+                              if (!template)
+                                throw new Error('No supported catalog search.');
+                              template = catalogSearchUrl(
+                                template,
+                                query,
+                                description.url,
+                              );
+                            } else
+                              template = catalogSearchUrl(
+                                template,
+                                query,
+                                feed.url,
+                              );
+                            follow(template, 'Search');
+                          } catch (e) {
+                            setError(
+                              e instanceof Error ? e.message : 'Search failed.',
+                            );
+                          }
+                        }}
+                      >
+                        <input
+                          aria-label="Search catalog"
+                          placeholder="Search catalog"
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                        />
+                        <button
+                          disabled={!!progress || !query.trim()}
+                          aria-label="Search"
+                        >
+                          <Search />
+                        </button>
+                      </form>
+                    )}
+                    {feed.facets.map((facet, i) => (
+                      <div className="catalog-toolbar" key={i}>
+                        <span>{facet.title}</span>
+                        {facet.links.map((l) => (
                           <button
                             key={l.url}
+                            disabled={!!progress}
                             onClick={() => follow(l.url, l.title)}
                           >
                             {l.title}
-                            <ChevronRight />
                           </button>
                         ))}
                       </div>
-                      {publications(group.publications)}
-                    </section>
-                  ))}
-                  {!feed.publications.length &&
-                    !feed.navigation.length &&
-                    !feed.groups.length && <p>No books found.</p>}
-                  <div className="catalog-toolbar">
-                    {feed.previous && (
-                      <button
-                        disabled={!!progress}
-                        onClick={() =>
-                          follow(feed.previous!.url, 'Previous page')
-                        }
-                      >
-                        Previous page
-                      </button>
-                    )}
-                    {feed.next && (
-                      <button
-                        disabled={!!progress}
-                        onClick={() => follow(feed.next!.url, 'Next page')}
-                      >
-                        Next page
-                        <ChevronRight />
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-          {progress && (
-            <div className="catalog-progress" role="status">
-              <span>{progress}</span>
-              <button
-                disabled={progress === 'Importing…'}
-                onClick={() => controller.current?.abort()}
-              >
-                <X />
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-      </Modal>
+                    ))}
+                    <div className="catalog-navigation">
+                      {feed.navigation.map((l) => (
+                        <button
+                          key={l.url}
+                          onClick={() => follow(l.url, l.title)}
+                          disabled={!!progress}
+                        >
+                          {l.title || 'Browse'}
+                          <ChevronRight />
+                        </button>
+                      ))}
+                    </div>
+                    {publications(feed.publications)}
+                    {feed.groups.map((group, i) => (
+                      <section key={i}>
+                        <h3>{group.title}</h3>
+                        <div className="catalog-navigation">
+                          {group.navigation.map((l) => (
+                            <button
+                              key={l.url}
+                              onClick={() => follow(l.url, l.title)}
+                            >
+                              {l.title}
+                              <ChevronRight />
+                            </button>
+                          ))}
+                        </div>
+                        {publications(group.publications)}
+                      </section>
+                    ))}
+                    {!feed.publications.length &&
+                      !feed.navigation.length &&
+                      !feed.groups.length && <p>No books found.</p>}
+                    <div className="catalog-toolbar">
+                      {feed.previous && (
+                        <button
+                          disabled={!!progress}
+                          onClick={() =>
+                            follow(feed.previous!.url, 'Previous page')
+                          }
+                        >
+                          Previous page
+                        </button>
+                      )}
+                      {feed.next && (
+                        <button
+                          disabled={!!progress}
+                          onClick={() => follow(feed.next!.url, 'Next page')}
+                        >
+                          Next page
+                          <ChevronRight />
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+            {progress && (
+              <div className="catalog-progress" role="status">
+                <span>{progress}</span>
+                <button
+                  disabled={progress === 'Importing…'}
+                  onClick={() => controller.current?.abort()}
+                >
+                  <X />
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
       {editing !== undefined && ctx && (
         <SourceDialog
           context={ctx}

@@ -117,11 +117,33 @@ it('browses without importing and changes Download to Open after an explicit acq
   expect(calls.downloads).toBe(0);
   expect(calls.imports).toBe(0);
   await act(async () => button('A book').click());
+  expect(host.querySelectorAll('[role="dialog"]')).toHaveLength(1);
   await act(async () => button('Download EPUB').click());
   expect(calls.imports).toBe(1);
   expect(button('Open book')).toBeTruthy();
   await act(async () => button('Open book').click());
   expect(opened).toEqual(['imported-book']);
+});
+
+it('replaces catalog browsing with its editor and returns to the same source list', async () => {
+  await act(async () =>
+    root.render(
+      <Catalogs
+        onClose={() => {}}
+        bookIds={[]}
+        onOpen={() => {}}
+        onImport={async () => 'book'}
+      />,
+    ),
+  );
+  await act(async () => button('Add catalog').click());
+  expect(host.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+  expect(
+    host.querySelector('[role="dialog"]')?.getAttribute('aria-label'),
+  ).toBe('Add catalog');
+  await act(async () => button('Cancel').click());
+  expect(host.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+  expect(button('Test catalog')).toBeTruthy();
 });
 it('recognizes catalog routes and reveals newly created app passwords only until dismissed', async () => {
   expect(parseWebRoute('/catalogs?source=one')).toEqual({ kind: 'catalogs' });

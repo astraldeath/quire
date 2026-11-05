@@ -1827,7 +1827,9 @@ function AppContent({
                         ? 'No hidden books'
                         : reading
                           ? 'No books in progress'
-                          : 'No books yet'}
+                          : sharedDestination
+                            ? 'No shared books yet'
+                            : 'No books yet'}
                 </h2>
                 <p>
                   {query || status !== 'all' || availability !== 'all'
@@ -1838,9 +1840,11 @@ function AppContent({
                         ? 'Books you hide will appear here.'
                         : reading
                           ? 'Open a book from your library to start reading.'
-                          : onImport
-                            ? 'Upload a book to your personal server library.'
-                            : 'Add a book to start reading.'}
+                          : sharedDestination
+                            ? 'Books added to this shared library will appear here.'
+                            : onImport
+                              ? 'Upload a book to your personal server library.'
+                              : 'Add a book to start reading.'}
                 </p>
                 <button
                   className="primary"
@@ -1856,7 +1860,15 @@ function AppContent({
                           ? () => setHiddenBooks(false)
                           : reading
                             ? () => goLibrary()
-                            : () => input.current?.click()
+                            : sharedDestination
+                              ? () =>
+                                  changeFilter(
+                                    'collection',
+                                    libraryScope === 'shared'
+                                      ? 'all'
+                                      : 'shared',
+                                  )
+                              : () => input.current?.click()
                   }
                 >
                   {query
@@ -1867,7 +1879,11 @@ function AppContent({
                         ? 'Back to library'
                         : reading
                           ? 'Browse library'
-                          : 'Add books'}
+                          : sharedDestination
+                            ? libraryScope === 'shared'
+                              ? 'All books'
+                              : 'All shared libraries'
+                            : 'Add books'}
                 </button>
               </div>
             ) : (

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Use mobile action sheets for book and library menus, with clearer reading, status, file, and privacy actions.
+- Preserve the selected library when switching between Library and Reading, and choose shared libraries directly from the library menu.
+- Combine the desktop browsing header, identify the volume opened by series continuation, and clarify bulk-action feedback.
+- Keep library display controls inside Settings, clarify reading defaults, and use consistent phone settings layouts with keyboard-aware scrolling.
+- Show one catalog surface at a time and provide appropriate empty-state actions for shared libraries.
+
 ## [0.14.0]
 
 - Fix EPUB chapters with an empty XHTML document type subset failing to load.

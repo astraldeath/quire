@@ -127,6 +127,27 @@ const libraries = [
   { id: 'one', name: 'First collection', bookIds: [books[0].id, books[2].id] },
   { id: 'two', name: 'Second collection', bookIds: [books[1].id] },
 ];
+
+it('keeps an empty shared library within shared browsing instead of offering a personal import', async () => {
+  libraries.push({ id: 'empty', name: 'Empty collection', bookIds: [] });
+  try {
+    await mount('/library?collection=empty', true);
+    expect(host.querySelector('.empty h2')?.textContent).toBe(
+      'No shared books yet',
+    );
+    expect(host.querySelector('.empty')?.textContent).not.toContain(
+      'Upload a book to your personal',
+    );
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('.empty button')!.click(),
+    );
+    expect(new URLSearchParams(location.search).get('collection')).toBe(
+      'shared',
+    );
+  } finally {
+    libraries.pop();
+  }
+});
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 beforeEach(() => {

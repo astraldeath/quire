@@ -54,7 +54,7 @@ export function PrivacyMenu({
         }}
       >
         <ArrowLeft />
-        Privacy
+        Back
       </ActionMenuItem>
       {(['normal', 'locked', 'hidden'] as const).map((mode, index) => {
         const Icon = [Eye, Lock, EyeOff][index];
